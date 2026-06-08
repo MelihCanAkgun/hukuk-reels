@@ -1,28 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'app/app_shell.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
-import 'core/services/database_service.dart';
+import 'features/intro/confidence_gate_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Hive veritabanını başlat
-  await DatabaseService.instance.init();
-
-  // Ses servisini başlat
+  // Arka plan müziğini hazırla (çalma ilk dokunuşta başlar).
   await AudioService.instance.init();
 
-  // Tam ekran immersive mod
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-
-  SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   runApp(const HukukReelsApp());
 }
@@ -33,10 +25,10 @@ class HukukReelsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Hukuk Reels',
+      title: 'Medeni Usul Hukuku Final',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const AppShell(),
+      home: const ConfidenceGateScreen(),
     );
   }
 }
