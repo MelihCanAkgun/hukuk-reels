@@ -184,11 +184,31 @@
       }
     }
 
-    // Service Worker kaydı (sadece Flutter'ın kendi SW'si)
+    // Service Worker kaydı + OTOMATİK GÜNCELLEME
+    // Yeni sürüm yayınlandığında (push) kullanıcı uygulamayı bir sonraki
+    // açışında otomatik olarak günceli alır; silip yeniden yüklemesi gerekmez.
     if ('serviceWorker' in navigator) {
+      var _swRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (_swRefreshing) return;
+        _swRefreshing = true;
+        window.location.reload();
+      });
       window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js?v=1035348119') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function(reg) {
-          console.log('[SW] Flutter SW kayıt başarılı:', reg.scope);
+        navigator.serviceWorker.register('flutter_service_worker.js?v=2017797804') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
+          console.log('[SW] kayıt başarılı:', reg.scope);
+          // Yeni sürüm bulununca kurulur kurulmaz etkinleştir
+          reg.addEventListener('updatefound', function () {
+            var nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', function () {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                nw.postMessage('skipWaiting');
+              }
+            });
+          });
+          // Uygulama açıkken de saatte bir güncellemeyi kontrol et
+          setInterval(function () { reg.update(); }, 60 * 60 * 1000);
         });
       });
     }

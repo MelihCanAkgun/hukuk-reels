@@ -32,7 +32,8 @@ class AudioService {
     final path = AppConfig.musicTracks[i % AppConfig.musicTracks.length];
     final file = path.split('/').last;
     final dot = file.lastIndexOf('.');
-    return dot > 0 ? file.substring(0, dot) : file;
+    final name = dot > 0 ? file.substring(0, dot) : file;
+    return name.replaceAll('_', ' ').replaceAll('-', ' ').trim();
   }
 
   Future<void> init() async {

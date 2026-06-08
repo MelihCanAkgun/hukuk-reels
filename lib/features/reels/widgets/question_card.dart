@@ -324,9 +324,11 @@ class _QuestionCardState extends State<QuestionCard> {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          // Opak zemin: arkadaki köşe fotoğrafları açıklamayı bozmasın.
+          color: Color.alphaBlend(
+              color.withValues(alpha: 0.12), AppTheme.bgElevated),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.4)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

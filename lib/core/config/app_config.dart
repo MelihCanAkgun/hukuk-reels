@@ -14,8 +14,11 @@ class AppConfig {
   ///
   /// Birden fazla parça eklersen hepsi sırayla, kesintisiz döngüyle çalar.
   static const List<String> musicTracks = [
-    'assets/audio/sillycat_1.mp3',
-    'assets/audio/sillycat_2.mp3',
+    'assets/audio/Bal.mp3',
+    'assets/audio/Wildflower.mp3',
+    'assets/audio/Dolu_Kadehi_Ters_Tut.mp3',
+    'assets/audio/Sad_Girl.mp3',
+    'assets/audio/Takil_Yani_Takmiyo_Belli.mp3',
   ];
 
   /// Müzik açılışta otomatik başlasın mı? (Web'de tarayıcı ilk dokunuşu
@@ -34,10 +37,10 @@ class AppConfig {
   /// Liste sırası: [sol-üst, sağ-üst, sol-alt, sağ-alt]
   /// Boş bırakırsan ([]) o köşede görsel olmaz.
   static const List<String> cornerImages = [
-    'assets/images/cat_pink.png',     // sol üst
-    'assets/images/cat_white.png',    // sağ üst
-    'assets/images/cat_peach.png',    // sol alt
-    'assets/images/cat_lavender.png', // sağ alt
+    'assets/images/ani.jpg',        // sol üst
+    'assets/images/cat_pink.png',   // sağ üst (şeffaf kedi)
+    'assets/images/spider_cat.png', // sol alt (foto)
+    'assets/images/dopdolu.jpg',    // sağ alt (foto)
   ];
 
   /// Köşe görsellerinin boyutu (px) ve saydamlığı (0.0 - 1.0).
