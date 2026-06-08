@@ -24,8 +24,10 @@ class _ReelsScreenState extends State<ReelsScreen>
 
   late List<QuizQuestion> _questions;
   final Set<int> _answered = {};
+  final List<QuizQuestion> _wrongQuestions = [];
   int _correct = 0;
   int _page = 0;
+  int _deckId = 0;
   bool _audioStarted = false;
   bool _showMusicPanel = false;
 
@@ -68,13 +70,38 @@ class _ReelsScreenState extends State<ReelsScreen>
     if (_answered.contains(index)) return;
     setState(() {
       _answered.add(index);
-      if (correct) _correct++;
+      if (correct) {
+        _correct++;
+      } else {
+        _wrongQuestions.add(_questions[index]);
+      }
     });
   }
 
   void _restart() {
     setState(() {
+      _deckId++;
       _questions = _buildDeck();
+      _wrongQuestions.clear();
+      _answered.clear();
+      _correct = 0;
+      _page = 0;
+    });
+    _pageController.jumpToPage(0);
+  }
+
+  /// Sadece yanlış çözülen soruları, cevapları kapalı (yeniden çözülebilir)
+  /// şekilde tekrar dizer.
+  void _retryWrong() {
+    if (_wrongQuestions.isEmpty) return;
+    final retry = _wrongQuestions
+        .map((q) => q.withShuffledOptions(_rng))
+        .toList()
+      ..shuffle(_rng);
+    setState(() {
+      _deckId++;
+      _questions = retry;
+      _wrongQuestions.clear();
       _answered.clear();
       _correct = 0;
       _page = 0;
@@ -116,14 +143,16 @@ class _ReelsScreenState extends State<ReelsScreen>
                     return _SummaryCard(
                       correct: _correct,
                       total: total,
+                      wrongCount: _wrongQuestions.length,
                       onRestart: _restart,
+                      onRetryWrong: _retryWrong,
                     );
                   }
                   final topInset = MediaQuery.of(context).padding.top + 58;
                   return Padding(
                     padding: EdgeInsets.only(top: topInset),
                     child: QuestionCard(
-                      key: ValueKey(_questions[index].id),
+                      key: ValueKey('${_deckId}_${_questions[index].id}'),
                       question: _questions[index],
                       onAnswered: (c) => _onAnswered(index, c),
                     ),
@@ -300,12 +329,16 @@ class _TopBar extends StatelessWidget {
 class _SummaryCard extends StatelessWidget {
   final int correct;
   final int total;
+  final int wrongCount;
   final VoidCallback onRestart;
+  final VoidCallback onRetryWrong;
 
   const _SummaryCard({
     required this.correct,
     required this.total,
+    required this.wrongCount,
     required this.onRestart,
+    required this.onRetryWrong,
   });
 
   @override
@@ -318,84 +351,133 @@ class _SummaryCard extends StatelessWidget {
       _ => ('🔁', 'Baştan tur atmakta fayda var.'),
     };
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 64)),
-            const SizedBox(height: 20),
-            Text(
-              'Test Tamamlandı',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary,
-              ),
+    return Stack(
+      children: [
+        Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(32, 40, 32, 86),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(emoji, style: const TextStyle(fontSize: 64)),
+                const SizedBox(height: 20),
+                const Text(
+                  'Test Tamamlandı',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  msg,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _stat('$correct', 'Doğru', AppTheme.success),
+                      _divider(),
+                      _stat('$wrongCount', 'Yanlış', AppTheme.danger),
+                      _divider(),
+                      _stat('%$pct', 'Başarı', AppTheme.accent),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+                _button(
+                  label: 'Yeniden Karıştır',
+                  icon: Icons.refresh_rounded,
+                  onTap: onRestart,
+                  primary: true,
+                ),
+                if (wrongCount > 0) ...[
+                  const SizedBox(height: 12),
+                  _button(
+                    label: 'Sadece Yanlışları Çöz ($wrongCount)',
+                    icon: Icons.error_outline_rounded,
+                    onTap: onRetryWrong,
+                    primary: false,
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              msg,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
+          ),
+        ),
+        Positioned(
+          bottom: MediaQuery.of(context).padding.bottom + 22,
+          left: 0,
+          right: 0,
+          child: const Center(
+            child: Text(
+              'Sendeyiz Arifecim 🫂',
+              style: TextStyle(
                 fontSize: 15,
+                fontWeight: FontWeight.w600,
                 color: AppTheme.textSecondary,
               ),
             ),
-            const SizedBox(height: 28),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.border),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _stat('$correct', 'Doğru', AppTheme.success),
-                  _divider(),
-                  _stat('${total - correct}', 'Yanlış', AppTheme.danger),
-                  _divider(),
-                  _stat('%$pct', 'Başarı', AppTheme.accent),
-                ],
-              ),
-            ),
-            const SizedBox(height: 28),
-            GestureDetector(
-              onTap: onRestart,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF6C8CFF), Color(0xFF8A6CFF)],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _button({
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool primary,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: primary
+              ? const LinearGradient(
+                  colors: [Color(0xFF6C8CFF), Color(0xFF8A6CFF)])
+              : null,
+          color: primary ? null : AppTheme.surfaceHigh,
+          borderRadius: BorderRadius.circular(15),
+          border: primary
+              ? null
+              : Border.all(color: AppTheme.accent.withValues(alpha: 0.5)),
+          boxShadow: primary
+              ? [
+                  BoxShadow(
+                    color: AppTheme.accent.withValues(alpha: 0.4),
+                    blurRadius: 18,
+                    offset: const Offset(0, 6),
                   ),
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.accent.withValues(alpha: 0.4),
-                      blurRadius: 18,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Yeniden Karıştır',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: primary ? Colors.white : AppTheme.accent, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: primary ? Colors.white : AppTheme.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],

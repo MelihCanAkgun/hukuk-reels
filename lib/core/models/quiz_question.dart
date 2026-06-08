@@ -23,6 +23,10 @@ enum QuizCategory {
   arabuluculuk(
     'Alternatif Uyuşmazlık Çözümleri',
     Color(0xFFE86A92), // gül
+  ),
+  hukumKesinHuku(
+    'Hüküm ve Kesin Hüküm',
+    Color(0xFF22B8CF), // camgöbeği
   );
 
   const QuizCategory(this.label, this.color);

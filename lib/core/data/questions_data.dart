@@ -22,21 +22,6 @@ const List<QuizQuestion> kQuestions = [
   //  1) İSPAT VE DELİLLER
   // ══════════════════════════════════════════════════════════
   QuizQuestion(
-    id: 'ispat_01',
-    category: QuizCategory.ispatDeliller,
-    question:
-        'Senetle ispat zorunluluğu (HMK m. 200) bakımından aşağıdakilerden hangisi doğrudur?',
-    options: [
-      'Tüm hukuki işlemler, miktarı ne olursa olsun senetle ispatlanmalıdır.',
-      'Belirli bir parasal sınırı aşan hukuki işlemler kural olarak senetle ispatlanmalıdır.',
-      'Hukuki işlemler her zaman tanıkla ispatlanabilir.',
-      'Senetle ispat yalnızca ticari işlerde zorunludur.',
-    ],
-    correctIndex: 1,
-    explanation:
-        'HMK m. 200: Bir hakkın doğumu, düşürülmesi vb. amacıyla yapılan ve belirli bir parasal sınırı aşan hukuki işlemlerin senetle ispatı zorunludur; bu sınırın altındaki işlemler tanıkla da ispatlanabilir.',
-  ),
-  QuizQuestion(
     id: 'ispat_02',
     category: QuizCategory.ispatDeliller,
     question:
@@ -141,21 +126,6 @@ const List<QuizQuestion> kQuestions = [
         'HMK m. 266: Çözümü özel/teknik bilgiyi gerektiren hâllerde bilirkişiye başvurulur; ancak genel bilgi veya hukuki bilgiyle çözülebilecek konularda (hukukun uygulanması hâkime ait olduğundan) bilirkişiye başvurulamaz.',
   ),
   QuizQuestion(
-    id: 'ispat_09',
-    category: QuizCategory.ispatDeliller,
-    question:
-        'Bilirkişi raporuna karşı, raporun tebliğinden itibaren itiraz süresi ne kadardır?',
-    options: [
-      'Bir hafta',
-      'İki hafta',
-      'Bir ay',
-      'On gün',
-    ],
-    correctIndex: 1,
-    explanation:
-        'HMK m. 281: Taraflar, raporun kendilerine tebliğinden itibaren iki hafta içinde itiraz edebilir; eksikliklerin tamamlanmasını, belirsizliklerin giderilmesini veya yeni bilirkişi atanmasını isteyebilirler.',
-  ),
-  QuizQuestion(
     id: 'ispat_10',
     category: QuizCategory.ispatDeliller,
     question: 'Hâkimin bilirkişi raporu karşısındaki durumu nedir?',
@@ -232,21 +202,6 @@ const List<QuizQuestion> kQuestions = [
         'HMK m. 390/3: İhtiyati tedbir isteyen, davanın esası yönünden kendisinin haklı olduğunu yaklaşık olarak ispat etmek zorundadır (tam ispat aranmaz).',
   ),
   QuizQuestion(
-    id: 'gecici_05',
-    category: QuizCategory.geciciKoruma,
-    question:
-        'Karşı taraf dinlenmeden verilen ihtiyati tedbir kararına itiraz süresi ne kadardır?',
-    options: [
-      'Bir hafta',
-      'İki hafta',
-      'Yedi iş günü',
-      'Bir ay',
-    ],
-    correctIndex: 0,
-    explanation:
-        'HMK m. 394: Tedbir kararı yüzüne karşı verilenler tefhim/tebliğden, yokluğunda verilenler ise tedbirin uygulanmasından veya öğrenmeden itibaren bir hafta içinde itiraz edebilir.',
-  ),
-  QuizQuestion(
     id: 'gecici_06',
     category: QuizCategory.geciciKoruma,
     question:
@@ -280,21 +235,6 @@ const List<QuizQuestion> kQuestions = [
   // ══════════════════════════════════════════════════════════
   //  3) KANUN YOLLARI
   // ══════════════════════════════════════════════════════════
-  QuizQuestion(
-    id: 'kanun_01',
-    category: QuizCategory.kanunYollari,
-    question:
-        'İlk derece mahkemesi kararına karşı istinaf başvuru süresi, kural olarak ne kadardır?',
-    options: [
-      'Kararın tefhiminden itibaren bir hafta',
-      'Kararın tebliğinden itibaren iki hafta',
-      'Kararın tebliğinden itibaren bir ay',
-      'Kararın verilmesinden itibaren on beş gün',
-    ],
-    correctIndex: 1,
-    explanation:
-        'HMK m. 345: İstinaf yoluna başvuru süresi, kararın tebliğinden (ilamın taraflara tebliği) itibaren iki haftadır.',
-  ),
   QuizQuestion(
     id: 'kanun_02',
     category: QuizCategory.kanunYollari,
@@ -525,21 +465,6 @@ const List<QuizQuestion> kQuestions = [
         'TTK m. 5/A: Konusu bir miktar paranın ödenmesi olan alacak ve tazminat talepleri hakkında ticari davalarda, dava açılmadan önce arabulucuya başvurulmuş olması dava şartıdır.',
   ),
   QuizQuestion(
-    id: 'arabulucu_03',
-    category: QuizCategory.arabuluculuk,
-    question:
-        'Dava şartı olan arabuluculuğa hiç başvurulmadan doğrudan dava açılırsa mahkeme ne yapar?',
-    options: [
-      'Davayı esastan inceleyip karar verir.',
-      'Herhangi bir işlem yapmaksızın, dava şartı yokluğundan davanın usulden reddine karar verir.',
-      'Tarafları uzlaşmaya zorlar ve davayı bekletir.',
-      'Davayı görevsizlikten reddeder.',
-    ],
-    correctIndex: 1,
-    explanation:
-        '7036 m. 3/2 (ve TTK m. 5/A atfı): Arabulucuya başvurulmadan dava açıldığının anlaşılması hâlinde, herhangi bir işlem yapılmaksızın dava, dava şartı yokluğu sebebiyle usulden reddedilir. Bu, konunun en kritik final bilgisidir.',
-  ),
-  QuizQuestion(
     id: 'arabulucu_04',
     category: QuizCategory.arabuluculuk,
     question:
@@ -583,5 +508,139 @@ const List<QuizQuestion> kQuestions = [
     correctIndex: 0,
     explanation:
         'İş ve ticari uyuşmazlıklarda arabulucu, görevlendirildiği tarihten itibaren süreci üç hafta içinde sonuçlandırır; bu süre zorunlu hâllerde arabulucu tarafından en fazla bir hafta uzatılabilir.',
+  ),
+
+  // ══════════════════════════════════════════════════════════
+  //  KULLANICININ EKLEDİĞİ SORULAR
+  // ══════════════════════════════════════════════════════════
+  QuizQuestion(
+    id: 'ispat_11',
+    category: QuizCategory.ispatDeliller,
+    question:
+        'Hukuki işlemlerin miktar veya değeri kanunda öngörülen sınırı geçtiği takdirde kural olarak hangi delille ispat edilmesi zorunludur?',
+    options: ['Tanık', 'Senet', 'Yemin', 'Bilirkişi'],
+    correctIndex: 1,
+    explanation:
+        'HMK m. 200 uyarınca, bir hakkın doğumu, düşürülmesi, devri, değiştirilmesi, yenilenmesi, ertelenmesi, ikrarı ve itfası amacıyla yapılan hukuki işlemlerin, yapıldıkları zamanki miktar veya değerleri kanunda öngörülen sınırı geçtiği takdirde kural olarak senetle ispatlanması zorunludur.',
+  ),
+  QuizQuestion(
+    id: 'ispat_12',
+    category: QuizCategory.ispatDeliller,
+    question:
+        'Aşağıdakilerden hangisi, senetle ispat zorunluluğu olan bir hukuki işlemin miktar ne olursa olsun tanıkla ispat edilebileceği istisnai hallerden (delil başlangıcı aranmaksızın) biri değildir?',
+    options: [
+      'Kardeşler arasındaki hukuki işlemler',
+      'Eşler arasındaki hukuki işlemler',
+      'Ortaklar arasındaki ticari işlemler',
+      'Altsoy ile üstsoy arasındaki hukuki işlemler',
+    ],
+    correctIndex: 2,
+    explanation:
+        'HMK m. 203 uyarınca altsoy-üstsoy, kardeşler ve eşler arasındaki işlemlerde miktar ne olursa olsun tanık dinlenebilir. Ortaklar arasındaki işlemler kural olarak bu istisnaya dahil edilmemiştir.',
+  ),
+  QuizQuestion(
+    id: 'ispat_13',
+    category: QuizCategory.ispatDeliller,
+    question:
+        'Taraflar, bilirkişi raporunun kendilerine tebliğ tarihinden itibaren kural olarak kaç hafta içinde raporda eksik gördükleri hususların bilirkişiye tamamlattırılmasını mahkemeden isteyebilirler?',
+    options: ['1 hafta', '2 hafta', '3 hafta', '4 hafta'],
+    correctIndex: 1,
+    explanation:
+        'HMK m. 281/1 uyarınca taraflar, bilirkişi raporunun tebliği tarihinden itibaren iki hafta içinde raporda eksik veya belirsiz gördükleri hususların giderilmesini yahut yeni bir bilirkişi atanmasını isteyebilirler.',
+  ),
+  QuizQuestion(
+    id: 'gecici_08',
+    category: QuizCategory.geciciKoruma,
+    question:
+        'Karşı taraf dinlenmeden (yokluğunda) verilen ihtiyati tedbir kararlarına karşı, itiraz hakkı olanlar kararın uygulanması sırasında hazır bulunmuyorlarsa, tedbirin uygulanmasına ilişkin tutanağın tebliğinden itibaren en geç ne kadar süre içinde itiraz edebilirler?',
+    options: ['1 hafta', '2 hafta', '3 hafta', '4 hafta'],
+    correctIndex: 0,
+    explanation:
+        'HMK m. 394/2 uyarınca karşı taraf dinlenmeden verilmiş olan ihtiyati tedbir kararlarına itiraz süresi, kararın uygulandığına ilişkin tutanağın tebliğinden itibaren bir haftadır.',
+  ),
+  QuizQuestion(
+    id: 'gecici_09',
+    category: QuizCategory.geciciKoruma,
+    question:
+        'Görülmekte olan veya ileride açılacak bir davada ispat vasıtası olarak kullanılacak olan delillerin kaybolması veya gösterilmesinin çok zorlaşması ihtimali karşısında başvurulan geçici hukuki koruma kurumu aşağıdakilerden hangisidir?',
+    options: [
+      'İhtiyati tedbir',
+      'İhtiyati haciz',
+      'Delil tespiti',
+      'İhtiyari dava arkadaşlığı',
+    ],
+    correctIndex: 2,
+    explanation:
+        'HMK m. 400 uyarınca, taraflar henüz inceleme sırası gelmemiş olan veya ileride açılacak davada ileri sürülecek delillerin kaybolacağı veya ileri sürülmesinin zorlaşacağı ihtimali varsa delil tespiti isteyebilir.',
+  ),
+  QuizQuestion(
+    id: 'kanun_08',
+    category: QuizCategory.kanunYollari,
+    question:
+        'Hukuk mahkemeleri tarafından verilen nihai kararlara karşı, kararın usulüne uygun tebliğinden itibaren kural olarak kaç hafta içinde istinaf yoluna başvurulabilir?',
+    options: ['1 hafta', '2 hafta', '3 hafta', '4 hafta'],
+    correctIndex: 1,
+    explanation:
+        'HMK m. 345 uyarınca istinaf yoluna başvuru süresi, kararın usulüne uygun olarak taraflara tebliğinden itibaren iki haftadır.',
+  ),
+  QuizQuestion(
+    id: 'kanun_09',
+    category: QuizCategory.kanunYollari,
+    question:
+        'Bölge adliye mahkemesi hukuk dairelerinden verilen aşağıdaki kararlardan hangisine karşı kural olarak temyiz yoluna başvurulamaz?',
+    options: [
+      'Miktar veya değeri temyiz sınırını aşan alacak davaları',
+      'Soybağına ilişkin kararlar',
+      'Çekişmesiz yargı işlerinde verilen kararlar',
+      'Taşınmaz üzerindeki ayni haklara ilişkin kararlar',
+    ],
+    correctIndex: 2,
+    explanation:
+        'HMK m. 362/1-ç bendine göre çekişmesiz yargı işlerinde verilen bölge adliye mahkemesi kararları kesin olup bu kararlara karşı temyiz yoluna başvurulamaz.',
+  ),
+  QuizQuestion(
+    id: 'taraf_08',
+    category: QuizCategory.tarafIslemleri,
+    question:
+        'Davacının talep sonucundan kısmen veya tamamen vazgeçmesi olan "feragat" kurumu ile ilgili aşağıdakilerden hangisi yanlıştır?',
+    options: [
+      'Feragat, hüküm kesinleşinceye kadar her zaman yapılabilir.',
+      'Feragatin geçerliliği karşı tarafın veya mahkemenin kabulüne bağlıdır.',
+      'Feragat, kesin hüküm gibi hukuki sonuç doğurur.',
+      'Şarta bağlı feragat kural olarak geçerli değildir.',
+    ],
+    correctIndex: 1,
+    explanation:
+        'HMK m. 309 uyarınca feragat ve kabul, karşı tarafın veya mahkemenin muvafakatine bağlı değildir; tek taraflı irade beyanıyla derhal sonuç doğurur.',
+  ),
+  QuizQuestion(
+    id: 'hukum_01',
+    category: QuizCategory.hukumKesinHuku,
+    question:
+        'Bir davada verilen kararın başka bir davada maddi anlamda kesin hüküm teşkil edebilmesi için her iki davanın hangi unsurlarının aynı olması zorunludur?',
+    options: [
+      'Sadece taraflarının',
+      'Sadece dava sebeplerinin',
+      'Taraflarının, dava sebeplerinin ve ilk davanın hüküm fıkrası ile ikinci davanın talep sonucunun',
+      'Sadece mahkemelerinin',
+    ],
+    correctIndex: 2,
+    explanation:
+        'HMK m. 303/1 uyarınca maddi anlamda kesin hükümden söz edilebilmesi için her iki davanın taraflarının, dava sebeplerinin (vakıaların) ve ilk davanın hüküm fıkrası ile ikinci davanın talep sonucunun aynı olması gerekir.',
+  ),
+  QuizQuestion(
+    id: 'arabulucu_07',
+    category: QuizCategory.arabuluculuk,
+    question:
+        'Kanunlarda arabuluculuğa başvurulmuş olmasının dava şartı olarak öngörüldüğü durumlarda, davacı arabulucuya başvurmadan doğrudan dava açarsa mahkeme nasıl bir karar verir?',
+    options: [
+      'Eksikliği gidermesi için davacıya bir haftalık kesin süre verir.',
+      'Davayı esastan reddeder.',
+      'Davayı, dava şartı yokluğu sebebiyle usulden reddeder.',
+      'Davayı durdurur ve tarafları arabulucuya gönderir.',
+    ],
+    correctIndex: 2,
+    explanation:
+        '6325 sayılı Hukuk Uyuşmazlıklarında Arabuluculuk Kanunu m. 18/A-2 uyarınca, arabulucuya başvurulmadan dava açıldığının anlaşılması halinde herhangi bir işlem yapılmaksızın davanın, dava şartı yokluğu sebebiyle usulden reddine karar verilir.',
   ),
 ];
