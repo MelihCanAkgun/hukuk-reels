@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../app/theme.dart';
 import '../../../core/models/quiz_question.dart';
+import 'corner_decorations.dart';
 
 /// Tek bir soruyu gösteren kart: çoktan seçmeli şıklar + cevap sonrası
 /// açıklama. Kart KAYDIRILMAZ; böylece yukarı kaydırınca PageView bir
@@ -153,12 +154,17 @@ class _QuestionCardState extends State<QuestionCard> {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: Stack(
           children: [
-            _badge(q.category),
+            const CornerDecorations(),
+            Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _badge(q.category),
             const SizedBox(height: 14),
             Text(
               q.question,
@@ -176,6 +182,9 @@ class _QuestionCardState extends State<QuestionCard> {
               Flexible(child: _resultPanel()),
             ] else
               const Spacer(),
+                ],
+              ),
+            ),
           ],
         ),
       ),

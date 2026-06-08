@@ -1,10 +1,10 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../app/theme.dart';
 import '../../../core/data/questions_data.dart';
 import '../../../core/models/quiz_question.dart';
 import '../../../core/services/audio_service.dart';
-import '../widgets/corner_decorations.dart';
 import '../widgets/music_control_panel.dart';
 import '../widgets/question_card.dart';
 
@@ -20,6 +20,7 @@ class _ReelsScreenState extends State<ReelsScreen>
     with WidgetsBindingObserver {
   final _pageController = PageController();
   final _audio = AudioService.instance;
+  final _rng = Random();
 
   late List<QuizQuestion> _questions;
   final Set<int> _answered = {};
@@ -32,8 +33,12 @@ class _ReelsScreenState extends State<ReelsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _questions = [...kQuestions]..shuffle();
+    _questions = _buildDeck();
   }
+
+  List<QuizQuestion> _buildDeck() =>
+      kQuestions.map((q) => q.withShuffledOptions(_rng)).toList()
+        ..shuffle(_rng);
 
   @override
   void dispose() {
@@ -69,7 +74,7 @@ class _ReelsScreenState extends State<ReelsScreen>
 
   void _restart() {
     setState(() {
-      _questions = [...kQuestions]..shuffle();
+      _questions = _buildDeck();
       _answered.clear();
       _correct = 0;
       _page = 0;
@@ -96,10 +101,7 @@ class _ReelsScreenState extends State<ReelsScreen>
           decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
           child: Stack(
             children: [
-              // ── Köşe görselleri (en arkada, dokunmaz) ──
-              const Positioned.fill(child: CornerDecorations()),
-
-              // ── Soru sayfaları ──
+              // ── Soru sayfaları (köşe görselleri kartın içinde) ──
               PageView.builder(
                 controller: _pageController,
                 scrollDirection: Axis.vertical,

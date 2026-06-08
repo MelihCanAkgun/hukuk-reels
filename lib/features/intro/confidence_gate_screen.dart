@@ -195,15 +195,6 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
                               letterSpacing: -0.5,
                             ),
                           ),
-                          const SizedBox(height: 14),
-                          Text(
-                            'Doğru cevap “evet” 😏',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: AppTheme.textSecondary.withValues(alpha: 0.9),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -364,18 +355,25 @@ class _NoButton extends StatelessWidget {
             Container(
               width: width,
               height: height,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: AppTheme.surfaceHigh,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppTheme.border, width: 1.5),
               ),
               alignment: Alignment.center,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppTheme.textSecondary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
