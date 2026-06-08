@@ -41,9 +41,11 @@ class AppConfig {
   ];
 
   /// Köşe görsellerinin boyutu (px) ve saydamlığı (0.0 - 1.0).
-  /// Soruyu rahatsız etmesin diye küçük ve hafif saydam önerilir.
-  static const double cornerImageSize = 92;
-  static const double cornerImageOpacity = 0.22;
+  /// Görseller kartın içinde, yazıların ARKASINDA çizilir; bu yüzden hiçbir
+  /// soruyu kapatmazlar ama köşelerin boş alanlarında net görünürler.
+  /// Daha büyük/belirgin istersen boyutu ve opaklığı artır.
+  static const double cornerImageSize = 116;
+  static const double cornerImageOpacity = 0.6;
 
   /// Köşe görselleri gösterilsin mi?
   static const bool showCornerImages = true;

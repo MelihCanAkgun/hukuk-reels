@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 /// Medeni Usul Hukuku konu başlıkları.
@@ -51,4 +52,19 @@ class QuizQuestion {
   }) : assert(correctIndex >= 0);
 
   String get correctAnswer => options[correctIndex];
+
+  /// Şıkları rastgele karıştırılmış bir kopya döndürür; doğru cevabın
+  /// yeni konumu otomatik hesaplanır. Böylece doğru cevap her oturumda
+  /// farklı şıkka denk gelir (A/B/C/D eşit dağılır).
+  QuizQuestion withShuffledOptions(Random rng) {
+    final order = List<int>.generate(options.length, (i) => i)..shuffle(rng);
+    return QuizQuestion(
+      id: id,
+      category: category,
+      question: question,
+      options: [for (final i in order) options[i]],
+      correctIndex: order.indexOf(correctIndex),
+      explanation: explanation,
+    );
+  }
 }

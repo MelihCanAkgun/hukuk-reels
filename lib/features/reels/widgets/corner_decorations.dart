@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/app_config.dart';
 
-/// Ekranın dört köşesine, soruyu kapatmayacak şekilde yerleştirilen
-/// dekoratif görseller. Dokunmayı engellemez (IgnorePointer).
+/// Soru kartının dört köşesine yerleştirilen dekoratif görseller.
+///
+/// Kartın İÇİNDE, içeriğin (yazıların) ARKASINDA çizilir; bu yüzden hiçbir
+/// yazıyı kapatmaz ama kartın boş köşe alanlarında net görünür.
+/// Kart Stack'inin ilk (en alttaki) çocuğu olarak kullanılmalıdır.
 class CornerDecorations extends StatelessWidget {
   const CornerDecorations({super.key});
 
@@ -13,26 +16,32 @@ class CornerDecorations extends StatelessWidget {
     }
 
     final imgs = AppConfig.cornerImages;
-    final pad = MediaQuery.of(context).padding;
+    final s = AppConfig.cornerImageSize;
+    final o = AppConfig.cornerImageOpacity;
+    final bleed = s * 0.22; // köşeden hafif taşma
 
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          if (imgs.isNotEmpty)
-            _corner(imgs[0], top: pad.top + 6, left: -6, angle: -0.18),
-          if (imgs.length > 1)
-            _corner(imgs[1], top: pad.top + 6, right: -6, angle: 0.18),
-          if (imgs.length > 2)
-            _corner(imgs[2], bottom: pad.bottom + 10, left: -6, angle: 0.18),
-          if (imgs.length > 3)
-            _corner(imgs[3], bottom: pad.bottom + 10, right: -6, angle: -0.18),
-        ],
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Stack(
+          children: [
+            if (imgs.isNotEmpty)
+              _img(imgs[0], s, o, top: -bleed, left: -bleed, angle: -0.12),
+            if (imgs.length > 1)
+              _img(imgs[1], s, o, top: -bleed, right: -bleed, angle: 0.12),
+            if (imgs.length > 2)
+              _img(imgs[2], s, o, bottom: -bleed, left: -bleed, angle: 0.12),
+            if (imgs.length > 3)
+              _img(imgs[3], s, o, bottom: -bleed, right: -bleed, angle: -0.12),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _corner(
-    String asset, {
+  Widget _img(
+    String asset,
+    double size,
+    double opacity, {
     double? top,
     double? bottom,
     double? left,
@@ -45,13 +54,13 @@ class CornerDecorations extends StatelessWidget {
       left: left,
       right: right,
       child: Opacity(
-        opacity: AppConfig.cornerImageOpacity,
+        opacity: opacity,
         child: Transform.rotate(
           angle: angle,
           child: Image.asset(
             asset,
-            width: AppConfig.cornerImageSize,
-            height: AppConfig.cornerImageSize,
+            width: size,
+            height: size,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
