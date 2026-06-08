@@ -46,9 +46,9 @@ class AudioService {
       );
       await _player.setLoopMode(LoopMode.all);
       await _player.setVolume(AppConfig.musicVolume);
-      if (AppConfig.musicTracks.length > 1) {
-        await _player.setShuffleModeEnabled(true);
-      }
+      // Karıştırma KAPALI: parçalar listedeki sırayla çalar
+      // (ilk parça Wildflower, son parça Bal).
+      await _player.setShuffleModeEnabled(false);
       _initialized = true;
     } catch (e) {
       debugPrint('[Audio] init hatası: $e');

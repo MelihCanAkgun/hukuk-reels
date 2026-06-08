@@ -152,8 +152,10 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
 
               return Listener(
                 behavior: HitTestBehavior.translucent,
+                // Yalnızca fare ile yaklaşınca kaç (web). Dokunmatikte "Hayır"
+                // kendi onTapDown'ıyla kaçar; burada global onPointerDown
+                // KULLANMIYORUZ ki Evet'e dokunmayı engellemesin.
                 onPointerHover: (e) => _maybeFlee(e.localPosition),
-                onPointerDown: (e) => _maybeFlee(e.localPosition),
                 child: Stack(
                   children: [
                     // ── Başlık bloğu ──
@@ -258,9 +260,10 @@ class _EvetButtonState extends State<_EvetButton> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTapDown: (_) => setState(() => _down = true),
       onTapCancel: () => setState(() => _down = false),
-      onTapUp: (_) {
+      onTap: () {
         setState(() => _down = false);
         widget.onTap();
       },
