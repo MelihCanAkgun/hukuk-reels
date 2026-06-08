@@ -149,12 +149,26 @@ class _ReelsScreenState extends State<ReelsScreen>
                     );
                   }
                   final topInset = MediaQuery.of(context).padding.top + 58;
+                  // Geniş ekranlarda kartı ortala ve max 480px tut; mobilde
+                  // tam genişlik. SizedBox tight boyut verir (yükseklik bozulmaz,
+                  // dar ekranda taşma olmaz).
                   return Padding(
                     padding: EdgeInsets.only(top: topInset),
-                    child: QuestionCard(
-                      key: ValueKey('${_deckId}_${_questions[index].id}'),
-                      question: _questions[index],
-                      onAnswered: (c) => _onAnswered(index, c),
+                    child: LayoutBuilder(
+                      builder: (context, c) {
+                        final w = c.maxWidth < 480 ? c.maxWidth : 480.0;
+                        return Center(
+                          child: SizedBox(
+                            width: w,
+                            height: c.maxHeight,
+                            child: QuestionCard(
+                              key: ValueKey('${_deckId}_${_questions[index].id}'),
+                              question: _questions[index],
+                              onAnswered: (c) => _onAnswered(index, c),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   );
                 },
