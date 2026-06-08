@@ -1,1 +1,1 @@
- /Users/mqcan/hukuk_reels/.dart_tool/flutter_build/5f937289242e1b91c02929bd851352e2/dart_build_result.json:  /Users/mqcan/flutter/bin/cache/dart-sdk/version /Users/mqcan/hukuk_reels/.dart_tool/package_config.json /Users/mqcan/hukuk_reels/pubspec.yaml
+ /Users/mqcan/hukuk_reels/.dart_tool/flutter_build/5f937289242e1b91c02929bd851352e2/dart_build_result.json:  /Users/mqcan/hukuk_reels/.dart_tool/package_config.json /Users/mqcan/hukuk_reels/pubspec.yaml /opt/homebrew/share/flutter/bin/cache/dart-sdk/version

@@ -1,0 +1,1 @@
+ /Users/mqcan/hukuk_reels/.dart_tool/flutter_build/b0ced6786acbdf152ff8cef9e6ecff7f/dart_build_result.json:  /Users/mqcan/hukuk_reels/.dart_tool/package_config.json /Users/mqcan/hukuk_reels/pubspec.yaml /opt/homebrew/share/flutter/bin/cache/dart-sdk/version

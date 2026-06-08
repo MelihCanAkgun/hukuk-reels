@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <base href="/">
+  <base href="/hukuk-reels/">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
   <!-- ── PWA Temel ── -->
-  <meta name="theme-color" content="#1A237E">
+  <meta name="theme-color" content="#E91E63">
   <meta name="description" content="Çevrimdışı hukuk eğitim uygulaması">
   <link rel="manifest" href="manifest.json">
 
@@ -42,7 +42,7 @@
   <!-- ── Android Chrome PWA ── -->
   <meta name="application-name" content="Hukuk Reels">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#121212">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1A0A14">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
@@ -55,7 +55,7 @@
     body {
       margin: 0;
       padding: 0;
-      background-color: #121212;
+      background-color: #1A0A14;
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
       /* iOS safe area desteği */
@@ -73,7 +73,7 @@
       width: 40px;
       height: 40px;
       border: 3px solid rgba(255,255,255,0.1);
-      border-top-color: #FF6D00;
+      border-top-color: #FF80AB;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -184,16 +184,12 @@
       }
     }
 
-    // Service Worker kaydı
+    // Service Worker kaydı (sadece Flutter'ın kendi SW'si)
     if ('serviceWorker' in navigator) {
       window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js?v=1270589640') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */;
-      });
-
-      navigator.serviceWorker.register('sw.js').then(function(reg) {
-        console.log('[SW] Kayıt başarılı:', reg.scope);
-      }).catch(function(err) {
-        console.log('[SW] Kayıt başarısız:', err);
+        navigator.serviceWorker.register('flutter_service_worker.js?v=3269365893') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function(reg) {
+          console.log('[SW] Flutter SW kayıt başarılı:', reg.scope);
+        });
       });
     }
   </script>

@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../app/theme.dart';
+import '../../../core/data/questions_data.dart';
+import '../../../core/models/quiz_question.dart';
 import '../../../core/services/audio_service.dart';
-import '../../../core/services/database_service.dart';
-import '../../../core/services/question_generator.dart';
-import '../widgets/flashcard_reel.dart';
-import '../widgets/music_indicator.dart';
+import '../widgets/corner_decorations.dart';
+import '../widgets/music_control_panel.dart';
+import '../widgets/question_card.dart';
 
-/// ───────────────────────────────────────────────
-/// Ana Reels Ekranı (Dikey Kaydırmalı Sayfalama)
-///
-/// TikTok/Reels tarzı tam ekran dikey PageView.
-/// Her reel'de sillycat müziği döngüsel çalar.
-/// ───────────────────────────────────────────────
+/// Dikey kaydırmalı soru çözme ekranı (reels formatı).
 class ReelsScreen extends StatefulWidget {
   const ReelsScreen({super.key});
 
@@ -19,321 +16,275 @@ class ReelsScreen extends StatefulWidget {
   State<ReelsScreen> createState() => _ReelsScreenState();
 }
 
-class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
+class _ReelsScreenState extends State<ReelsScreen>
+    with WidgetsBindingObserver {
   final _pageController = PageController();
-  final _dbService = DatabaseService.instance;
   final _audio = AudioService.instance;
 
-  List<_ReelItem> _items = [];
-  int _currentPage = 0;
-  int _totalAnswered = 0;
-  int _correctCount = 0;
-
-  static const _trackNames = [
-    'sillycat_1',
-    'sillycat_2',
-    'sillycat_3',
-    'sillycat_4',
-    'sillycat_5',
-  ];
+  late List<QuizQuestion> _questions;
+  final Set<int> _answered = {};
+  int _correct = 0;
+  int _page = 0;
+  bool _audioStarted = false;
+  bool _showMusicPanel = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initAudio();
-    _loadQuestions();
-  }
-
-  Future<void> _initAudio() async {
-    await _audio.init();
-    // İlk reel'in müziğini başlat
-    await _audio.playForReel(0);
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Uygulama arka plana gidince duraklat, geri gelince devam et
-    if (state == AppLifecycleState.paused) {
-      _audio.pause();
-    } else if (state == AppLifecycleState.resumed) {
-      _audio.resume();
-    }
-  }
-
-  void _loadQuestions() {
-    final dbQuestions = _dbService.getDueQuestions();
-
-    if (dbQuestions.isNotEmpty) {
-      setState(() {
-        _items = dbQuestions
-            .map((q) => _ReelItem(
-                  id: q.id,
-                  questionText: q.questionText,
-                  correctAnswer: q.correctAnswer,
-                  options: q.options,
-                  sourceSnippet: q.sourceSnippet,
-                ))
-            .toList();
-      });
-    } else {
-      _loadDemoQuestions();
-    }
-  }
-
-  void _loadDemoQuestions() {
-    const demoText = '''
-Türk Ceza Kanunu madde 141 uyarınca, hırsızlık suçunun cezası 1 yıldan 3 yıla kadar hapis cezasıdır.
-Ceza Muhakemesi Kanunu m.91 gereğince gözaltı süresi 24 saati geçemez.
-Borçlar hukukunda zamanaşımı süresi genel olarak 10 yıldır.
-İcra ve İflas Kanunu madde 68 uyarınca, borçluya ödeme emri tebliğ edildikten sonra 7 gün içinde itiraz edebilir.
-Bir kimsenin başkasının taşınmazı üzerinde yüklü bir alacak hakkı elde etmesine ipotek denir.
-Mahkemenin davalı lehine karar vermesine ve sanığın suçsuz bulunmasına beraat denir.
-Tarafların mahkeme dışında anlaşarak uyuşmazlığı çözmesine arabuluculuk denir.
-Davanın bir üst mahkemede incelenmesi talebi temyiz olarak adlandırılır.
-Hâkim, delilleri serbestçe değerlendirerek sanığın mahkumiyetine karar verirse mahkumiyet kararı verilmiş sayılır.
-Ceza Kanunu madde 53 uyarınca, belli hakları kullanmaktan yoksun bırakma 5 yıla kadar uygulanabilir.
-Kasten yaralama halinde, mağdurun şikayeti durumunda 6 ay içinde dava açılmalıdır.
-Ağırlaştırılmış müebbet hapis cezası, en ağır ceza türüdür.
-Bilirkişi raporu 30 gün içinde mahkemeye sunulmalıdır.
-Tanık, duruşmada yeminli olarak ifade verir.
-Velayet hakkı, çocuğun yararına göre düzenlenir.
-İddianame düzenlenmeden kamu davası açılamaz.
-Nafaka yükümlülüğü, tarafların mali durumuna göre belirlenir.
-''';
-
-    final generator = QuestionGenerator();
-    final generated = generator.generateFromText(demoText);
-
-    setState(() {
-      _items = generated
-          .map((g) => _ReelItem(
-                id: null,
-                questionText: g.questionText,
-                correctAnswer: g.correctAnswer,
-                options: g.options,
-                sourceSnippet: g.sourceSnippet,
-              ))
-          .toList();
-
-      if (_items.isEmpty) {
-        _items = [
-          const _ReelItem(
-            id: null,
-            questionText: 'Henüz soru yok.\nNotlar sekmesinden metin ekleyin!',
-            correctAnswer: '-',
-            options: [],
-            sourceSnippet: '',
-          ),
-        ];
-      }
-    });
-  }
-
-  void _onCorrect(int index) {
-    HapticFeedback.lightImpact();
-    setState(() {
-      _totalAnswered++;
-      _correctCount++;
-    });
-    final id = _items[index].id;
-    if (id != null) _dbService.markCorrect(id);
-  }
-
-  void _onWrong(int index) {
-    HapticFeedback.mediumImpact();
-    setState(() {
-      _totalAnswered++;
-    });
-    final id = _items[index].id;
-    if (id != null) _dbService.markWrong(id);
+    _questions = [...kQuestions]..shuffle();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pageController.dispose();
-    _audio.pause();
+    _audio.pauseForLifecycle();
     super.dispose();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      _audio.pauseForLifecycle();
+    } else if (state == AppLifecycleState.resumed) {
+      _audio.resumeForLifecycle();
+    }
+  }
+
+  void _startAudioOnce() {
+    if (_audioStarted) return;
+    _audioStarted = true;
+    _audio.start();
+  }
+
+  void _onAnswered(int index, bool correct) {
+    if (_answered.contains(index)) return;
+    setState(() {
+      _answered.add(index);
+      if (correct) _correct++;
+    });
+  }
+
+  void _restart() {
+    setState(() {
+      _questions = [...kQuestions]..shuffle();
+      _answered.clear();
+      _correct = 0;
+      _page = 0;
+    });
+    _pageController.jumpToPage(0);
+  }
+
+  Color get _currentAccent => _page < _questions.length
+      ? _questions[_page].category.color
+      : AppTheme.accent;
+
+  @override
   Widget build(BuildContext context) {
+    final total = _questions.length;
+    final onSummary = _page >= total;
+    final progress = total == 0 ? 0.0 : (_page.clamp(0, total)) / total;
+
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: const Color(0xFF121212),
-      body: Stack(
-        children: [
-          // ── Ana Reels PageView ──
-          PageView.builder(
-            controller: _pageController,
-            scrollDirection: Axis.vertical,
-            physics: const BouncingScrollPhysics(),
-            itemCount: _items.length,
-            onPageChanged: (index) {
-              setState(() => _currentPage = index);
-              HapticFeedback.selectionClick();
-              // Yeni reel'e geçince müziği değiştir
-              _audio.playForReel(index);
-            },
-            itemBuilder: (context, index) {
-              final item = _items[index];
-              final colors = [
-                const Color(0xFFFF6D00),
-                const Color(0xFF2979FF),
-                const Color(0xFF00E676),
-                const Color(0xFFAA00FF),
-                const Color(0xFFFF1744),
-              ];
+      backgroundColor: AppTheme.bg,
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => _startAudioOnce(),
+        child: Container(
+          decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+          child: Stack(
+            children: [
+              // ── Köşe görselleri (en arkada, dokunmaz) ──
+              const Positioned.fill(child: CornerDecorations()),
 
-              return FlashcardReel(
-                frontText: item.questionText,
-                backText: item.correctAnswer,
-                sourceSnippet:
-                    item.sourceSnippet.isNotEmpty ? item.sourceSnippet : null,
-                options: item.options,
-                onCorrect: () => _onCorrect(index),
-                onWrong: () => _onWrong(index),
-                accentColor: colors[index % colors.length],
-              );
-            },
-          ),
-
-          // ── Üst Bar ──
-          Positioned(
-            top: MediaQuery.of(context).padding.top + 8,
-            left: 20,
-            right: 20,
-            child: Row(
-              children: [
-                const Text(
-                  'Hukuk Reels',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                // Yenile butonu
-                GestureDetector(
-                  onTap: _loadQuestions,
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.refresh,
-                        color: Colors.white54, size: 20),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (_totalAnswered > 0)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.check_circle,
-                            color: Colors.greenAccent, size: 16),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$_correctCount/$_totalAnswered',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-
-          // ── Sağ Kenar Butonları ──
-          Positioned(
-            right: 12,
-            bottom: 120,
-            child: Column(
-              children: [
-                // Müzik aç/kapa
-                _SideButton(
-                  icon: _audio.isMuted
-                      ? Icons.volume_off
-                      : Icons.volume_up,
-                  label: _audio.isMuted ? 'Sessiz' : 'Müzik',
-                  onTap: () async {
-                    await _audio.toggleMute();
-                    setState(() {});
-                  },
-                ),
-                const SizedBox(height: 20),
-                _SideButton(
-                  icon: Icons.bookmark_border,
-                  label: 'Kaydet',
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Kaydedildi!'),
-                        duration: Duration(seconds: 1),
-                      ),
+              // ── Soru sayfaları ──
+              PageView.builder(
+                controller: _pageController,
+                scrollDirection: Axis.vertical,
+                physics: const BouncingScrollPhysics(),
+                itemCount: total + 1, // son sayfa: özet
+                onPageChanged: (i) {
+                  setState(() => _page = i);
+                  HapticFeedback.selectionClick();
+                },
+                itemBuilder: (context, index) {
+                  if (index >= total) {
+                    return _SummaryCard(
+                      correct: _correct,
+                      total: total,
+                      onRestart: _restart,
                     );
-                  },
-                ),
-                const SizedBox(height: 20),
-                _SideButton(
-                  icon: Icons.share_outlined,
-                  label: 'Paylaş',
-                  onTap: () {},
-                ),
-                const SizedBox(height: 20),
-                _SideButton(
-                  icon: Icons.flag_outlined,
-                  label: 'Raporla',
-                  onTap: () {},
-                ),
-              ],
-            ),
-          ),
+                  }
+                  final topInset = MediaQuery.of(context).padding.top + 58;
+                  return Padding(
+                    padding: EdgeInsets.only(top: topInset),
+                    child: QuestionCard(
+                      key: ValueKey(_questions[index].id),
+                      question: _questions[index],
+                      onAnswered: (c) => _onAnswered(index, c),
+                    ),
+                  );
+                },
+              ),
 
-          // ── Sol Alt: Müzik Göstergesi (dönen disk) ──
-          Positioned(
-            left: 16,
-            bottom: MediaQuery.of(context).padding.bottom + 24,
-            child: MusicIndicator(
-              trackName: _trackNames[_currentPage % _trackNames.length],
-              isPlaying: !_audio.isMuted,
-            ),
-          ),
-
-          // ── Alt Orta: Sayfa Göstergesi ──
-          Positioned(
-            bottom: MediaQuery.of(context).padding.bottom + 16,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20),
+              // ── Üst bar: ilerleme + skor + müzik ──
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: _TopBar(
+                  progress: progress,
+                  accent: _currentAccent,
+                  label: onSummary ? 'Bitti 🎉' : '${_page + 1} / $total',
+                  correct: _correct,
+                  answered: _answered.length,
+                  showMusic: _audio.hasTracks,
+                  musicOpen: _showMusicPanel,
+                  onMusicTap: () =>
+                      setState(() => _showMusicPanel = !_showMusicPanel),
                 ),
-                child: Text(
-                  '${_currentPage + 1} / ${_items.length}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
+              ),
+
+              // ── Müzik denetim masası ──
+              if (_showMusicPanel) ...[
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _showMusicPanel = false),
                   ),
                 ),
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 54,
+                  right: 12,
+                  child: MusicControlPanel(
+                    onClose: () => setState(() => _showMusicPanel = false),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Üst bilgi çubuğu: ince ilerleme çizgisi, soru sayacı, skor ve müzik.
+class _TopBar extends StatelessWidget {
+  final double progress;
+  final Color accent;
+  final String label;
+  final int correct;
+  final int answered;
+  final bool showMusic;
+  final bool musicOpen;
+  final VoidCallback onMusicTap;
+
+  const _TopBar({
+    required this.progress,
+    required this.accent,
+    required this.label,
+    required this.correct,
+    required this.answered,
+    required this.showMusic,
+    required this.musicOpen,
+    required this.onMusicTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pad = MediaQuery.of(context).padding;
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, 10),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTheme.bg.withValues(alpha: 0.95),
+            AppTheme.bg.withValues(alpha: 0.0),
+          ],
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              // Skor
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceHigh,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: AppTheme.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle_rounded,
+                        color: AppTheme.success, size: 15),
+                    const SizedBox(width: 5),
+                    Text(
+                      '$correct/$answered',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (showMusic) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: onMusicTap,
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: musicOpen
+                          ? accent.withValues(alpha: 0.2)
+                          : AppTheme.surfaceHigh,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: musicOpen ? accent : AppTheme.border,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.music_note_rounded,
+                      color: accent,
+                      size: 18,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 10),
+          // İlerleme çubuğu
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOut,
+              tween: Tween(begin: 0, end: progress),
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 4,
+                backgroundColor: AppTheme.border.withValues(alpha: 0.5),
+                valueColor: AlwaysStoppedAnimation(accent),
               ),
             ),
           ),
@@ -343,59 +294,142 @@ Nafaka yükümlülüğü, tarafların mali durumuna göre belirlenir.
   }
 }
 
-/// UI katmanı için lightweight soru modeli
-class _ReelItem {
-  final String? id;
-  final String questionText;
-  final String correctAnswer;
-  final List<String> options;
-  final String sourceSnippet;
+/// Test bitince gösterilen özet kartı.
+class _SummaryCard extends StatelessWidget {
+  final int correct;
+  final int total;
+  final VoidCallback onRestart;
 
-  const _ReelItem({
-    required this.id,
-    required this.questionText,
-    required this.correctAnswer,
-    required this.options,
-    required this.sourceSnippet,
-  });
-}
-
-/// Sağ kenar aksiyon butonu
-class _SideButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _SideButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
+  const _SummaryCard({
+    required this.correct,
+    required this.total,
+    required this.onRestart,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+    final pct = total == 0 ? 0 : (correct / total * 100).round();
+    final (emoji, msg) = switch (pct) {
+      >= 85 => ('🏆', 'Finali geçtin gitti!'),
+      >= 60 => ('💪', 'İyi gidiyorsun, biraz daha tekrar.'),
+      >= 40 => ('📚', 'Eksikler var, açıklamaları çalış.'),
+      _ => ('🔁', 'Baştan tur atmakta fayda var.'),
+    };
+
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 64)),
+            const SizedBox(height: 20),
+            Text(
+              'Test Tamamlandı',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+              ),
             ),
-            child: Icon(icon, color: Colors.white, size: 26),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 11,
+            const SizedBox(height: 10),
+            Text(
+              msg,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppTheme.textSecondary,
+              ),
             ),
-          ),
-        ],
+            const SizedBox(height: 28),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+              decoration: BoxDecoration(
+                color: AppTheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.border),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _stat('$correct', 'Doğru', AppTheme.success),
+                  _divider(),
+                  _stat('${total - correct}', 'Yanlış', AppTheme.danger),
+                  _divider(),
+                  _stat('%$pct', 'Başarı', AppTheme.accent),
+                ],
+              ),
+            ),
+            const SizedBox(height: 28),
+            GestureDetector(
+              onTap: onRestart,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 15),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF6C8CFF), Color(0xFF8A6CFF)],
+                  ),
+                  borderRadius: BorderRadius.circular(15),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.accent.withValues(alpha: 0.4),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.refresh_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text(
+                      'Yeniden Karıştır',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _stat(String value, String label, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppTheme.textSecondary,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _divider() => Container(
+        width: 1,
+        height: 36,
+        margin: const EdgeInsets.symmetric(horizontal: 22),
+        color: AppTheme.border,
+      );
 }
