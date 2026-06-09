@@ -274,9 +274,7 @@ class _EvetButtonState extends State<_EvetButton> {
           width: widget.width,
           height: widget.height,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF6C8CFF), Color(0xFF8A6CFF)],
-            ),
+            gradient: AppTheme.pinkGradient,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(

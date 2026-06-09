@@ -444,6 +444,7 @@ file:///Users/mqcan/hukuk_reels/lib/core/config/app_config.dart
 file:///Users/mqcan/hukuk_reels/lib/core/data/questions_data.dart
 file:///Users/mqcan/hukuk_reels/lib/core/models/quiz_question.dart
 file:///Users/mqcan/hukuk_reels/lib/core/services/audio_service.dart
+file:///Users/mqcan/hukuk_reels/lib/features/beat/beat_mode_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/intro/confidence_gate_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/screens/reels_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/widgets/corner_decorations.dart

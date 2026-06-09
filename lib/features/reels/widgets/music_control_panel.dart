@@ -173,10 +173,7 @@ class MusicControlPanel extends StatelessWidget {
         width: primary ? 50 : 42,
         height: primary ? 50 : 42,
         decoration: BoxDecoration(
-          gradient: primary
-              ? const LinearGradient(
-                  colors: [Color(0xFF6C8CFF), Color(0xFF8A6CFF)])
-              : null,
+          gradient: primary ? AppTheme.pinkGradient : null,
           color: primary ? null : AppTheme.surfaceHigh,
           shape: BoxShape.circle,
           border: primary ? null : Border.all(color: AppTheme.border),

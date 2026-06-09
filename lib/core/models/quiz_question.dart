@@ -6,27 +6,27 @@ import 'package:flutter/material.dart';
 enum QuizCategory {
   ispatDeliller(
     'İspat ve Deliller',
-    Color(0xFF5B8DEF), // mavi
+    Color(0xFFFF8FB6), // pembe
   ),
   geciciKoruma(
     'Geçici Hukuki Korumalar',
-    Color(0xFFF2A33C), // amber
+    Color(0xFFFFB07A), // şeftali
   ),
   kanunYollari(
     'Kanun Yolları',
-    Color(0xFF9B7BEA), // mor
+    Color(0xFFBFA0F5), // lavanta
   ),
   tarafIslemleri(
     'Davaya Son Veren Taraf İşlemleri',
-    Color(0xFF35C2A6), // teal
+    Color(0xFFFF9AD5), // magenta-pembe
   ),
   arabuluculuk(
     'Alternatif Uyuşmazlık Çözümleri',
-    Color(0xFFE86A92), // gül
+    Color(0xFFFF7388), // gül
   ),
   hukumKesinHuku(
     'Hüküm ve Kesin Hüküm',
-    Color(0xFF22B8CF), // camgöbeği
+    Color(0xFFE49AD2), // orkide
   );
 
   const QuizCategory(this.label, this.color);
