@@ -37,6 +37,14 @@ class _BeatPager extends StatefulWidget {
 class _BeatPagerState extends State<_BeatPager> {
   final _controller = PageController();
   int _page = 0;
+  int? _firstDefeatedIndex;
+
+  /// İlk dövülen sorunun index'ini kaydeder; bu kartın ilk dövülen olup
+  /// olmadığını döndürür.
+  bool _registerDefeat(int index) {
+    _firstDefeatedIndex ??= index;
+    return _firstDefeatedIndex == index;
+  }
 
   @override
   void dispose() {
@@ -74,6 +82,8 @@ class _BeatPagerState extends State<_BeatPager> {
                       child: _BeatCard(
                         key: ValueKey(widget.questions[index].id),
                         question: widget.questions[index],
+                        index: index,
+                        registerDefeat: _registerDefeat,
                       ),
                     ),
                   );
@@ -137,7 +147,14 @@ class _BeatPagerState extends State<_BeatPager> {
 /// Tek bir "dövülebilir" soru kartı.
 class _BeatCard extends StatefulWidget {
   final QuizQuestion question;
-  const _BeatCard({super.key, required this.question});
+  final int index;
+  final bool Function(int index) registerDefeat;
+  const _BeatCard({
+    super.key,
+    required this.question,
+    required this.index,
+    required this.registerDefeat,
+  });
 
   @override
   State<_BeatCard> createState() => _BeatCardState();
@@ -152,6 +169,13 @@ class _BeatCardState extends State<_BeatCard>
   int? _selected; // pes ettikten sonra seçilen (zorla doğru) şık
   Offset _lastHit = Offset.zero;
   bool _showResist = false;
+  bool _isFirst = false; // bu kart, ilk dövülen soru mu?
+  bool _apologyAccepted = false; // özür kabul edildi mi?
+
+  static const String _apologyMsg =
+      'Yüce Hukuk Profesörü Arife Hanım, siz yanlış işaretlemediniz, ben '
+      'yanlışmışım… Tüm yaşantım, tüm bildiklerim birer yalanmış. Lütfen SİZ '
+      'bana öğretin, hangi şıkkım doğru? 😭';
 
   late final AnimationController _shake;
   late final AnimationController _bat;
@@ -195,6 +219,33 @@ class _BeatCardState extends State<_BeatCard>
     HapticFeedback.heavyImpact();
     _shake.forward(from: 0);
     _bat.forward(from: 0);
+    if (_hits == kHitsNeeded) _onDefeated();
+  }
+
+  void _onDefeated() {
+    final isFirst = widget.registerDefeat(widget.index);
+    setState(() => _isFirst = isFirst);
+    // İlk dövülen soru için özür pop-up'ı.
+    if (isFirst) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showApologyDialog();
+      });
+    }
+  }
+
+  void _showApologyDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _ApologyDialog(
+        questionNo: widget.index + 1,
+        onAccept: () {
+          Navigator.of(ctx).pop();
+          setState(() => _apologyAccepted = true);
+        },
+        onDecline: () => Navigator.of(ctx).pop(),
+      ),
+    );
   }
 
   void _selectOption(int index) {
@@ -283,12 +334,14 @@ class _BeatCardState extends State<_BeatCard>
                   const SizedBox(height: 8),
                   _hitMeter(),
                   const SizedBox(height: 14),
-                  // Dağılan soru metni (vuruş alanına tıklamayı engellemesin)
+                  // Dağılan soru metni — özür kabul edildiyse özür mesajı.
                   IgnorePointer(
-                    child: _ShatterText(
-                      text: q.question,
-                      intensity: _intensity,
-                    ),
+                    child: (_isFirst && _apologyAccepted)
+                        ? _apologyMessage()
+                        : _ShatterText(
+                            text: q.question,
+                            intensity: _intensity,
+                          ),
                   ),
                   const SizedBox(height: 18),
                   ...List.generate(q.options.length, (i) => _option(i)),
@@ -297,12 +350,13 @@ class _BeatCardState extends State<_BeatCard>
                 ],
               ),
             ),
-            // Çatlak katmanı (içeriğin üstünde, dokunmayı engellemez)
-            Positioned.fill(
-              child: IgnorePointer(
-                child: CustomPaint(painter: _CrackPainter(_cracks)),
+            // Çatlak katmanı (özür kabul edilince temizlenir)
+            if (!(_isFirst && _apologyAccepted))
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(painter: _CrackPainter(_cracks)),
+                ),
               ),
-            ),
           ],
         ),
       ),
@@ -348,15 +402,19 @@ class _BeatCardState extends State<_BeatCard>
   Widget _hitMeter() {
     if (_defeated) {
       return Row(
-        children: const [
-          Text('😈', style: TextStyle(fontSize: 16)),
-          SizedBox(width: 6),
-          Text(
-            'DÖVÜLDÜ! Şıkkı seç, doğrusu o olsun.',
-            style: TextStyle(
-              color: AppTheme.success,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+        children: [
+          Text(_isFirst ? '🥹' : '😈', style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              _isFirst
+                  ? 'İstediğin şıkkı seçebilirsin'
+                  : 'DÖVÜLDÜ! Şıkkı seç, doğrusu o olsun.',
+              style: const TextStyle(
+                color: AppTheme.success,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -387,6 +445,22 @@ class _BeatCardState extends State<_BeatCard>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _apologyMessage() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Text(
+        _apologyMsg,
+        style: const TextStyle(
+          fontSize: 16.5,
+          height: 1.5,
+          fontStyle: FontStyle.italic,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.textPrimary,
+        ),
+      ),
     );
   }
 
@@ -709,6 +783,99 @@ class _ShatterChar extends StatelessWidget {
         );
       },
       child: Text(ch, style: style),
+    );
+  }
+}
+
+/// İlk dövülen sorunun "özür dileme" pop-up'ı.
+class _ApologyDialog extends StatelessWidget {
+  final int questionNo;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+  const _ApologyDialog({
+    required this.questionNo,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: AppTheme.bgElevated,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: const BorderSide(color: AppTheme.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 26, 24, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🥹', style: TextStyle(fontSize: 46)),
+            const SizedBox(height: 14),
+            Text(
+              '$questionNo. soru sizden özür dilemek istiyor',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppTheme.textPrimary,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onDecline,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppTheme.surfaceHigh,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.border),
+                      ),
+                      child: const Text(
+                        'Kabul etme',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onAccept,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.pinkGradient,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Text(
+                        'Kabul et',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

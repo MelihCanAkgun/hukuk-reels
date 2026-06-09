@@ -61,5 +61,5 @@ class AppConfig {
   static const String batImage = 'assets/images/bat.png';
 
   /// Sopanın yüksekliği (px). Görsele göre büyüt/küçült.
-  static const double batSize = 120;
+  static const double batSize = 150;
 }
