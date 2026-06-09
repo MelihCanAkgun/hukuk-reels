@@ -21,7 +21,6 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
   static const double _btnW = 148;
   static const double _btnH = 56;
   static const double _gap = 18;
-  static const double _fleeThreshold = 78; // imleç bu kadar yaklaşınca kaçar
 
   final _rng = Random();
   late final AnimationController _legCtrl;
@@ -62,8 +61,6 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
   double get _evetLeft => _w / 2 - _btnW - _gap / 2;
   Rect get _evetRect => Rect.fromLTWH(_evetLeft, _pairTop, _btnW, _btnH);
   Rect get _titleRect => Rect.fromLTWH(0, _h * 0.14, _w, _h * 0.30);
-  Rect get _noRect =>
-      Rect.fromLTWH(_noLeft ?? 0, _noTop ?? 0, _btnW, _btnH);
 
   void _ensureInit() {
     _noLeft ??= _w / 2 + _gap / 2;
@@ -117,12 +114,6 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
     HapticFeedback.selectionClick();
   }
 
-  void _maybeFlee(Offset localPointer) {
-    if (_distToRect(localPointer, _noRect) < _fleeThreshold) {
-      _flee(localPointer);
-    }
-  }
-
   void _onEvet() {
     HapticFeedback.mediumImpact();
     AudioService.instance.start();
@@ -150,13 +141,10 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
               _h = constraints.maxHeight;
               _ensureInit();
 
-              return Listener(
-                behavior: HitTestBehavior.translucent,
-                // Yalnızca fare ile yaklaşınca kaç (web). Dokunmatikte "Hayır"
-                // kendi onTapDown'ıyla kaçar; burada global onPointerDown
-                // KULLANMIYORUZ ki Evet'e dokunmayı engellemesin.
-                onPointerHover: (e) => _maybeFlee(e.localPosition),
-                child: Stack(
+              // Global pointer dinleyici YOK: "Hayır" yalnızca üstüne
+              // dokununca (kendi onTapDown'ıyla) kaçar. iOS ana ekran
+              // PWA'sında sentetik fare olayları Evet'e dokunmayı bozabiliyordu.
+              return Stack(
                   children: [
                     // ── Başlık bloğu ──
                     Positioned(
@@ -229,8 +217,7 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
                       ),
                     ),
                   ],
-                ),
-              );
+                );
             },
           ),
         ),
