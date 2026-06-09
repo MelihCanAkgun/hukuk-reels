@@ -52,4 +52,14 @@ class AppConfig {
 
   /// Köşe görselleri gösterilsin mi?
   static const bool showCornerImages = true;
+
+  /// ───── BEYZBOL SOPASI (Döv modu) ─────
+  ///
+  /// "Yanlış Soruları Döv" modundaki sopa görseli. Şeffaf arka planlı bir
+  /// PNG'yi `assets/images/` klasörüne koyup yolunu buraya yaz.
+  /// Boş bırakırsan ('') ya da dosya bulunamazsa 🏏 emojisi kullanılır.
+  static const String batImage = 'assets/images/bat.png';
+
+  /// Sopanın yüksekliği (px). Görsele göre büyüt/küçült.
+  static const double batSize = 120;
 }
