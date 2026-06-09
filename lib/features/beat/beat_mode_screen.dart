@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
+import '../../core/config/app_config.dart';
 import '../../core/models/quiz_question.dart';
 
 /// "Yanlış Soruları Döv" modu 🏏
@@ -529,7 +530,7 @@ class _BeatCardState extends State<_BeatCard>
                   child: Transform.rotate(
                     angle: angle,
                     alignment: Alignment.bottomRight,
-                    child: const Text('🏏', style: TextStyle(fontSize: 76)),
+                    child: _batArt(),
                   ),
                 ),
               ],
@@ -537,6 +538,20 @@ class _BeatCardState extends State<_BeatCard>
           },
         ),
       ),
+    );
+  }
+
+  /// Sopa görseli: PNG (AppConfig.batImage) varsa onu, yoksa 🏏 emojisini.
+  Widget _batArt() {
+    if (AppConfig.batImage.isEmpty) {
+      return const Text('🏏', style: TextStyle(fontSize: 76));
+    }
+    return Image.asset(
+      AppConfig.batImage,
+      height: AppConfig.batSize,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) =>
+          const Text('🏏', style: TextStyle(fontSize: 76)),
     );
   }
 
