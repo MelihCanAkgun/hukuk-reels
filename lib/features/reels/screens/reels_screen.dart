@@ -5,6 +5,7 @@ import '../../../app/theme.dart';
 import '../../../core/data/questions_data.dart';
 import '../../../core/models/quiz_question.dart';
 import '../../../core/services/audio_service.dart';
+import '../../beat/beat_mode_screen.dart';
 import '../widgets/music_control_panel.dart';
 import '../widgets/question_card.dart';
 
@@ -109,6 +110,13 @@ class _ReelsScreenState extends State<ReelsScreen>
     _pageController.jumpToPage(0);
   }
 
+  void _beatWrong() {
+    if (_wrongQuestions.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BeatModeScreen(questions: List.of(_wrongQuestions)),
+    ));
+  }
+
   Color get _currentAccent => _page < _questions.length
       ? _questions[_page].category.color
       : AppTheme.accent;
@@ -146,6 +154,7 @@ class _ReelsScreenState extends State<ReelsScreen>
                       wrongCount: _wrongQuestions.length,
                       onRestart: _restart,
                       onRetryWrong: _retryWrong,
+                      onBeatWrong: _beatWrong,
                     );
                   }
                   final topInset = MediaQuery.of(context).padding.top + 58;
@@ -346,6 +355,7 @@ class _SummaryCard extends StatelessWidget {
   final int wrongCount;
   final VoidCallback onRestart;
   final VoidCallback onRetryWrong;
+  final VoidCallback onBeatWrong;
 
   const _SummaryCard({
     required this.correct,
@@ -353,6 +363,7 @@ class _SummaryCard extends StatelessWidget {
     required this.wrongCount,
     required this.onRestart,
     required this.onRetryWrong,
+    required this.onBeatWrong,
   });
 
   @override
@@ -427,6 +438,13 @@ class _SummaryCard extends StatelessWidget {
                     onTap: onRetryWrong,
                     primary: false,
                   ),
+                  const SizedBox(height: 12),
+                  _button(
+                    label: 'Yanlış Soruları Döv 🏏 ($wrongCount)',
+                    icon: Icons.sports_cricket_rounded,
+                    onTap: onBeatWrong,
+                    primary: false,
+                  ),
                 ],
               ],
             ),
@@ -462,10 +480,7 @@ class _SummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         decoration: BoxDecoration(
-          gradient: primary
-              ? const LinearGradient(
-                  colors: [Color(0xFF6C8CFF), Color(0xFF8A6CFF)])
-              : null,
+          gradient: primary ? AppTheme.pinkGradient : null,
           color: primary ? null : AppTheme.surfaceHigh,
           borderRadius: BorderRadius.circular(15),
           border: primary
