@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
+import 'core/services/progress_service.dart';
 import 'features/intro/confidence_gate_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Arka plan müziğini hazırla (çalma ilk dokunuşta başlar).
+  // Kalıcı ilerleme deposunu ve müziği hazırla.
+  await ProgressService.instance.init();
   await AudioService.instance.init();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

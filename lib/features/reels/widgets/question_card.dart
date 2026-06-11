@@ -9,12 +9,18 @@ import 'corner_decorations.dart';
 /// sonraki soruya geçer. Uzun açıklamalar alt panelden (tam metin) okunur.
 class QuestionCard extends StatefulWidget {
   final QuizQuestion question;
-  final void Function(bool correct) onAnswered;
+
+  /// (seçilen şık index'i, doğru mu) — kalıcı kayıt için index gerekli.
+  final void Function(int selectedIndex, bool correct) onAnswered;
+
+  /// Kayıtlı oturumdan geri yüklenen seçim (cevaplanmışsa).
+  final int? initialSelected;
 
   const QuestionCard({
     super.key,
     required this.question,
     required this.onAnswered,
+    this.initialSelected,
   });
 
   @override
@@ -23,6 +29,12 @@ class QuestionCard extends StatefulWidget {
 
 class _QuestionCardState extends State<QuestionCard> {
   int? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialSelected;
+  }
 
   bool get _answered => _selected != null;
   bool get _isCorrect => _selected == widget.question.correctIndex;
@@ -34,7 +46,7 @@ class _QuestionCardState extends State<QuestionCard> {
     if (_answered) return;
     setState(() => _selected = index);
     HapticFeedback.lightImpact();
-    widget.onAnswered(index == widget.question.correctIndex);
+    widget.onAnswered(index, index == widget.question.correctIndex);
   }
 
   void _openFullExplanation() {

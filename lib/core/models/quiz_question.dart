@@ -57,11 +57,11 @@ class QuizQuestion {
 
   String get correctAnswer => options[correctIndex];
 
-  /// Şıkları rastgele karıştırılmış bir kopya döndürür; doğru cevabın
-  /// yeni konumu otomatik hesaplanır. Böylece doğru cevap her oturumda
-  /// farklı şıkka denk gelir (A/B/C/D eşit dağılır).
-  QuizQuestion withShuffledOptions(Random rng) {
-    final order = List<int>.generate(options.length, (i) => i)..shuffle(rng);
+  /// Şıkları verilen sırayla dizilmiş bir kopya döndürür; doğru cevabın
+  /// yeni konumu otomatik hesaplanır. Kalıcı oturum geri yüklenirken
+  /// kaydedilmiş sıra buradan uygulanır.
+  QuizQuestion withOptionOrder(List<int> order) {
+    assert(order.length == options.length);
     return QuizQuestion(
       id: id,
       category: category,
@@ -70,5 +70,12 @@ class QuizQuestion {
       correctIndex: order.indexOf(correctIndex),
       explanation: explanation,
     );
+  }
+
+  /// Şıkları rastgele karıştırılmış bir kopya döndürür. Böylece doğru
+  /// cevap her oturumda farklı şıkka denk gelir (A/B/C/D eşit dağılır).
+  QuizQuestion withShuffledOptions(Random rng) {
+    final order = List<int>.generate(options.length, (i) => i)..shuffle(rng);
+    return withOptionOrder(order);
   }
 }

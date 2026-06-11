@@ -62,6 +62,8 @@ class CornerDecorations extends StatelessWidget {
             width: size,
             height: size,
             fit: BoxFit.contain,
+            // Büyük PNG'ler küçük çözünürlükte decode edilsin (bellek + hız).
+            cacheWidth: 360,
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
         ),
