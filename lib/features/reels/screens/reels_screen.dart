@@ -2,16 +2,25 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../app/theme.dart';
-import '../../../core/data/questions_data.dart';
 import '../../../core/models/quiz_question.dart';
 import '../../../core/services/audio_service.dart';
+import '../../../core/services/progress_service.dart';
 import '../../beat/beat_mode_screen.dart';
+import '../../profile/profile_settings_screen.dart';
 import '../widgets/music_control_panel.dart';
 import '../widgets/question_card.dart';
 
 /// Dikey kaydırmalı soru çözme ekranı (reels formatı).
+///
+/// İki mod:
+///  • Ana mod: havuzdan rastgele [ProgressService.testSize] soruluk test.
+///    İlerleme cihaza kaydedilir — uygulamadan çıkıp girince kaldığın
+///    yerden devam edersin. Çözülen sorular sonraki testlerde gelmez.
+///  • Tekrar modu ([retryQuestions] verilirse): yanlışları yeniden çözmek
+///    için geçici tur; hiçbir şey kaydedilmez, üst barda geri oku olur.
 class ReelsScreen extends StatefulWidget {
-  const ReelsScreen({super.key});
+  final List<QuizQuestion>? retryQuestions;
+  const ReelsScreen({super.key, this.retryQuestions});
 
   @override
   State<ReelsScreen> createState() => _ReelsScreenState();
@@ -19,35 +28,78 @@ class ReelsScreen extends StatefulWidget {
 
 class _ReelsScreenState extends State<ReelsScreen>
     with WidgetsBindingObserver {
-  final _pageController = PageController();
   final _audio = AudioService.instance;
+  final _progress = ProgressService.instance;
   final _rng = Random();
 
-  late List<QuizQuestion> _questions;
-  final Set<int> _answered = {};
-  final List<QuizQuestion> _wrongQuestions = [];
-  int _correct = 0;
+  PageController? _pageController;
+  List<QuizQuestion> _questions = [];
+  final Map<int, int> _answers = {}; // soru index -> seçilen şık index
   int _page = 0;
   int _deckId = 0;
+  bool _loading = true;
   bool _audioStarted = false;
   bool _showMusicPanel = false;
+
+  bool get _isRetry => widget.retryQuestions != null;
+
+  int get _correct {
+    var c = 0;
+    _answers.forEach((i, sel) {
+      if (sel == _questions[i].correctIndex) c++;
+    });
+    return c;
+  }
+
+  List<QuizQuestion> get _wrongQuestions => [
+        for (final e in _answers.entries)
+          if (e.value != _questions[e.key].correctIndex) _questions[e.key],
+      ];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _questions = _buildDeck();
+    _init();
   }
 
-  List<QuizQuestion> _buildDeck() =>
-      kQuestions.map((q) => q.withShuffledOptions(_rng)).toList()
+  Future<void> _init() async {
+    if (_isRetry) {
+      _questions = widget.retryQuestions!
+          .map((q) => q.withShuffledOptions(_rng))
+          .toList()
         ..shuffle(_rng);
+      _pageController = PageController();
+      setState(() => _loading = false);
+      return;
+    }
+    await _progress.init();
+    // Kayıtlı oturum varsa kaldığı yerden; yoksa yeni test.
+    var session = _progress.loadSession();
+    session ??= await _progress.startNewTest(_rng);
+    if (!mounted) return;
+    if (session == null) {
+      // Havuzdaki her şey çözülmüş ve aktif oturum yok.
+      _questions = [];
+      _pageController = PageController();
+      setState(() => _loading = false);
+      return;
+    }
+    _questions = session.questions;
+    _answers
+      ..clear()
+      ..addAll(session.answers);
+    _page = session.page.clamp(0, _questions.length);
+    _pageController = PageController(initialPage: _page);
+    setState(() => _loading = false);
+  }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pageController.dispose();
-    _audio.pauseForLifecycle();
+    _pageController?.dispose();
+    // Tekrar modundan çıkarken müzik kesilmesin (ana ekran devam ediyor).
+    if (!_isRetry) _audio.pauseForLifecycle();
     super.dispose();
   }
 
@@ -67,47 +119,54 @@ class _ReelsScreenState extends State<ReelsScreen>
     _audio.start();
   }
 
-  void _onAnswered(int index, bool correct) {
-    if (_answered.contains(index)) return;
-    setState(() {
-      _answered.add(index);
-      if (correct) {
-        _correct++;
-      } else {
-        _wrongQuestions.add(_questions[index]);
-      }
-    });
+  void _onAnswered(int index, int selected, bool correct) {
+    if (_answers.containsKey(index)) return;
+    setState(() => _answers[index] = selected);
+    if (!_isRetry) {
+      final q = _questions[index];
+      _progress.recordAnswer(q.id, correct);
+      _progress.saveAnswer(q.id, selected);
+    }
   }
 
-  void _restart() {
+  /// Havuzdan (çözülmemişler) yeni bir test başlatır.
+  Future<void> _startNextTest() async {
+    final session = await _progress.startNewTest(_rng);
+    if (!mounted) return;
     setState(() {
       _deckId++;
-      _questions = _buildDeck();
-      _wrongQuestions.clear();
-      _answered.clear();
-      _correct = 0;
+      _questions = session?.questions ?? [];
+      _answers.clear();
       _page = 0;
     });
-    _pageController.jumpToPage(0);
+    if (_questions.isNotEmpty) _pageController?.jumpToPage(0);
   }
 
-  /// Sadece yanlış çözülen soruları, cevapları kapalı (yeniden çözülebilir)
-  /// şekilde tekrar dizer.
+  Future<void> _resetPoolAndStart() async {
+    await _progress.resetPool();
+    await _startNextTest();
+  }
+
+  /// Tekrar modunda desteyi yeniden karıştırır.
+  void _reshuffleRetry() {
+    setState(() {
+      _deckId++;
+      _questions = widget.retryQuestions!
+          .map((q) => q.withShuffledOptions(_rng))
+          .toList()
+        ..shuffle(_rng);
+      _answers.clear();
+      _page = 0;
+    });
+    _pageController?.jumpToPage(0);
+  }
+
   void _retryWrong() {
-    if (_wrongQuestions.isEmpty) return;
-    final retry = _wrongQuestions
-        .map((q) => q.withShuffledOptions(_rng))
-        .toList()
-      ..shuffle(_rng);
-    setState(() {
-      _deckId++;
-      _questions = retry;
-      _wrongQuestions.clear();
-      _answered.clear();
-      _correct = 0;
-      _page = 0;
-    });
-    _pageController.jumpToPage(0);
+    final wrong = List.of(_wrongQuestions);
+    if (wrong.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ReelsScreen(retryQuestions: wrong),
+    ));
   }
 
   void _beatWrong() {
@@ -117,12 +176,39 @@ class _ReelsScreenState extends State<ReelsScreen>
     ));
   }
 
+  Future<void> _openProfile() async {
+    final res = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ProfileSettingsScreen()),
+    );
+    if (!mounted) return;
+    if (res == 'poolReset') {
+      await _startNextTest();
+    } else {
+      setState(() {}); // sayaçlar tazelensin
+    }
+  }
+
   Color get _currentAccent => _page < _questions.length
       ? _questions[_page].category.color
       : AppTheme.accent;
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return Scaffold(
+        backgroundColor: AppTheme.bg,
+        body: Container(
+          decoration:
+              const BoxDecoration(gradient: AppTheme.backgroundGradient),
+          child: const Center(
+            child: CircularProgressIndicator(color: AppTheme.accent),
+          ),
+        ),
+      );
+    }
+
+    if (_questions.isEmpty && !_isRetry) return _poolDoneScaffold();
+
     final total = _questions.length;
     final onSummary = _page >= total;
     final progress = total == 0 ? 0.0 : (_page.clamp(0, total)) / total;
@@ -133,7 +219,8 @@ class _ReelsScreenState extends State<ReelsScreen>
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => _startAudioOnce(),
         child: Container(
-          decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+          decoration:
+              const BoxDecoration(gradient: AppTheme.backgroundGradient),
           child: Stack(
             children: [
               // ── Soru sayfaları (köşe görselleri kartın içinde) ──
@@ -145,22 +232,26 @@ class _ReelsScreenState extends State<ReelsScreen>
                 onPageChanged: (i) {
                   setState(() => _page = i);
                   HapticFeedback.selectionClick();
+                  if (!_isRetry) _progress.savePage(i);
                 },
                 itemBuilder: (context, index) {
                   if (index >= total) {
                     return _SummaryCard(
                       correct: _correct,
-                      total: total,
+                      answered: _answers.length,
                       wrongCount: _wrongQuestions.length,
-                      onRestart: _restart,
+                      isRetry: _isRetry,
+                      remaining: _isRetry ? 0 : _progress.unsolvedCount,
+                      onNextTest: _startNextTest,
+                      onResetPool: _resetPoolAndStart,
+                      onReshuffleRetry: _reshuffleRetry,
                       onRetryWrong: _retryWrong,
                       onBeatWrong: _beatWrong,
                     );
                   }
                   final topInset = MediaQuery.of(context).padding.top + 58;
                   // Geniş ekranlarda kartı ortala ve max 480px tut; mobilde
-                  // tam genişlik. SizedBox tight boyut verir (yükseklik bozulmaz,
-                  // dar ekranda taşma olmaz).
+                  // tam genişlik (tight SizedBox: taşma/yükseklik sorunu yok).
                   return Padding(
                     padding: EdgeInsets.only(top: topInset),
                     child: LayoutBuilder(
@@ -171,9 +262,12 @@ class _ReelsScreenState extends State<ReelsScreen>
                             width: w,
                             height: c.maxHeight,
                             child: QuestionCard(
-                              key: ValueKey('${_deckId}_${_questions[index].id}'),
+                              key: ValueKey(
+                                  '${_deckId}_${_questions[index].id}'),
                               question: _questions[index],
-                              onAnswered: (c) => _onAnswered(index, c),
+                              initialSelected: _answers[index],
+                              onAnswered: (sel, ok) =>
+                                  _onAnswered(index, sel, ok),
                             ),
                           ),
                         );
@@ -183,7 +277,7 @@ class _ReelsScreenState extends State<ReelsScreen>
                 },
               ),
 
-              // ── Üst bar: ilerleme + skor + müzik ──
+              // ── Üst bar: ilerleme + skor + profil + müzik ──
               Positioned(
                 top: 0,
                 left: 0,
@@ -191,9 +285,14 @@ class _ReelsScreenState extends State<ReelsScreen>
                 child: _TopBar(
                   progress: progress,
                   accent: _currentAccent,
-                  label: onSummary ? 'Bitti 🎉' : '${_page + 1} / $total',
+                  label: onSummary
+                      ? 'Bitti 🎉'
+                      : '${_page + 1} / $total${_isRetry ? '  ·  Tekrar' : ''}',
                   correct: _correct,
-                  answered: _answered.length,
+                  answered: _answers.length,
+                  showBack: _isRetry,
+                  onBack: () => Navigator.of(context).maybePop(),
+                  onProfile: _openProfile,
                   showMusic: _audio.hasTracks,
                   musicOpen: _showMusicPanel,
                   onMusicTap: () =>
@@ -223,15 +322,141 @@ class _ReelsScreenState extends State<ReelsScreen>
       ),
     );
   }
+
+  /// Havuz tamamen bitmiş ve aktif oturum yokken gösterilen ekran.
+  Widget _poolDoneScaffold() {
+    return Scaffold(
+      backgroundColor: AppTheme.bg,
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              Positioned(
+                top: 6,
+                right: 12,
+                child: _CircleIconButton(
+                  icon: Icons.person_rounded,
+                  color: AppTheme.accent,
+                  onTap: _openProfile,
+                ),
+              ),
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('🏆', style: TextStyle(fontSize: 60)),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Havuzdaki tüm soruları çözdün!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary,
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Yeni sorular eklenene kadar havuzu sıfırlayıp '
+                        'baştan çözebilirsin. İstatistiklerin korunur.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          color: AppTheme.textSecondary,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 26),
+                      GestureDetector(
+                        onTap: _resetPoolAndStart,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 26, vertical: 15),
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.pinkGradient,
+                            borderRadius: BorderRadius.circular(15),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    AppTheme.accent.withValues(alpha: 0.4),
+                                blurRadius: 18,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.restart_alt_rounded,
+                                  color: Colors.white, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Havuzu Sıfırla & Yeni Test',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-/// Üst bilgi çubuğu: ince ilerleme çizgisi, soru sayacı, skor ve müzik.
+/// Üst bardaki küçük yuvarlak ikon butonu.
+class _CircleIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  const _CircleIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: AppTheme.surfaceHigh,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Icon(icon, color: color, size: 18),
+      ),
+    );
+  }
+}
+
+/// Üst bilgi çubuğu: ince ilerleme çizgisi, soru sayacı, skor, profil, müzik.
 class _TopBar extends StatelessWidget {
   final double progress;
   final Color accent;
   final String label;
   final int correct;
   final int answered;
+  final bool showBack;
+  final VoidCallback onBack;
+  final VoidCallback onProfile;
   final bool showMusic;
   final bool musicOpen;
   final VoidCallback onMusicTap;
@@ -242,6 +467,9 @@ class _TopBar extends StatelessWidget {
     required this.label,
     required this.correct,
     required this.answered,
+    required this.showBack,
+    required this.onBack,
+    required this.onProfile,
     required this.showMusic,
     required this.musicOpen,
     required this.onMusicTap,
@@ -266,6 +494,14 @@ class _TopBar extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (showBack) ...[
+                _CircleIconButton(
+                  icon: Icons.arrow_back_rounded,
+                  color: AppTheme.textPrimary,
+                  onTap: onBack,
+                ),
+                const SizedBox(width: 10),
+              ],
               Text(
                 label,
                 style: const TextStyle(
@@ -277,7 +513,8 @@ class _TopBar extends StatelessWidget {
               const Spacer(),
               // Skor
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppTheme.surfaceHigh,
                   borderRadius: BorderRadius.circular(30),
@@ -299,6 +536,12 @@ class _TopBar extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              _CircleIconButton(
+                icon: Icons.person_rounded,
+                color: AppTheme.accent,
+                onTap: onProfile,
               ),
               if (showMusic) ...[
                 const SizedBox(width: 8),
@@ -351,30 +594,42 @@ class _TopBar extends StatelessWidget {
 /// Test bitince gösterilen özet kartı.
 class _SummaryCard extends StatelessWidget {
   final int correct;
-  final int total;
+  final int answered;
   final int wrongCount;
-  final VoidCallback onRestart;
+  final bool isRetry;
+  final int remaining; // havuzda kalan çözülmemiş soru sayısı
+  final VoidCallback onNextTest;
+  final VoidCallback onResetPool;
+  final VoidCallback onReshuffleRetry;
   final VoidCallback onRetryWrong;
   final VoidCallback onBeatWrong;
 
   const _SummaryCard({
     required this.correct,
-    required this.total,
+    required this.answered,
     required this.wrongCount,
-    required this.onRestart,
+    required this.isRetry,
+    required this.remaining,
+    required this.onNextTest,
+    required this.onResetPool,
+    required this.onReshuffleRetry,
     required this.onRetryWrong,
     required this.onBeatWrong,
   });
 
   @override
   Widget build(BuildContext context) {
-    final pct = total == 0 ? 0 : (correct / total * 100).round();
-    final (emoji, msg) = switch (pct) {
-      >= 85 => ('🏆', 'Finali geçtin gitti!'),
-      >= 60 => ('💪', 'İyi gidiyorsun, biraz daha tekrar.'),
-      >= 40 => ('📚', 'Eksikler var, açıklamaları çalış.'),
-      _ => ('🔁', 'Baştan tur atmakta fayda var.'),
-    };
+    final pct = answered == 0 ? 0 : (correct / answered * 100).round();
+    final (emoji, msg) = answered == 0
+        ? ('🤔', 'Hiç soru çözmeden sona geldin!')
+        : switch (pct) {
+            >= 85 => ('🏆', 'Finali geçtin gitti!'),
+            >= 60 => ('💪', 'İyi gidiyorsun, biraz daha tekrar.'),
+            >= 40 => ('📚', 'Eksikler var, açıklamaları çalış.'),
+            _ => ('🔁', 'Baştan tur atmakta fayda var.'),
+          };
+    final nextSize =
+        remaining < ProgressService.testSize ? remaining : ProgressService.testSize;
 
     return Stack(
       children: [
@@ -386,9 +641,9 @@ class _SummaryCard extends StatelessWidget {
               children: [
                 Text(emoji, style: const TextStyle(fontSize: 64)),
                 const SizedBox(height: 20),
-                const Text(
-                  'Test Tamamlandı',
-                  style: TextStyle(
+                Text(
+                  isRetry ? 'Tekrar Turu Bitti' : 'Test Tamamlandı',
+                  style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.textPrimary,
@@ -405,8 +660,8 @@ class _SummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 28, vertical: 20),
                   decoration: BoxDecoration(
                     color: AppTheme.surface,
                     borderRadius: BorderRadius.circular(20),
@@ -424,12 +679,38 @@ class _SummaryCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 28),
-                _button(
-                  label: 'Yeniden Karıştır',
-                  icon: Icons.refresh_rounded,
-                  onTap: onRestart,
-                  primary: true,
-                ),
+                if (isRetry)
+                  _button(
+                    label: 'Tekrar Karıştır',
+                    icon: Icons.refresh_rounded,
+                    onTap: onReshuffleRetry,
+                    primary: true,
+                  )
+                else if (remaining > 0)
+                  _button(
+                    label: 'Sıradaki Test ($nextSize soru)',
+                    icon: Icons.arrow_forward_rounded,
+                    onTap: onNextTest,
+                    primary: true,
+                  )
+                else ...[
+                  const Text(
+                    '🎉 Havuzdaki tüm soruları çözdün!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _button(
+                    label: 'Havuzu Sıfırla & Yeni Test',
+                    icon: Icons.restart_alt_rounded,
+                    onTap: onResetPool,
+                    primary: true,
+                  ),
+                ],
                 if (wrongCount > 0) ...[
                   const SizedBox(height: 12),
                   _button(
@@ -499,13 +780,14 @@ class _SummaryCard extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: primary ? Colors.white : AppTheme.accent, size: 20),
+            Icon(icon,
+                color: primary ? Colors.white : AppTheme.accent, size: 20),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
                 color: primary ? Colors.white : AppTheme.textPrimary,
-                fontSize: 15,
+                fontSize: 15.5,
                 fontWeight: FontWeight.w700,
               ),
             ),

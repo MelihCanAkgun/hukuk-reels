@@ -164,7 +164,9 @@ class _BeatCardState extends State<_BeatCard>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   static const int kHitsNeeded = 10;
 
-  final List<Offset> _cracks = [];
+  // Çatlak çizgileri vuruş ANINDA bir kez hesaplanır (her karede yeniden
+  // üretilmez) — performans için kritik.
+  final List<({Offset a, Offset b})> _crackSegs = [];
   int _hits = 0;
   int? _selected; // pes ettikten sonra seçilen (zorla doğru) şık
   Offset _lastHit = Offset.zero;
@@ -214,12 +216,40 @@ class _BeatCardState extends State<_BeatCard>
     setState(() {
       _hits++;
       _lastHit = pos;
-      _cracks.add(pos);
+      _addCrackAt(pos);
     });
     HapticFeedback.heavyImpact();
     _shake.forward(from: 0);
     _bat.forward(from: 0);
     if (_hits == kHitsNeeded) _onDefeated();
+  }
+
+  /// Vuruş noktasından yayılan cam çatlağı çizgilerini üretir (tek seferlik).
+  void _addCrackAt(Offset p) {
+    final rnd = Random((p.dx * 53 + p.dy * 17).toInt());
+    final spokes = 5 + rnd.nextInt(4);
+    final ends = <Offset>[];
+    for (var i = 0; i < spokes; i++) {
+      final ang = (i / spokes) * 2 * pi + rnd.nextDouble() * 0.7;
+      final len = 26 + rnd.nextDouble() * 78;
+      final segs = 2 + rnd.nextInt(2);
+      var cur = p;
+      for (var s = 0; s < segs; s++) {
+        final na = ang + (rnd.nextDouble() - 0.5) * 0.55;
+        final next = cur + Offset(cos(na), sin(na)) * (len / segs);
+        _crackSegs.add((a: cur, b: next));
+        cur = next;
+      }
+      ends.add(cur);
+    }
+    // Halka (örümcek ağı) bağlantıları
+    for (var i = 0; i < ends.length; i++) {
+      if (rnd.nextBool()) {
+        final s1 = Offset.lerp(p, ends[i], 0.55)!;
+        final s2 = Offset.lerp(p, ends[(i + 1) % ends.length], 0.55)!;
+        _crackSegs.add((a: s1, b: s2));
+      }
+    }
   }
 
   void _onDefeated() {
@@ -241,7 +271,10 @@ class _BeatCardState extends State<_BeatCard>
         questionNo: widget.index + 1,
         onAccept: () {
           Navigator.of(ctx).pop();
-          setState(() => _apologyAccepted = true);
+          setState(() {
+            _apologyAccepted = true;
+            _crackSegs.clear();
+          });
         },
         onDecline: () => Navigator.of(ctx).pop(),
       ),
@@ -277,12 +310,16 @@ class _BeatCardState extends State<_BeatCard>
         final dy = cos(t * pi * 9) * 7 * decay;
         return Transform.translate(offset: Offset(dx, dy), child: child);
       },
-      child: Stack(
-        children: [
-          _card(),
-          _batWidget(),
-          if (_showResist) _resistBubble(),
-        ],
+      // RepaintBoundary: sarsıntı sırasında kart içeriği yeniden boyanmaz,
+      // önbelleğe alınmış katman sadece taşınır.
+      child: RepaintBoundary(
+        child: Stack(
+          children: [
+            _card(),
+            _batWidget(),
+            if (_showResist) _resistBubble(),
+          ],
+        ),
       ),
     );
   }
@@ -354,7 +391,12 @@ class _BeatCardState extends State<_BeatCard>
             if (!(_isFirst && _apologyAccepted))
               Positioned.fill(
                 child: IgnorePointer(
-                  child: CustomPaint(painter: _CrackPainter(_cracks)),
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      isComplex: true,
+                      painter: _CrackPainter(_crackSegs),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -575,41 +617,46 @@ class _BeatCardState extends State<_BeatCard>
   Widget _batWidget() {
     return Positioned.fill(
       child: IgnorePointer(
-        child: AnimatedBuilder(
-          animation: _bat,
-          builder: (context, _) {
-            final t = _bat.value;
-            final swing = sin(t * pi); // 0→1→0
-            final angle = -0.5 + 1.2 * swing; // havadan aşağı iner
-            return Stack(
-              children: [
-                // Vuruş patlaması (son vuruş noktasında)
-                if (t > 0 && t < 1 && !_defeated)
-                  Positioned(
-                    left: _lastHit.dx - 30,
-                    top: _lastHit.dy - 30,
-                    child: Opacity(
-                      opacity: (1 - t).clamp(0.0, 1.0),
-                      child: Transform.scale(
-                        scale: 0.6 + swing * 0.9,
-                        child: const Text('💥',
-                            style: TextStyle(fontSize: 52)),
+        // RepaintBoundary: sopanın salınımı yalnızca kendi katmanını boyar.
+        child: RepaintBoundary(
+          child: AnimatedBuilder(
+            animation: _bat,
+            // Sopa görseli her karede yeniden oluşturulmasın diye child.
+            child: _batArt(),
+            builder: (context, batChild) {
+              final t = _bat.value;
+              final swing = sin(t * pi); // 0→1→0
+              final angle = -0.5 + 1.2 * swing; // havadan aşağı iner
+              return Stack(
+                children: [
+                  // Vuruş patlaması (son vuruş noktasında)
+                  if (t > 0 && t < 1 && !_defeated)
+                    Positioned(
+                      left: _lastHit.dx - 30,
+                      top: _lastHit.dy - 30,
+                      child: Opacity(
+                        opacity: (1 - t).clamp(0.0, 1.0),
+                        child: Transform.scale(
+                          scale: 0.6 + swing * 0.9,
+                          child: const Text('💥',
+                              style: TextStyle(fontSize: 52)),
+                        ),
                       ),
                     ),
+                  // Sopa (sağ alt köşede salınır)
+                  Positioned(
+                    right: 6,
+                    bottom: 8,
+                    child: Transform.rotate(
+                      angle: angle,
+                      alignment: Alignment.bottomRight,
+                      child: batChild,
+                    ),
                   ),
-                // Sopa (sağ alt köşede salınır)
-                Positioned(
-                  right: 6,
-                  bottom: 8,
-                  child: Transform.rotate(
-                    angle: angle,
-                    alignment: Alignment.bottomRight,
-                    child: _batArt(),
-                  ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -655,10 +702,13 @@ class _BeatCardState extends State<_BeatCard>
   }
 }
 
-/// Vuruş noktalarından yayılan cam çatlağı efekti.
+/// Önceden hesaplanmış çatlak çizgilerini çizer. Üretim _addCrackAt'te bir
+/// kez yapılır; burada yalnızca hazır segmentler çizilir (her karede rastgele
+/// yürüyüş üretilmez) — bu, döv modundaki kasmanın ana çözümlerinden biri.
 class _CrackPainter extends CustomPainter {
-  final List<Offset> points;
-  _CrackPainter(this.points);
+  final List<({Offset a, Offset b})> segments;
+  final int count;
+  _CrackPainter(this.segments) : count = segments.length;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -672,58 +722,52 @@ class _CrackPainter extends CustomPainter {
       ..strokeWidth = 2.4
       ..style = PaintingStyle.stroke;
 
-    for (final p in points) {
-      final rnd = Random((p.dx * 53 + p.dy * 17).toInt());
-      final spokes = 5 + rnd.nextInt(4);
-      final ends = <Offset>[];
-      for (var i = 0; i < spokes; i++) {
-        final ang = (i / spokes) * 2 * pi + rnd.nextDouble() * 0.7;
-        final len = 26 + rnd.nextDouble() * 78;
-        final segs = 2 + rnd.nextInt(2);
-        var cur = p;
-        for (var s = 0; s < segs; s++) {
-          final na = ang + (rnd.nextDouble() - 0.5) * 0.55;
-          final next = cur + Offset(cos(na), sin(na)) * (len / segs);
-          canvas.drawLine(cur, next, faint);
-          canvas.drawLine(cur, next, line);
-          cur = next;
-        }
-        ends.add(cur);
-      }
-      // Halka (örümcek ağı) bağlantıları
-      for (var i = 0; i < ends.length; i++) {
-        if (rnd.nextBool()) {
-          final a = Offset.lerp(p, ends[i], 0.55)!;
-          final b = Offset.lerp(p, ends[(i + 1) % ends.length], 0.55)!;
-          canvas.drawLine(a, b, line);
-        }
-      }
+    for (final s in segments) {
+      canvas.drawLine(s.a, s.b, faint);
+      canvas.drawLine(s.a, s.b, line);
     }
   }
 
   @override
-  bool shouldRepaint(_CrackPainter old) => old.points.length != points.length;
+  bool shouldRepaint(_CrackPainter old) => old.count != count;
 }
 
 /// Yoğunluğa (0..1) göre harfleri dağıtan metin. Kelimeler satırda bütün
-/// kalır; her harf ayrı ayrı uçar.
+/// kalır; her harf ayrı yöne uçar.
+///
+/// Performans: harf başına ayrı animatör YOK — yoğunluğu tek bir
+/// TweenAnimationBuilder sürer, harfler ondan türetilen statik Transform'lar
+/// alır. Solma da Opacity widget'ı (saveLayer) yerine metin renginin
+/// alfasıyla yapılır.
 class _ShatterText extends StatelessWidget {
   final String text;
   final double intensity;
   const _ShatterText({required this.text, required this.intensity});
 
+  static const _style = TextStyle(
+    fontSize: 19,
+    height: 1.4,
+    fontWeight: FontWeight.w700,
+    color: AppTheme.textPrimary,
+  );
+
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(
-      fontSize: 19,
-      height: 1.4,
-      fontWeight: FontWeight.w700,
-      color: AppTheme.textPrimary,
-    );
-
     if (intensity <= 0) {
-      return Text(text, style: style);
+      return Text(text, style: _style);
     }
+    return TweenAnimationBuilder<double>(
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOut,
+      tween: Tween(end: intensity),
+      builder: (context, v, _) => _scattered(v),
+    );
+  }
+
+  Widget _scattered(double v) {
+    final color = AppTheme.textPrimary
+        .withValues(alpha: (1 - v * 0.85).clamp(0.0, 1.0));
+    final style = _style.copyWith(color: color);
 
     final words = text.split(' ');
     var charIndex = 0;
@@ -736,53 +780,24 @@ class _ShatterText extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final ch in word.split(''))
-                _ShatterChar(
-                  ch: ch,
-                  seed: charIndex++,
-                  intensity: intensity,
-                  style: style,
-                ),
+                _char(ch, charIndex++, v, style),
             ],
           ),
       ],
     );
   }
-}
 
-class _ShatterChar extends StatelessWidget {
-  final String ch;
-  final int seed;
-  final double intensity;
-  final TextStyle style;
-  const _ShatterChar({
-    required this.ch,
-    required this.seed,
-    required this.intensity,
-    required this.style,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _char(String ch, int seed, double v, TextStyle style) {
     final rnd = Random(seed * 9973 + ch.codeUnitAt(0));
     final dirX = rnd.nextDouble() * 2 - 1;
     final dirY = rnd.nextDouble() * 2 - 1;
-    final rot = (rnd.nextDouble() * 2 - 1);
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOut,
-      tween: Tween(end: intensity),
-      builder: (context, v, child) {
-        final dx = dirX * 46 * v;
-        final dy = dirY * 26 * v + v * v * 34; // hafifçe aşağı düşsün
-        return Opacity(
-          opacity: (1 - v * 0.85).clamp(0.0, 1.0),
-          child: Transform.translate(
-            offset: Offset(dx, dy),
-            child: Transform.rotate(angle: rot * 1.1 * v, child: child),
-          ),
-        );
-      },
-      child: Text(ch, style: style),
+    final rot = rnd.nextDouble() * 2 - 1;
+    return Transform.translate(
+      offset: Offset(dirX * 46 * v, dirY * 26 * v + v * v * 34),
+      child: Transform.rotate(
+        angle: rot * 1.1 * v,
+        child: Text(ch, style: style),
+      ),
     );
   }
 }

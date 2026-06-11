@@ -201,6 +201,16 @@ file:///Users/mqcan/.pub-cache/hosted/pub.dev/rxdart-0.28.0/lib/streams.dart
 file:///Users/mqcan/.pub-cache/hosted/pub.dev/rxdart-0.28.0/lib/subjects.dart
 file:///Users/mqcan/.pub-cache/hosted/pub.dev/rxdart-0.28.0/lib/transformers.dart
 file:///Users/mqcan/.pub-cache/hosted/pub.dev/rxdart-0.28.0/lib/utils.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences-2.5.5/lib/shared_preferences.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences-2.5.5/lib/src/shared_preferences_async.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences-2.5.5/lib/src/shared_preferences_devtools_extension_data.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences-2.5.5/lib/src/shared_preferences_legacy.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences_platform_interface-2.4.2/lib/method_channel_shared_preferences.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences_platform_interface-2.4.2/lib/shared_preferences_async_platform_interface.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences_platform_interface-2.4.2/lib/shared_preferences_platform_interface.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences_platform_interface-2.4.2/lib/types.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences_web-2.4.3/lib/shared_preferences_web.dart
+file:///Users/mqcan/.pub-cache/hosted/pub.dev/shared_preferences_web-2.4.3/lib/src/keys_extension.dart
 file:///Users/mqcan/.pub-cache/hosted/pub.dev/synchronized-3.4.0/lib/src/basic_lock.dart
 file:///Users/mqcan/.pub-cache/hosted/pub.dev/synchronized-3.4.0/lib/src/lock_extension.dart
 file:///Users/mqcan/.pub-cache/hosted/pub.dev/synchronized-3.4.0/lib/src/multi_lock.dart
@@ -444,8 +454,10 @@ file:///Users/mqcan/hukuk_reels/lib/core/config/app_config.dart
 file:///Users/mqcan/hukuk_reels/lib/core/data/questions_data.dart
 file:///Users/mqcan/hukuk_reels/lib/core/models/quiz_question.dart
 file:///Users/mqcan/hukuk_reels/lib/core/services/audio_service.dart
+file:///Users/mqcan/hukuk_reels/lib/core/services/progress_service.dart
 file:///Users/mqcan/hukuk_reels/lib/features/beat/beat_mode_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/intro/confidence_gate_screen.dart
+file:///Users/mqcan/hukuk_reels/lib/features/profile/profile_settings_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/screens/reels_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/widgets/corner_decorations.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/widgets/music_control_panel.dart
