@@ -168,6 +168,12 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     setState(() {});
   }
 
+  void _cancelDrag() {
+    _dragIdx = null;
+    _preview = {};
+    if (mounted) setState(() {});
+  }
+
   void _place(_Piece p, int tr, int tc, int idx) {
     for (final cell in p.cells) {
       _grid[tr + cell[0]][tc + cell[1]] = p.color;
@@ -328,44 +334,25 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
       );
 
   Widget _gridWidget(double size) {
+    // 64 ayrı widget yerine tek CustomPaint — sürükleme akıcı olsun.
     return Container(
       key: _gridKey,
       width: size,
       height: size,
-      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: AppTheme.bgElevated,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
       ),
-      child: Column(
-        children: [
-          for (var r = 0; r < _n; r++)
-            Expanded(
-              child: Row(
-                children: [
-                  for (var c = 0; c < _n; c++)
-                    Expanded(child: _gridCell(r, c)),
-                ],
-              ),
-            ),
-        ],
+      child: RepaintBoundary(
+        child: CustomPaint(
+          size: Size.square(size),
+          painter: _GridPainter(
+            _grid,
+            _preview,
+            _dragIdx != null ? _tray[_dragIdx!]?.color : null,
+          ),
+        ),
       ),
-    );
-  }
-
-  Widget _gridCell(int r, int c) {
-    final filled = _grid[r][c];
-    final isPreview = _preview.contains(r * _n + c);
-    Color? color = filled;
-    double alpha = 1;
-    if (isPreview && _dragIdx != null) {
-      color = _tray[_dragIdx!]!.color;
-      alpha = 0.55;
-    }
-    return Padding(
-      padding: const EdgeInsets.all(1.5),
-      child: _cellBox(color, alpha: alpha),
     );
   }
 
@@ -407,13 +394,21 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
           for (var i = 0; i < 3; i++)
             Expanded(
               child: Center(
-                child: (_tray[i] == null || _dragIdx == i)
+                child: _tray[i] == null
                     ? const SizedBox.shrink()
+                    // ÖNEMLİ: sürükleme başlayınca bu GestureDetector ağaçtan
+                    // kalkmamalı (yoksa onPanUpdate/End hiç tetiklenmez ve parça
+                    // takılı kalır). Sürüklenen parçayı yalnızca soluklaştırıyoruz.
                     : GestureDetector(
+                        behavior: HitTestBehavior.opaque,
                         onPanStart: (d) => _startDrag(i, d.globalPosition),
                         onPanUpdate: (d) => _updateDrag(d.globalPosition),
                         onPanEnd: (_) => _endDrag(),
-                        child: _pieceGrid(_tray[i]!, tc),
+                        onPanCancel: _cancelDrag,
+                        child: Opacity(
+                          opacity: _dragIdx == i ? 0.22 : 1.0,
+                          child: _pieceGrid(_tray[i]!, tc),
+                        ),
                       ),
               ),
             ),
@@ -560,4 +555,63 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
       ),
     );
   }
+}
+
+/// Izgarayı tek seferde çizer (64 widget yerine). Sürükleme sırasında yalnızca
+/// bu boyanır; performans için hafiftir.
+class _GridPainter extends CustomPainter {
+  final List<List<Color?>> grid;
+  final Set<int> preview;
+  final Color? previewColor;
+  _GridPainter(this.grid, this.preview, this.previewColor);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cell = size.width / _n;
+    const gap = 3.0;
+    final empty = Paint()..color = AppTheme.surface.withValues(alpha: 0.5);
+    final radius = Radius.circular(cell * 0.16);
+
+    for (var r = 0; r < _n; r++) {
+      for (var c = 0; c < _n; c++) {
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+              c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap),
+          radius,
+        );
+        Color? col = grid[r][c];
+        var alpha = 1.0;
+        if (previewColor != null && preview.contains(r * _n + c)) {
+          col = previewColor;
+          alpha = 0.5;
+        }
+        if (col == null) {
+          canvas.drawRRect(rect, empty);
+          continue;
+        }
+        canvas.drawRRect(
+          rect,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color.lerp(col, Colors.white, 0.25)!.withValues(alpha: alpha),
+                col.withValues(alpha: alpha),
+              ],
+            ).createShader(rect.outerRect),
+        );
+        canvas.drawRRect(
+          rect,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = Colors.white.withValues(alpha: 0.18 * alpha),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GridPainter old) => true;
 }
