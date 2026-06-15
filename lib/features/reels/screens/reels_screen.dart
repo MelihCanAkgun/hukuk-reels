@@ -98,17 +98,17 @@ class _ReelsScreenState extends State<ReelsScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _pageController?.dispose();
-    // Tekrar modundan çıkarken müzik kesilmesin (ana ekran devam ediyor).
-    if (!_isRetry) _audio.pauseForLifecycle();
+    // Müziği burada DURDURMUYORUZ — kullanıcı uygulamadan çıksa/başka
+    // ekrana geçse bile arka planda çalmaya devam etsin.
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused ||
-        state == AppLifecycleState.inactive) {
-      _audio.pauseForLifecycle();
-    } else if (state == AppLifecycleState.resumed) {
+    // Arka plana geçince müziği KESMİYORUZ (kullanıcı isteği: dışarı
+    // çıkınca bile çalsın). Yalnızca öne dönünce, tarayıcı kendisi
+    // duraklatmışsa devam ettir.
+    if (state == AppLifecycleState.resumed) {
       _audio.resumeForLifecycle();
     }
   }

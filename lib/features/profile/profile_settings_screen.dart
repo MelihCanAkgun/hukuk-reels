@@ -4,6 +4,7 @@ import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/progress_service.dart';
+import '../game/flappy_cat_screen.dart';
 import '../intro/confidence_gate_screen.dart';
 
 /// Profil (doğru/yanlış istatistikleri) + Ayarlar (sıfırlama) ekranı.
@@ -79,6 +80,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     _successCard(pct, totC, totW, totA),
                     const SizedBox(height: 12),
                     _poolCard(solvedInPool),
+                    const SizedBox(height: 12),
+                    _gameCard(),
                     const SizedBox(height: 22),
                     _sectionHeader('❌  Yanlış Yaptıkların', wrongOnes.length,
                         AppTheme.danger),
@@ -421,6 +424,71 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _gameCard() {
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const FlappyCatScreen()),
+        );
+        if (mounted) setState(() {}); // dönüşte rekor güncellensin
+      },
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF3A1E30), Color(0xFF2A1521)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.45)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.accent, width: 2),
+                image: const DecorationImage(
+                  image: AssetImage('assets/images/SHINY_Cuh.png'),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '🎮 Canın mı sıkıldı?',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    'Flappy Silly Cat oyna  ·  Rekor: ${_progress.flappyHigh}',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.play_circle_fill_rounded,
+                color: AppTheme.accent, size: 32),
+          ],
+        ),
       ),
     );
   }
