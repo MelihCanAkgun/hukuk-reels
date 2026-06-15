@@ -39,6 +39,7 @@ class ProgressService {
   static const _kStats = 'stats_v1';
   static const _kSolved = 'solved_v1';
   static const _kSession = 'session_v1';
+  static const _kFlappyHigh = 'flappy_high_v1';
 
   SharedPreferences? _prefs;
 
@@ -103,6 +104,17 @@ class ProgressService {
     );
     final solved = solvedIds..add(id);
     await p.setStringList(_kSolved, solved.toList());
+  }
+
+  // ───────────────────────── Flappy Cat ─────────────────────────
+
+  int get flappyHigh => _prefs?.getInt(_kFlappyHigh) ?? 0;
+
+  /// Yeni skor rekoru ise kaydeder ve rekor mu olduğunu döndürür.
+  Future<bool> submitFlappyScore(int score) async {
+    if (score <= flappyHigh) return false;
+    await _prefs?.setInt(_kFlappyHigh, score);
+    return true;
   }
 
   // ───────────────────────── Oturum ─────────────────────────
@@ -189,5 +201,6 @@ class ProgressService {
     await _prefs?.remove(_kStats);
     await _prefs?.remove(_kSolved);
     await _prefs?.remove(_kSession);
+    await _prefs?.remove(_kFlappyHigh);
   }
 }
