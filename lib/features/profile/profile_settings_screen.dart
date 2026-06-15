@@ -4,6 +4,7 @@ import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/progress_service.dart';
+import '../game/block_blast_screen.dart';
 import '../game/flappy_cat_screen.dart';
 import '../intro/confidence_gate_screen.dart';
 
@@ -80,8 +81,22 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     _successCard(pct, totC, totW, totA),
                     const SizedBox(height: 12),
                     _poolCard(solvedInPool),
-                    const SizedBox(height: 12),
-                    _gameCard(),
+                    const SizedBox(height: 22),
+                    _sectionHeader('🎮  Mini Oyunlar', null, AppTheme.accent),
+                    const SizedBox(height: 10),
+                    _gameTile(
+                      imageAsset: 'assets/images/SHINY_Cuh.png',
+                      title: 'Flappy Silly Cat',
+                      subtitle: 'Rekor: ${_progress.flappyHigh}',
+                      screen: const FlappyCatScreen(),
+                    ),
+                    const SizedBox(height: 8),
+                    _gameTile(
+                      emoji: '🧩',
+                      title: 'Block Blast',
+                      subtitle: 'Rekor: ${_progress.blockHigh}',
+                      screen: const BlockBlastScreen(),
+                    ),
                     const SizedBox(height: 22),
                     _sectionHeader('❌  Yanlış Yaptıkların', wrongOnes.length,
                         AppTheme.danger),
@@ -428,55 +443,65 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     );
   }
 
-  Widget _gameCard() {
+  Widget _gameTile({
+    String? imageAsset,
+    String? emoji,
+    required String title,
+    required String subtitle,
+    required Widget screen,
+  }) {
     return GestureDetector(
       onTap: () async {
-        await Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const FlappyCatScreen()),
-        );
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => screen));
         if (mounted) setState(() {}); // dönüşte rekor güncellensin
       },
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [Color(0xFF3A1E30), Color(0xFF2A1521)],
           ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.45)),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.4)),
         ),
         child: Row(
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
+                color: AppTheme.surfaceHigh,
                 border: Border.all(color: AppTheme.accent, width: 2),
-                image: const DecorationImage(
-                  image: AssetImage('assets/images/SHINY_Cuh.png'),
-                  fit: BoxFit.cover,
-                ),
+                image: imageAsset != null
+                    ? DecorationImage(
+                        image: AssetImage(imageAsset), fit: BoxFit.cover)
+                    : null,
               ),
+              child: emoji != null
+                  ? Text(emoji, style: const TextStyle(fontSize: 22))
+                  : null,
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 13),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    '🎮 Canın mı sıkıldı?',
-                    style: TextStyle(
+                  Text(
+                    title,
+                    style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: AppTheme.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
-                    'Flappy Silly Cat oyna  ·  Rekor: ${_progress.flappyHigh}',
+                    subtitle,
                     style: const TextStyle(
                       fontSize: 12.5,
                       color: AppTheme.textSecondary,
@@ -486,7 +511,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               ),
             ),
             const Icon(Icons.play_circle_fill_rounded,
-                color: AppTheme.accent, size: 32),
+                color: AppTheme.accent, size: 30),
           ],
         ),
       ),
