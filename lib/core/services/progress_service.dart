@@ -41,6 +41,7 @@ class ProgressService {
   static const _kSession = 'session_v1';
   static const _kFlappyHigh = 'flappy_high_v1';
   static const _kBlockHigh = 'block_high_v1';
+  static const _kSubwayHigh = 'subway_high_v1';
 
   SharedPreferences? _prefs;
 
@@ -123,6 +124,14 @@ class ProgressService {
   Future<bool> submitBlockScore(int score) async {
     if (score <= blockHigh) return false;
     await _prefs?.setInt(_kBlockHigh, score);
+    return true;
+  }
+
+  int get subwayHigh => _prefs?.getInt(_kSubwayHigh) ?? 0;
+
+  Future<bool> submitSubwayScore(int score) async {
+    if (score <= subwayHigh) return false;
+    await _prefs?.setInt(_kSubwayHigh, score);
     return true;
   }
 
@@ -212,5 +221,6 @@ class ProgressService {
     await _prefs?.remove(_kSession);
     await _prefs?.remove(_kFlappyHigh);
     await _prefs?.remove(_kBlockHigh);
+    await _prefs?.remove(_kSubwayHigh);
   }
 }

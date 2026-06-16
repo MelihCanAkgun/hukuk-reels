@@ -6,6 +6,7 @@ import '../../core/services/audio_service.dart';
 import '../../core/services/progress_service.dart';
 import '../game/block_blast_screen.dart';
 import '../game/flappy_cat_screen.dart';
+import '../game/subway_cat_screen.dart';
 import '../intro/confidence_gate_screen.dart';
 
 /// Profil (doğru/yanlış istatistikleri) + Ayarlar (sıfırlama) ekranı.
@@ -96,6 +97,13 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                       title: 'Block Blast',
                       subtitle: 'Rekor: ${_progress.blockHigh}',
                       screen: const BlockBlastScreen(),
+                    ),
+                    const SizedBox(height: 8),
+                    _gameTile(
+                      imageAsset: 'assets/images/SHINY_Cuh.png',
+                      title: 'Silly Cat Koşusu',
+                      subtitle: 'Rekor: ${_progress.subwayHigh}',
+                      screen: const SubwayCatScreen(),
                     ),
                     const SizedBox(height: 22),
                     _sectionHeader('❌  Yanlış Yaptıkların', wrongOnes.length,
