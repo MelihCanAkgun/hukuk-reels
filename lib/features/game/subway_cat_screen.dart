@@ -47,6 +47,12 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 
   _Phase _phase = _Phase.ready;
   bool _newRecord = false;
+  bool _showHelp = false;
+
+  // Zorluk dalgaları: kolay ve zor bölümler dönüşümlü gelir.
+  double _waveEnds = 55;
+  bool _hard = false;
+  bool _lastDouble = false;
 
   // Dünya / kamera sabitleri
   static const double zNear = 2.0; // ölçek referansı + oyuncu düzlemi
@@ -58,8 +64,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   int _coins = 0;
   double _speed = 8;
   static const double _baseSpeed = 8;
-  static const double _maxSpeed = 21;
-  static const double _spawnGap = 9; // satırlar arası z mesafesi
+  static const double _maxSpeed = 19;
   double _nextSpawn = 0;
 
   int _lane = 0; // hedef şerit (-1,0,1)
@@ -121,7 +126,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   }
 
   void _update(double dt) {
-    _speed = math.min(_maxSpeed, _baseSpeed + _dist * 0.03);
+    _speed = math.min(_maxSpeed, _baseSpeed + _dist * 0.025);
     final move = _speed * dt;
     _dist += move;
 
@@ -181,25 +186,49 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
     _ents.removeWhere((e) => e.dead || e.z < 0.8);
 
     while (_dist > _nextSpawn) {
-      _spawnRow();
-      _nextSpawn += _spawnGap;
+      // Dalga değişimi: kolay <-> zor bölümler
+      if (_dist >= _waveEnds) {
+        _hard = !_hard;
+        _waveEnds = _dist + (_hard ? 55 : 48) + _rng.nextDouble() * 22;
+      }
+      _spawnRow(_hard);
+      var gap = (_hard ? 7.0 : 10.0) + _rng.nextDouble() * (_hard ? 2.5 : 3.5);
+      if (_lastDouble) gap += 3.5; // çift engelden sonra nefes payı
+      _nextSpawn += gap;
     }
   }
 
-  void _spawnRow() {
-    final lane = _rng.nextInt(3) - 1;
+  _Kind _randObstacle() {
     final t = _rng.nextDouble();
-    final kind =
-        t < 0.4 ? _Kind.barrier : (t < 0.7 ? _Kind.bar : _Kind.wall);
-    _ents.add(_Ent(zFar, lane, kind));
-    // Boş şeritlerden birine coin dizisi
-    if (_rng.nextDouble() < 0.65) {
-      final free = [-1, 0, 1]..remove(lane);
-      final cl = free[_rng.nextInt(free.length)];
-      final n = 3 + _rng.nextInt(3);
-      for (var k = 0; k < n; k++) {
-        _ents.add(_Ent(zFar - k * 1.5, cl, _Kind.coin));
+    return t < 0.4 ? _Kind.barrier : (t < 0.7 ? _Kind.bar : _Kind.wall);
+  }
+
+  void _addCoinRun(int lane) {
+    final n = 3 + _rng.nextInt(3);
+    for (var k = 0; k < n; k++) {
+      _ents.add(_Ent(zFar - k * 1.5, lane, _Kind.coin));
+    }
+  }
+
+  /// Bir satır engel doğurur. Asla 3 şeridi birden kapatmaz (her zaman
+  /// geçilebilir). Zor dalgalarda bazen 2 şerit kapatılır ve serbest şeride
+  /// yol gösteren coin dizisi konur.
+  void _spawnRow(bool hard) {
+    if (hard && !_lastDouble && _rng.nextDouble() < 0.4) {
+      final free = _rng.nextInt(3) - 1;
+      for (final ln in const [-1, 0, 1]) {
+        if (ln != free) _ents.add(_Ent(zFar, ln, _randObstacle()));
       }
+      _addCoinRun(free);
+      _lastDouble = true;
+    } else {
+      final lane = _rng.nextInt(3) - 1;
+      _ents.add(_Ent(zFar, lane, _randObstacle()));
+      if (_rng.nextDouble() < (hard ? 0.45 : 0.8)) {
+        final opts = [-1, 0, 1]..remove(lane);
+        _addCoinRun(opts[_rng.nextInt(opts.length)]);
+      }
+      _lastDouble = false;
     }
   }
 
@@ -219,7 +248,10 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
     _dist = 0;
     _coins = 0;
     _speed = _baseSpeed;
-    _nextSpawn = _spawnGap;
+    _nextSpawn = 12; // sakin başlangıç
+    _hard = false;
+    _waveEnds = 55;
+    _lastDouble = false;
     _lane = 0;
     _laneX = 0;
     _jumping = false;
@@ -342,7 +374,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
                   ],
                 ),
               ),
-              if (_phase == _Phase.ready) _readyOverlay(),
+              if (_phase == _Phase.ready)
+                (_showHelp ? _helpOverlay() : _readyOverlay()),
               if (_phase == _Phase.over) _overOverlay(best),
             ],
           ),
@@ -427,41 +460,167 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
           children: [
             const Text('🐱', style: TextStyle(fontSize: 50)),
             const SizedBox(height: 8),
-            const Text('Silly Cat Koşusu',
+            const Text('Subway Silly',
                 style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: FontWeight.w900,
                     color: AppTheme.textPrimary)),
-            const SizedBox(height: 12),
-            _howto('👈👉', 'Kaydır: şerit değiştir'),
-            _howto('👆', 'Yukarı kaydır: zıpla'),
-            _howto('👇', 'Aşağı kaydır: eğil / kay'),
-            const SizedBox(height: 6),
-            const Text('(Bilgisayarda ok tuşları)',
+            const SizedBox(height: 8),
+            const Text('Engellerden kaç, coin topla, hız artar!',
+                textAlign: TextAlign.center,
                 style:
-                    TextStyle(fontSize: 11.5, color: AppTheme.textMuted)),
-            const SizedBox(height: 18),
+                    TextStyle(fontSize: 13.5, color: AppTheme.textSecondary)),
+            const SizedBox(height: 20),
             _bigBtn('Başla', primary: true, onTap: _start),
+            const SizedBox(height: 10),
+            _bigBtn('Nasıl oynanır?',
+                primary: false,
+                onTap: () => setState(() => _showHelp = true)),
           ],
         ),
       ),
     );
   }
 
+  Widget _helpOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.6),
+      alignment: Alignment.center,
+      child: SingleChildScrollView(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 22, vertical: 24),
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
+          decoration: BoxDecoration(
+            color: AppTheme.bgElevated,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Center(
+                child: Text('Nasıl oynanır?',
+                    style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.textPrimary)),
+              ),
+              const SizedBox(height: 16),
+              const Text('KONTROLLER',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                      color: AppTheme.accent)),
+              const SizedBox(height: 8),
+              _howto('👈 👉', 'Sağa/sola kaydır → şerit değiştir'),
+              _howto('👆', 'Yukarı kaydır → zıpla'),
+              _howto('👇', 'Aşağı kaydır → eğil (kay)'),
+              const SizedBox(height: 4),
+              const Text('Bilgisayarda: ok tuşları / boşluk',
+                  style:
+                      TextStyle(fontSize: 11.5, color: AppTheme.textMuted)),
+              const SizedBox(height: 18),
+              const Text('ENGELLER',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                      color: AppTheme.accent)),
+              const SizedBox(height: 10),
+              _legend(_RunnerPainter.cJump, 16, 30,
+                  'Alçak engel', 'ÜZERİNDEN ATLA (yukarı)'),
+              _legend(_RunnerPainter.cRoll, 8, 30,
+                  'Üst kiriş', 'ALTINDAN EĞİL (aşağı)'),
+              _legend(_RunnerPainter.cWall, 30, 22,
+                  'Yüksek duvar', 'YANINDAN GEÇ (şerit değiştir)'),
+              _legend(const Color(0xFFFFC93C), 18, 18,
+                  'Coin', 'Topla → +10 puan', circle: true),
+              const SizedBox(height: 8),
+              const Text(
+                'İpucu: bazı bölümler sakin, bazıları zorlu gelir. Yüksek '
+                'duvarın üzerinden atlanmaz — mutlaka şerit değiştir!',
+                style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    color: AppTheme.textSecondary),
+              ),
+              const SizedBox(height: 18),
+              _bigBtn('Anladım', primary: true,
+                  onTap: () => setState(() => _showHelp = false)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _legend(Color color, double h, double w, String name, String action,
+      {bool circle = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            height: 34,
+            child: Center(
+              child: Container(
+                width: w,
+                height: h,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color.lerp(color, Colors.white, 0.2)!,
+                      Color.lerp(color, Colors.black, 0.2)!,
+                    ],
+                  ),
+                  borderRadius:
+                      BorderRadius.circular(circle ? w : 4),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.textPrimary)),
+                Text(action,
+                    style: const TextStyle(
+                        fontSize: 12.5, color: AppTheme.textSecondary)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _howto(String e, String t) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-                width: 42,
+                width: 52,
                 child: Text(e,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 16))),
+                    style: const TextStyle(fontSize: 17))),
             const SizedBox(width: 8),
-            Text(t,
-                style: const TextStyle(
-                    fontSize: 13.5, color: AppTheme.textSecondary)),
+            Expanded(
+              child: Text(t,
+                  style: const TextStyle(
+                      fontSize: 13.5, color: AppTheme.textSecondary)),
+            ),
           ],
         ),
       );
@@ -560,6 +719,11 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 class _RunnerPainter extends CustomPainter {
   final _SubwayCatScreenState g;
   _RunnerPainter(this.g, {required Listenable repaint}) : super(repaint: repaint);
+
+  // Eylem renk kodları (yardım ekranıyla aynı): yeşil=atla, sarı=eğil, kırmızı=geç
+  static const Color cJump = Color(0xFF49C56B);
+  static const Color cRoll = Color(0xFFF5B62C);
+  static const Color cWall = Color(0xFFE5484D);
 
   // Tekrar kullanılan boyalar (kare başına tahsis yok)
   final Paint _p = Paint()..isAntiAlias = true;
@@ -694,14 +858,17 @@ class _RunnerPainter extends CustomPainter {
           _drawCoin(canvas, x, y - 30 * s, 15 * s, e.lane);
           break;
         case _Kind.barrier:
-          _drawBox(canvas, x, y, 0.72 * laneSpread * s, 30 * s,
-              const Color(0xFFFF7A59), const Color(0xFFB23A28));
+          _groundGlow(canvas, x, y, 0.8 * laneSpread * s, cJump);
+          _box3D(canvas, x, y, 0.72 * laneSpread * s, 32 * s, cJump,
+              stripes: true);
           break;
         case _Kind.wall:
-          _drawBox(canvas, x, y, 0.82 * laneSpread * s, 74 * s,
-              const Color(0xFF7C6CFF), const Color(0xFF4632B0));
+          _groundGlow(canvas, x, y, 0.92 * laneSpread * s, cWall);
+          _box3D(canvas, x, y, 0.84 * laneSpread * s, 80 * s, cWall,
+              panels: 3);
           break;
         case _Kind.bar:
+          _groundGlow(canvas, x, y, 0.92 * laneSpread * s, cRoll);
           _drawBar(canvas, x, y, 0.86 * laneSpread * s, s);
           break;
       }
@@ -725,57 +892,138 @@ class _RunnerPainter extends CustomPainter {
     canvas.drawOval(rect.deflate(r * 0.18), _stroke);
   }
 
-  // Önden + üstten yüzlü kutu (sahte 3D)
-  void _drawBox(Canvas canvas, double cxp, double baseY, double w, double h,
-      Color front, Color dark) {
-    final depth = w * 0.28;
-    final l = cxp - w / 2, rgt = cxp + w / 2;
-    final topY = baseY - h;
-    // Üst yüz (paralelkenar)
+  // Engelin altına eylem rengiyle yumuşak yer parıltısı (okunabilirlik)
+  void _groundGlow(Canvas canvas, double x, double baseY, double w, Color col) {
     _p
       ..style = PaintingStyle.fill
-      ..color = Color.lerp(front, Colors.white, 0.18)!;
+      ..shader = null
+      ..color = col.withValues(alpha: 0.22);
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(x, baseY), width: w * 1.15, height: w * 0.34),
+        _p);
+  }
+
+  // Ön + üst + sağ yüzlü küboid (sahte 3D), gradyan + detay çizgileri/şeritleri.
+  void _box3D(Canvas canvas, double cxp, double baseY, double w, double h,
+      Color front,
+      {int panels = 0, bool stripes = false}) {
+    final depth = (w * 0.26).clamp(5.0, 24.0);
+    final l = cxp - w / 2, rgt = cxp + w / 2;
+    final topY = baseY - h;
+    final rad = (w * 0.1).clamp(3.0, 9.0);
+
+    // Sağ yüz
+    _p
+      ..style = PaintingStyle.fill
+      ..shader = null
+      ..color = Color.lerp(front, Colors.black, 0.4)!;
+    final side = Path()
+      ..moveTo(rgt, topY)
+      ..lineTo(rgt + depth, topY - depth * 0.6)
+      ..lineTo(rgt + depth, baseY - depth * 0.6)
+      ..lineTo(rgt, baseY)
+      ..close();
+    canvas.drawPath(side, _p);
+
+    // Üst yüz
+    _p.color = Color.lerp(front, Colors.white, 0.28)!;
     final top = Path()
       ..moveTo(l, topY)
       ..lineTo(rgt, topY)
-      ..lineTo(rgt - depth, topY - depth * 0.7)
-      ..lineTo(l - depth, topY - depth * 0.7)
+      ..lineTo(rgt + depth, topY - depth * 0.6)
+      ..lineTo(l + depth, topY - depth * 0.6)
       ..close();
     canvas.drawPath(top, _p);
-    // Ön yüz
+
+    // Ön yüz (gradyan)
+    final fRect = Rect.fromLTRB(l, topY, rgt, baseY);
     _p.shader = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [front, dark],
-    ).createShader(Rect.fromLTRB(l, topY, rgt, baseY));
-    final r = Radius.circular((w * 0.08).clamp(2, 8));
-    canvas.drawRRect(
-        RRect.fromRectAndCorners(Rect.fromLTRB(l, topY, rgt, baseY),
-            topLeft: r, topRight: r),
-        _p);
+      colors: [
+        Color.lerp(front, Colors.white, 0.14)!,
+        Color.lerp(front, Colors.black, 0.26)!,
+      ],
+    ).createShader(fRect);
+    final fr = RRect.fromRectAndCorners(fRect,
+        topLeft: Radius.circular(rad), topRight: Radius.circular(rad));
+    canvas.drawRRect(fr, _p);
     _p.shader = null;
+
+    // Panel çizgileri (konteyner görünümü — duvar için)
+    if (panels > 0) {
+      _stroke
+        ..color = Colors.black.withValues(alpha: 0.18)
+        ..strokeWidth = (h * 0.012).clamp(1.0, 3.0);
+      for (var i = 1; i <= panels; i++) {
+        final y = topY + h * i / (panels + 1);
+        canvas.drawLine(Offset(l + 3, y), Offset(rgt - 3, y), _stroke);
+      }
+    }
+
+    // Tehlike şeritleri (üst bant — atlanacak alçak engel için)
+    if (stripes) {
+      final bandH = (h * 0.4).clamp(6.0, h);
+      final band = Rect.fromLTRB(l, topY, rgt, topY + bandH);
+      canvas.save();
+      canvas.clipRRect(RRect.fromRectAndCorners(band,
+          topLeft: Radius.circular(rad), topRight: Radius.circular(rad)));
+      _p
+        ..style = PaintingStyle.fill
+        ..color = Colors.black.withValues(alpha: 0.8);
+      final sw = (w * 0.16).clamp(6.0, 30.0);
+      for (var sx = l - bandH; sx < rgt; sx += sw * 2) {
+        final p = Path()
+          ..moveTo(sx, topY)
+          ..lineTo(sx + sw, topY)
+          ..lineTo(sx + sw + bandH, band.bottom)
+          ..lineTo(sx + bandH, band.bottom)
+          ..close();
+        canvas.drawPath(p, _p);
+      }
+      canvas.restore();
+    }
   }
 
   // Üstten geçen kiriş — altından eğilerek geçilir
   void _drawBar(Canvas canvas, double cxp, double baseY, double w, double s) {
     final l = cxp - w / 2, rgt = cxp + w / 2;
-    final beamBottom = baseY - 40 * s;
-    final beamTop = baseY - 72 * s;
+    final beamBottom = baseY - 38 * s;
+    final beamTop = baseY - 70 * s;
+    final postW = 7 * s;
     // Direkler
     _p
       ..style = PaintingStyle.fill
-      ..color = const Color(0xFF3A2A12);
-    canvas.drawRect(Rect.fromLTWH(l, beamTop, 6 * s, baseY - beamTop), _p);
-    canvas.drawRect(
-        Rect.fromLTWH(rgt - 6 * s, beamTop, 6 * s, baseY - beamTop), _p);
-    // Tehlike şeritli kiriş
-    final beam = Rect.fromLTRB(l, beamTop, rgt, beamBottom);
-    _p.color = const Color(0xFFFFC93C);
+      ..shader = null
+      ..color = const Color(0xFF7A5A1E);
     canvas.drawRRect(
-        RRect.fromRectAndRadius(beam, Radius.circular(3 * s)), _p);
-    _p.color = const Color(0xFF1A1208).withValues(alpha: 0.8);
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(l, beamTop, postW, baseY - beamTop),
+            Radius.circular(2 * s)),
+        _p);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(
+            Rect.fromLTWH(rgt - postW, beamTop, postW, baseY - beamTop),
+            Radius.circular(2 * s)),
+        _p);
+    // Kiriş (gradyan amber)
+    final beam = Rect.fromLTRB(l, beamTop, rgt, beamBottom);
+    final br = RRect.fromRectAndRadius(beam, Radius.circular(4 * s));
+    _p.shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [
+        Color.lerp(cRoll, Colors.white, 0.18)!,
+        Color.lerp(cRoll, Colors.black, 0.22)!,
+      ],
+    ).createShader(beam);
+    canvas.drawRRect(br, _p);
+    _p.shader = null;
+    // Çapraz tehlike şeritleri
+    _p.color = const Color(0xFF1A1208).withValues(alpha: 0.78);
     canvas.save();
-    canvas.clipRRect(RRect.fromRectAndRadius(beam, Radius.circular(3 * s)));
+    canvas.clipRRect(br);
     final sw = 12 * s;
     for (var sx = l - beam.height; sx < rgt; sx += sw * 2) {
       final p = Path()
