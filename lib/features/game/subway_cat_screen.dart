@@ -61,6 +61,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 
   // Hareket durumu
   double _dist = 0; // toplam mesafe (skor)
+  double _animT = 0; // animasyon saati (sn) — bob/coin için
   int _coins = 0;
   double _speed = 8;
   static const double _baseSpeed = 8;
@@ -126,6 +127,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   }
 
   void _update(double dt) {
+    _animT += dt;
     _speed = math.min(_maxSpeed, _baseSpeed + _dist * 0.025);
     final move = _speed * dt;
     _dist += move;
@@ -246,6 +248,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   // ───────────────────────── Kontroller ─────────────────────────
   void _start() {
     _dist = 0;
+    _animT = 0;
     _coins = 0;
     _speed = _baseSpeed;
     _nextSpawn = 12; // sakin başlangıç
@@ -734,6 +737,29 @@ class _RunnerPainter extends CustomPainter {
   late double W, H, horizonY, groundY, cx, laneSpread;
   static const double roadHalf = 1.55;
 
+  // Gök/yol shader'ları yalnızca BİR kez üretilir (kare-başına createShader
+  // yapmak CanvasKit'te zamanla kaynak tüketip çökertebilir).
+  ui.Shader? _skySh, _roadSh;
+  double _shW = -1, _shH = -1;
+
+  void _ensureShaders() {
+    if (_shW == W && _shH == H && _skySh != null) return;
+    _shW = W;
+    _shH = H;
+    _skySh = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFF2A1430), Color(0xFF5A2A4A), Color(0xFF8A3D5E)],
+      stops: [0.0, 0.6, 1.0],
+    ).createShader(Rect.fromLTWH(0, 0, W, horizonY + 4));
+    final fy = _py(_SubwayCatScreenState.zFar);
+    _roadSh = const LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [Color(0xFF241726), Color(0xFF160D18)],
+    ).createShader(Rect.fromLTWH(0, fy, W, groundY - fy));
+  }
+
   double _s(double z) => _SubwayCatScreenState.zNear / z;
   double _px(double z, double lane) => cx + lane * laneSpread * _s(z);
   double _py(double z) => horizonY + (groundY - horizonY) * _s(z);
@@ -747,6 +773,7 @@ class _RunnerPainter extends CustomPainter {
     cx = W / 2;
     laneSpread = W * 0.31;
 
+    _ensureShaders();
     _drawSky(canvas);
     _drawRoad(canvas);
     _drawEntities(canvas);
@@ -754,14 +781,9 @@ class _RunnerPainter extends CustomPainter {
   }
 
   void _drawSky(Canvas canvas) {
-    // Gökyüzü (alacakaranlık pembe)
+    // Gökyüzü (alacakaranlık pembe) — önbellekli shader
     _p
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF2A1430), Color(0xFF5A2A4A), Color(0xFF8A3D5E)],
-        stops: [0.0, 0.6, 1.0],
-      ).createShader(Rect.fromLTWH(0, 0, W, horizonY + 4))
+      ..shader = _skySh
       ..style = PaintingStyle.fill;
     canvas.drawRect(Rect.fromLTWH(0, 0, W, horizonY + 4), _p);
     _p.shader = null;
@@ -803,11 +825,7 @@ class _RunnerPainter extends CustomPainter {
       ..close();
     _p
       ..style = PaintingStyle.fill
-      ..shader = const LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [Color(0xFF241726), Color(0xFF160D18)],
-      ).createShader(Rect.fromLTWH(0, fy, W, groundY - fy));
+      ..shader = _roadSh;
     canvas.drawPath(road, _p);
     _p.shader = null;
 
@@ -876,20 +894,24 @@ class _RunnerPainter extends CustomPainter {
   }
 
   void _drawCoin(Canvas canvas, double x, double y, double r, int lane) {
-    final spin = 0.35 + 0.65 * (math.sin(g._dist * 3 + lane * 1.7)).abs();
-    final rect = Rect.fromCenter(center: Offset(x, y), width: 2 * r * spin, height: 2 * r);
+    final spin = 0.4 + 0.6 * (math.sin(g._animT * 4 + lane * 1.6)).abs();
+    final rect =
+        Rect.fromCenter(center: Offset(x, y), width: 2 * r * spin, height: 2 * r);
+    // Katmanlı düz daireler (shader yok)
     _p
       ..style = PaintingStyle.fill
-      ..shader = const RadialGradient(
-        colors: [Color(0xFFFFF3B0), Color(0xFFFFC93C), Color(0xFFE39A0E)],
-        stops: [0.0, 0.55, 1.0],
-      ).createShader(rect);
+      ..shader = null
+      ..color = const Color(0xFFE39A0E);
     canvas.drawOval(rect, _p);
-    _p.shader = null;
-    _stroke
-      ..color = const Color(0xFFFFE9A8)
-      ..strokeWidth = (1.5 * (r / 15)).clamp(0.6, 2);
-    canvas.drawOval(rect.deflate(r * 0.18), _stroke);
+    _p.color = const Color(0xFFFFD12E);
+    canvas.drawOval(rect.deflate(r * 0.26), _p);
+    _p.color = const Color(0xFFFFF3B0);
+    canvas.drawOval(
+        Rect.fromCenter(
+            center: Offset(x - r * 0.16 * spin, y - r * 0.16),
+            width: r * 0.5 * spin,
+            height: r * 0.5),
+        _p);
   }
 
   // Engelin altına eylem rengiyle yumuşak yer parıltısı (okunabilirlik)
@@ -936,20 +958,16 @@ class _RunnerPainter extends CustomPainter {
       ..close();
     canvas.drawPath(top, _p);
 
-    // Ön yüz (gradyan)
+    // Ön yüz — shader yerine iki düz ton (üst açık / alt koyu): kare-başına
+    // createShader yapmadan gradyan hissi.
     final fRect = Rect.fromLTRB(l, topY, rgt, baseY);
-    _p.shader = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        Color.lerp(front, Colors.white, 0.14)!,
-        Color.lerp(front, Colors.black, 0.26)!,
-      ],
-    ).createShader(fRect);
     final fr = RRect.fromRectAndCorners(fRect,
         topLeft: Radius.circular(rad), topRight: Radius.circular(rad));
+    _p.color = Color.lerp(front, Colors.white, 0.10)!;
     canvas.drawRRect(fr, _p);
-    _p.shader = null;
+    _p.color = Color.lerp(front, Colors.black, 0.22)!;
+    canvas.drawRect(
+        Rect.fromLTRB(l, topY + h * 0.5, rgt, baseY), _p);
 
     // Panel çizgileri (konteyner görünümü — duvar için)
     if (panels > 0) {
@@ -964,7 +982,9 @@ class _RunnerPainter extends CustomPainter {
 
     // Tehlike şeritleri (üst bant — atlanacak alçak engel için)
     if (stripes) {
-      final bandH = (h * 0.4).clamp(6.0, h);
+      // NOT: clamp(deger, 6, h) UZAK (küçük h) engellerde 6 > h olunca
+      // ArgumentError fırlatıyordu; h*0.4 her zaman geçerli (0..h).
+      final bandH = h * 0.4;
       final band = Rect.fromLTRB(l, topY, rgt, topY + bandH);
       canvas.save();
       canvas.clipRRect(RRect.fromRectAndCorners(band,
@@ -1007,19 +1027,13 @@ class _RunnerPainter extends CustomPainter {
             Rect.fromLTWH(rgt - postW, beamTop, postW, baseY - beamTop),
             Radius.circular(2 * s)),
         _p);
-    // Kiriş (gradyan amber)
+    // Kiriş (düz amber — shader yok)
     final beam = Rect.fromLTRB(l, beamTop, rgt, beamBottom);
     final br = RRect.fromRectAndRadius(beam, Radius.circular(4 * s));
-    _p.shader = LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [
-        Color.lerp(cRoll, Colors.white, 0.18)!,
-        Color.lerp(cRoll, Colors.black, 0.22)!,
-      ],
-    ).createShader(beam);
+    _p
+      ..shader = null
+      ..color = cRoll;
     canvas.drawRRect(br, _p);
-    _p.shader = null;
     // Çapraz tehlike şeritleri
     _p.color = const Color(0xFF1A1208).withValues(alpha: 0.78);
     canvas.save();
@@ -1042,7 +1056,7 @@ class _RunnerPainter extends CustomPainter {
     final sx = _px(_zP(), g._laneX);
     final grounded = g._jumpY <= 0.5;
     final bob = grounded && g._phase == _Phase.playing
-        ? math.sin(g._dist * 7) * 2.5
+        ? math.sin(g._animT * 9) * 2.0
         : 0.0;
 
     // Gölge
