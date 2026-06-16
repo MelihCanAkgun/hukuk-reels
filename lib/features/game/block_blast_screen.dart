@@ -2,6 +2,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
+import '../../core/data/questions_data.dart';
+import '../../core/models/quiz_question.dart';
 import '../../core/services/progress_service.dart';
 
 /// Block Blast benzeri bulmaca: 8×8 ızgaraya 3 parçayı sürükleyip yerleştir;
@@ -16,32 +18,66 @@ class BlockBlastScreen extends StatefulWidget {
 const int _n = 8; // ızgara boyutu
 
 // Parça şekilleri (normalize: min r=0, min c=0). [r,c] hücreleri.
+// Tanıdık Block Blast / Tetris parçaları; her birinin dönüşleri dahil.
 const List<List<List<int>>> _shapes = [
+  // Tekli
   [[0, 0]],
+
+  // İkili (yatay / dikey)
   [[0, 0], [0, 1]],
   [[0, 0], [1, 0]],
+
+  // Üçlü çizgi
   [[0, 0], [0, 1], [0, 2]],
   [[0, 0], [1, 0], [2, 0]],
+
+  // Dörtlü çizgi
   [[0, 0], [0, 1], [0, 2], [0, 3]],
   [[0, 0], [1, 0], [2, 0], [3, 0]],
+
+  // Beşli çizgi
   [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]],
   [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]],
-  [[0, 0], [0, 1], [1, 0], [1, 1]], // kare
-  [[0, 0], [1, 0], [1, 1]], // L köşeler
-  [[0, 1], [1, 0], [1, 1]],
+
+  // 2x2 kare
+  [[0, 0], [0, 1], [1, 0], [1, 1]],
+
+  // 3x3 kare
+  [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2]],
+
+  // Küçük L köşe (3 hücre) — 4 dönüş
   [[0, 0], [0, 1], [1, 0]],
   [[0, 0], [0, 1], [1, 1]],
-  [[0, 0], [1, 0], [2, 0], [2, 1]], // J/L
-  [[0, 1], [1, 1], [2, 0], [2, 1]],
+  [[0, 0], [1, 0], [1, 1]],
+  [[0, 1], [1, 0], [1, 1]],
+
+  // L (4 hücre) — 4 dönüş
+  [[0, 0], [1, 0], [2, 0], [2, 1]],
   [[0, 0], [0, 1], [0, 2], [1, 0]],
+  [[0, 0], [0, 1], [1, 1], [2, 1]],
+  [[0, 2], [1, 0], [1, 1], [1, 2]],
+
+  // J (4 hücre) — 4 dönüş
+  [[0, 1], [1, 1], [2, 0], [2, 1]],
+  [[0, 0], [1, 0], [1, 1], [1, 2]],
+  [[0, 0], [0, 1], [1, 0], [2, 0]],
   [[0, 0], [0, 1], [0, 2], [1, 2]],
-  [[0, 0], [0, 1], [0, 2], [1, 1]], // T
+
+  // T (4 hücre) — 4 dönüş
+  [[0, 0], [0, 1], [0, 2], [1, 1]],
   [[0, 1], [1, 0], [1, 1], [1, 2]],
-  [[0, 1], [0, 2], [1, 0], [1, 1]], // S/Z
+  [[0, 0], [1, 0], [1, 1], [2, 0]],
+  [[0, 1], [1, 0], [1, 1], [2, 1]],
+
+  // S / Z (4 hücre)
+  [[0, 1], [0, 2], [1, 0], [1, 1]],
+  [[0, 0], [1, 0], [1, 1], [2, 1]],
   [[0, 0], [0, 1], [1, 1], [1, 2]],
+  [[0, 1], [1, 0], [1, 1], [2, 0]],
+
+  // Dikdörtgenler
   [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]], // 2x3
   [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1]], // 3x2
-  [[0, 1], [1, 0], [1, 1], [1, 2], [2, 1]], // artı
 ];
 
 const List<Color> _palette = [
@@ -76,6 +112,12 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   bool _over = false;
   bool _newRecord = false;
 
+  // Devam etme (revive): oyun başına yalnızca 1 kez bir soruyla hak kazanılır.
+  bool _reviveUsed = false;
+  bool _askContinue = false;
+  QuizQuestion? _reviveQ;
+  int? _reviveSelected;
+
   double _cell = 40; // build'de hesaplanır
   static const double _lift = 16; // parmağın üstünde göstermek için
 
@@ -99,6 +141,10 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     _score = 0;
     _over = false;
     _newRecord = false;
+    _reviveUsed = false;
+    _askContinue = false;
+    _reviveQ = null;
+    _reviveSelected = null;
     _dragIdx = null;
     _preview = {};
     if (mounted) setState(() {});
@@ -216,11 +262,72 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   }
 
   void _gameOver() {
+    // Bu oyunda revive hakkı henüz kullanılmadıysa önce "devam et?" sor.
+    if (!_reviveUsed) {
+      HapticFeedback.mediumImpact();
+      if (mounted) setState(() => _askContinue = true);
+      return;
+    }
+    _finishGame();
+  }
+
+  void _finishGame() {
     _over = true;
     HapticFeedback.heavyImpact();
     ProgressService.instance.submitBlockScore(_score).then((rec) {
       if (mounted && rec) setState(() => _newRecord = true);
     });
+    if (mounted) setState(() {});
+  }
+
+  // ── Devam etme (revive) ──
+  void _declineContinue() {
+    setState(() => _askContinue = false);
+    _finishGame();
+  }
+
+  void _acceptContinue() {
+    setState(() {
+      _askContinue = false;
+      _reviveSelected = null;
+      _reviveQ = kQuestions[_rng.nextInt(kQuestions.length)]
+          .withShuffledOptions(_rng);
+    });
+  }
+
+  void _answerRevive(int i) {
+    if (_reviveSelected != null) return; // tek seçim hakkı
+    setState(() => _reviveSelected = i);
+    final correct = i == _reviveQ!.correctIndex;
+    HapticFeedback.lightImpact();
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (!mounted) return;
+      if (correct) {
+        _revive();
+      } else {
+        setState(() {
+          _reviveQ = null;
+          _reviveSelected = null;
+        });
+        _finishGame();
+      }
+    });
+  }
+
+  /// Doğru cevap: revive hakkı yakıldı, tahta temizlendi, oyun devam.
+  void _revive() {
+    setState(() {
+      _reviveUsed = true;
+      _reviveQ = null;
+      _reviveSelected = null;
+      _grid = List.generate(_n, (_) => List<Color?>.filled(_n, null));
+      if (_tray.every((e) => e == null)) {
+        _tray[0] = _newPiece();
+        _tray[1] = _newPiece();
+        _tray[2] = _newPiece();
+      }
+    });
+    HapticFeedback.mediumImpact();
   }
 
   @override
@@ -270,6 +377,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
                   ),
                 ),
 
+              if (_askContinue) _continueOverlay(),
+              if (_reviveQ != null) _quizOverlay(),
               if (_over) _overOverlay(best),
             ],
           ),
@@ -454,6 +563,191 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
           border: Border.all(color: AppTheme.border),
         ),
         child: Icon(icon, color: AppTheme.textPrimary, size: 20),
+      ),
+    );
+  }
+
+  Widget _continueOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.6),
+      alignment: Alignment.center,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 36),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+        decoration: BoxDecoration(
+          color: AppTheme.bgElevated,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🔥', style: TextStyle(fontSize: 46)),
+            const SizedBox(height: 8),
+            const Text(
+              'Sığacak yer kalmadı!',
+              style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.textPrimary),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Bir soruyu doğru bilirsen tahta temizlenir ve devam edersin.\n(Oyun başına yalnızca 1 hak)',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.35,
+                  color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            _bigBtn('Evet, soruyu göster 🧠',
+                primary: true, onTap: _acceptContinue),
+            const SizedBox(height: 10),
+            _bigBtn('Hayır, bitir', primary: false, onTap: _declineContinue),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _quizOverlay() {
+    final q = _reviveQ!;
+    final answered = _reviveSelected != null;
+    return Container(
+      color: Colors.black.withValues(alpha: 0.72),
+      alignment: Alignment.center,
+      child: SingleChildScrollView(
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+          decoration: BoxDecoration(
+            color: AppTheme.bgElevated,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
+                decoration: BoxDecoration(
+                  color: q.category.color.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(30),
+                  border:
+                      Border.all(color: q.category.color.withValues(alpha: 0.5)),
+                ),
+                child: Text(
+                  'DEVAM SORUSU · ${q.category.label.toUpperCase()}',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.5,
+                    color: q.category.color,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                q.question,
+                style: const TextStyle(
+                  fontSize: 17,
+                  height: 1.3,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              for (var i = 0; i < q.options.length; i++)
+                _reviveOption(i, q),
+              const SizedBox(height: 4),
+              Text(
+                answered
+                    ? (_reviveSelected == q.correctIndex
+                        ? 'Doğru! Devam ediyorsun… 🎉'
+                        : 'Yanlış… oyun bitiyor.')
+                    : 'Doğru bilirsen oyun devam eder.',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: answered
+                      ? (_reviveSelected == q.correctIndex
+                          ? AppTheme.success
+                          : AppTheme.danger)
+                      : AppTheme.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _reviveOption(int i, QuizQuestion q) {
+    final sel = _reviveSelected;
+    Color bg = AppTheme.surface;
+    Color border = AppTheme.border;
+    Color fg = AppTheme.textPrimary;
+    if (sel != null) {
+      final isCorrect = i == q.correctIndex;
+      final isChosen = i == sel;
+      if (isCorrect) {
+        bg = AppTheme.success.withValues(alpha: 0.18);
+        border = AppTheme.success;
+      } else if (isChosen) {
+        bg = AppTheme.danger.withValues(alpha: 0.18);
+        border = AppTheme.danger;
+      } else {
+        fg = AppTheme.textMuted;
+      }
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: sel == null ? () => _answerRevive(i) : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 26,
+                height: 26,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceHigh,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  String.fromCharCode(65 + i),
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textSecondary),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Text(
+                  q.options[i],
+                  style: TextStyle(
+                      fontSize: 14.5,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                      color: fg),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
