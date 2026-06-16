@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
+import 'revive_overlay.dart';
 
 /// Subway Surfers tarzı sahte-perspektif (2.5D) sonsuz koşu oyunu.
 /// Silly cat 3 şeritte koşar; kaydır = şerit değiştir, yukarı = zıpla,
@@ -48,6 +49,10 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   _Phase _phase = _Phase.ready;
   bool _newRecord = false;
   bool _showHelp = false;
+
+  // Soru karşılığı tek seferlik ekstra can
+  bool _reviveUsed = false;
+  bool _reviving = false;
 
   // Zorluk dalgaları: kolay ve zor bölümler dönüşümlü gelir.
   double _waveEnds = 55;
@@ -216,32 +221,82 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   /// geçilebilir). Zor dalgalarda bazen 2 şerit kapatılır ve serbest şeride
   /// yol gösteren coin dizisi konur.
   void _spawnRow(bool hard) {
-    if (hard && !_lastDouble && _rng.nextDouble() < 0.4) {
-      final free = _rng.nextInt(3) - 1;
-      for (final ln in const [-1, 0, 1]) {
-        if (ln != free) _ents.add(_Ent(zFar, ln, _randObstacle()));
+    if (hard && !_lastDouble) {
+      final r = _rng.nextDouble();
+      if (r < 0.22) {
+        // ÜÇ ŞERİT DOLU — hepsi aynı geçilebilir tip: tek çıkış zıplamak
+        // (hepsi bariyer) VEYA eğilmek (hepsi kiriş). Şerit değiştirmek
+        // kurtarmaz. (Asla hepsi duvar değil — geçilemez olurdu.)
+        final kind = _rng.nextBool() ? _Kind.barrier : _Kind.bar;
+        for (final ln in const [-1, 0, 1]) {
+          _ents.add(_Ent(zFar, ln, kind));
+        }
+        _lastDouble = true;
+        return;
       }
-      _addCoinRun(free);
-      _lastDouble = true;
-    } else {
-      final lane = _rng.nextInt(3) - 1;
-      _ents.add(_Ent(zFar, lane, _randObstacle()));
-      if (_rng.nextDouble() < (hard ? 0.45 : 0.8)) {
-        final opts = [-1, 0, 1]..remove(lane);
-        _addCoinRun(opts[_rng.nextInt(opts.length)]);
+      if (r < 0.55) {
+        // İki şerit kapalı, biri serbest (+yol gösteren coin dizisi).
+        final free = _rng.nextInt(3) - 1;
+        for (final ln in const [-1, 0, 1]) {
+          if (ln != free) _ents.add(_Ent(zFar, ln, _randObstacle()));
+        }
+        _addCoinRun(free);
+        _lastDouble = true;
+        return;
       }
-      _lastDouble = false;
     }
+    // Tek engel (+ çoğu zaman boş şeritte coin).
+    final lane = _rng.nextInt(3) - 1;
+    _ents.add(_Ent(zFar, lane, _randObstacle()));
+    if (_rng.nextDouble() < (hard ? 0.45 : 0.8)) {
+      final opts = [-1, 0, 1]..remove(lane);
+      _addCoinRun(opts[_rng.nextInt(opts.length)]);
+    }
+    _lastDouble = false;
   }
 
   void _crash() {
+    // Revive hakkı kalmadıysa önce "devam et?" sorusunu sun (oyun durur).
+    if (!_reviveUsed) {
+      _phase = _Phase.over;
+      _reviving = true;
+      HapticFeedback.mediumImpact();
+      setState(() {});
+      return;
+    }
+    _finishGame();
+  }
+
+  void _finishGame() {
     _phase = _Phase.over;
+    _reviving = false;
     HapticFeedback.heavyImpact();
     ProgressService.instance.submitSubwayScore(_finalScore).then((rec) {
       if (mounted && rec) setState(() => _newRecord = true);
     });
     setState(() {});
   }
+
+  /// Doğru cevap: ekstra can yakıldı, yol temizlenir ve koşu devam eder.
+  void _doRevive() {
+    setState(() {
+      _reviveUsed = true;
+      _reviving = false;
+      _ents.clear();
+      _lane = 0;
+      _laneX = 0;
+      _jumping = false;
+      _jumpY = 0;
+      _jumpVel = 0;
+      _rolling = false;
+      _rollT = 0;
+      _nextSpawn = _dist + 14; // nefes payı
+      _phase = _Phase.playing;
+      _last = null;
+    });
+  }
+
+  void _giveUp() => _finishGame();
 
   int get _finalScore => _dist.floor() + _coins * 10;
 
@@ -255,6 +310,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
     _hard = false;
     _waveEnds = 55;
     _lastDouble = false;
+    _reviveUsed = false;
+    _reviving = false;
     _lane = 0;
     _laneX = 0;
     _jumping = false;
@@ -379,7 +436,9 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
               ),
               if (_phase == _Phase.ready)
                 (_showHelp ? _helpOverlay() : _readyOverlay()),
-              if (_phase == _Phase.over) _overOverlay(best),
+              if (_phase == _Phase.over && _reviving)
+                ReviveOverlay(onRevive: _doRevive, onGiveUp: _giveUp),
+              if (_phase == _Phase.over && !_reviving) _overOverlay(best),
             ],
           ),
         ),
@@ -542,8 +601,9 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
                   'Coin', 'Topla → +10 puan', circle: true),
               const SizedBox(height: 8),
               const Text(
-                'İpucu: bazı bölümler sakin, bazıları zorlu gelir. Yüksek '
-                'duvarın üzerinden atlanmaz — mutlaka şerit değiştir!',
+                'İpucu: yüksek duvarın üzerinden atlanmaz — şerit değiştir. '
+                'Bazen üç şerit de dolar; o an tek çıkış zıplamak ya da '
+                'eğilmektir!',
                 style: TextStyle(
                     fontSize: 12.5,
                     height: 1.35,
