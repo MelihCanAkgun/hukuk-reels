@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
+import 'revive_overlay.dart';
 
 /// Profilden açılan mini oyun: "Flappy Silly Cat".
 /// Dokunarak kediyi zıplat, borulardaki boşluklardan geç.
@@ -47,6 +48,10 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   bool _newRecord = false;
   DateTime _overAt = DateTime.fromMillisecondsSinceEpoch(0);
   _GameState _state = _GameState.ready;
+
+  // Soru karşılığı tek seferlik ekstra can
+  bool _reviveUsed = false;
+  bool _reviving = false;
 
   double get _playH => _h - _groundH;
 
@@ -128,6 +133,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
 
   void _flap() {
     if (_state == _GameState.over) {
+      if (_reviving) return; // revive katmanı açıkken dokunuş restart etmesin
       // Ölüm dokunuşu oyunu hemen yeniden başlatmasın.
       if (DateTime.now().difference(_overAt) <
           const Duration(milliseconds: 700)) {
@@ -142,7 +148,20 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   }
 
   void _gameOver() {
+    // Bu oyunda revive hakkı kalmadıysa önce "devam et?" sorusunu sun.
+    if (!_reviveUsed) {
+      _state = _GameState.over;
+      _reviving = true;
+      HapticFeedback.mediumImpact();
+      setState(() {});
+      return;
+    }
+    _finishGame();
+  }
+
+  void _finishGame() {
     _state = _GameState.over;
+    _reviving = false;
     _overAt = DateTime.now();
     HapticFeedback.heavyImpact();
     ProgressService.instance.submitFlappyScore(_score).then((rec) {
@@ -150,6 +169,21 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
     });
     setState(() {});
   }
+
+  /// Doğru cevap: ekstra can yakıldı, kedi ortalanır, önündeki yakın borular
+  /// temizlenir ve oyun devam eder.
+  void _doRevive() {
+    setState(() {
+      _reviveUsed = true;
+      _reviving = false;
+      _catY = _playH / 2 - _catD / 2;
+      _catVel = 0;
+      _pipes.removeWhere((p) => p.x + _pipeW > _catX - 40 && p.x < _catX + 260);
+      _state = _GameState.playing;
+    });
+  }
+
+  void _giveUp() => _finishGame();
 
   void _restart() {
     setState(() {
@@ -160,6 +194,8 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
       _score = 0;
       _t = 0;
       _newRecord = false;
+      _reviveUsed = false;
+      _reviving = false;
     });
   }
 
@@ -307,8 +343,12 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
                 // ── Başlangıç katmanı ──
                 if (_state == _GameState.ready) _readyOverlay(),
 
+                // ── Devam et? (soru karşılığı ekstra can) ──
+                if (_state == _GameState.over && _reviving)
+                  ReviveOverlay(onRevive: _doRevive, onGiveUp: _giveUp),
+
                 // ── Oyun bitti katmanı ──
-                if (_state == _GameState.over) _overOverlay(best),
+                if (_state == _GameState.over && !_reviving) _overOverlay(best),
               ],
             ),
           );
