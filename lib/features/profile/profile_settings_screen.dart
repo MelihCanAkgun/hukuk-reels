@@ -101,7 +101,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     const SizedBox(height: 8),
                     _gameTile(
                       imageAsset: 'assets/images/SHINY_Cuh.png',
-                      title: 'Silly Cat Koşusu',
+                      title: 'Subway Silly',
                       subtitle: 'Rekor: ${_progress.subwayHigh}',
                       screen: const SubwayCatScreen(),
                     ),
