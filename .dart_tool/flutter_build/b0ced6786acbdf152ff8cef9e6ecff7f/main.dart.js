@@ -71718,12 +71718,12 @@ return l.vE()}return l.P7(k,j)},
 a2Y(){var s,r,q,p,o,n,m,l,k,j,i,h=this,g=h.a2c()
 for(s=0,r=0;r<33;++r)if(h.lK(A.p7(B.da[r],B.d6))>0)++s
 q=h.a_Z()
-p=B.c.bB((64-g)/64*0.55+(1-s/33)*0.75,0,1)
+p=B.c.bB((64-g)/64*0.6+(1-s/33)*0.8,0,1)
 o=A.c([],t.Jq)
-for(g=h.d,n=0.12+0.78*p,m=q>0,l=0.22+0.28*p,k=0;k<3;++k){j=g.dj()
+for(g=h.d,n=0.2+0.85*p,m=q>0,l=0.22+0.28*p,k=0;k<3;++k){j=g.dj()
 if(m&&j<l)i=h.a12()
 else i=j<n?h.vE():B.da[g.dO(33)]
-o.push(A.p7(i,B.jp[g.dO(8)]))}if(p>0.45){for(k=0;k<3;++k)if(h.lK(o[k])===0)o[k]=A.p7(h.vE(),B.jp[g.dO(8)])
+o.push(A.p7(i,B.jp[g.dO(8)]))}if(p>0.38){for(k=0;k<3;++k)if(h.lK(o[k])===0)o[k]=A.p7(h.vE(),B.jp[g.dO(8)])
 if(!B.b.fJ(o,new A.abC(h)))o[0]=A.p7(h.vE(),B.jp[g.dO(8)])}return o},
 BJ(){var s=this.a2Y(),r=this.w
 r[0]=s[0]
