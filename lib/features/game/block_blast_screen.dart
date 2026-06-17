@@ -787,25 +787,28 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           for (var i = 0; i < 3; i++)
+            // Her parçanın seçim alanı, tepsinin 1/3'lük bölgesinin TAMAMIDIR;
+            // parçanın tam üstüne basmaya gerek yok, o bölgeye dokunmak yeter.
+            // GestureDetector sürükleme başlayınca da ağaçta kalmalı (yoksa
+            // onPanUpdate/End tetiklenmez); parçayı yalnızca soluklaştırıyoruz.
             Expanded(
-              child: Center(
-                child: _tray[i] == null
-                    ? const SizedBox.shrink()
-                    // ÖNEMLİ: sürükleme başlayınca bu GestureDetector ağaçtan
-                    // kalkmamalı (yoksa onPanUpdate/End hiç tetiklenmez ve parça
-                    // takılı kalır). Sürüklenen parçayı yalnızca soluklaştırıyoruz.
-                    : GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onPanStart: (d) => _startDrag(i, d.globalPosition),
-                        onPanUpdate: (d) => _updateDrag(d.globalPosition),
-                        onPanEnd: (_) => _endDrag(),
-                        onPanCancel: _cancelDrag,
-                        child: Opacity(
-                          opacity: _dragIdx == i ? 0.22 : 1.0,
-                          child: _pieceGrid(_tray[i]!, tc),
+              child: _tray[i] == null
+                  ? const SizedBox.expand()
+                  : GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onPanStart: (d) => _startDrag(i, d.globalPosition),
+                      onPanUpdate: (d) => _updateDrag(d.globalPosition),
+                      onPanEnd: (_) => _endDrag(),
+                      onPanCancel: _cancelDrag,
+                      child: SizedBox.expand(
+                        child: Center(
+                          child: Opacity(
+                            opacity: _dragIdx == i ? 0.22 : 1.0,
+                            child: _pieceGrid(_tray[i]!, tc),
+                          ),
                         ),
                       ),
-              ),
+                    ),
             ),
         ],
       ),
