@@ -71772,7 +71772,7 @@ s=k.ay
 r=p.c
 if(!k.db){k.cx=o
 k.cy=o.a8(0,new A.o(j*s/2,r*s+50))
-k.db=!0}j=k.cy.a1(0,o.a8(0,k.cx).a3(0,1.8))
+k.db=!0}j=k.cy.a1(0,o.a8(0,k.cx).a3(0,2.3))
 k.CW=j
 m=j.a8(0,n)
 j=B.c.al(m.a/s)

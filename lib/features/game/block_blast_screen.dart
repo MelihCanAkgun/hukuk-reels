@@ -140,7 +140,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   bool _dragHasAnchor = false;
   // Kaydırma hassasiyeti: parmak hareketi bu katsayıyla büyütülür (>1 = aynı
   // mesafeye daha az parmak hareketiyle ulaşılır).
-  static const double _dragGain = 1.8;
+  static const double _dragGain = 2.3;
   int _tr = 0, _tc = 0;
   bool _valid = false;
   Set<int> _preview = {};
