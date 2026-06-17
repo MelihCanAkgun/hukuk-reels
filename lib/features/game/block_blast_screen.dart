@@ -135,6 +135,12 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
 
   int? _dragIdx;
   Offset _drawTL = Offset.zero; // sürüklenen parçanın sol-üstü (stack uzayı)
+  Offset _dragAnchor = Offset.zero; // sürükleme başında parmak (stack uzayı)
+  Offset _anchorTL = Offset.zero; // sürükleme başında parçanın sol-üstü
+  bool _dragHasAnchor = false;
+  // Kaydırma hassasiyeti: parmak hareketi bu katsayıyla büyütülür (>1 = aynı
+  // mesafeye daha az parmak hareketiyle ulaşılır).
+  static const double _dragGain = 1.5;
   int _tr = 0, _tc = 0;
   bool _valid = false;
   Set<int> _preview = {};
@@ -405,6 +411,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   // ── Sürükleme ──
   void _startDrag(int i, Offset global) {
     _dragIdx = i;
+    _dragHasAnchor = false;
     _updateDrag(global);
   }
 
@@ -419,7 +426,15 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     final local = stackBox.globalToLocal(global);
     final gridTL = stackBox.globalToLocal(gridBox.localToGlobal(Offset.zero));
     final wpx = p.cols * _cell, hpx = p.rows * _cell;
-    _drawTL = local - Offset(wpx / 2, hpx + _lift);
+
+    // Başlangıç çapasını sabitle: parça ilk anda parmağın üstünde belirir.
+    if (!_dragHasAnchor) {
+      _dragAnchor = local;
+      _anchorTL = local - Offset(wpx / 2, hpx + _lift);
+      _dragHasAnchor = true;
+    }
+    // Parmak hareketini büyüterek uygula (hassasiyet).
+    _drawTL = _anchorTL + (local - _dragAnchor) * _dragGain;
 
     final rel = _drawTL - gridTL;
     _tc = (rel.dx / _cell).round();
