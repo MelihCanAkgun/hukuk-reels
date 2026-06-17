@@ -131,13 +131,14 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   int? _reviveSelected;
 
   double _cell = 40; // build'de hesaplanır
-  static const double _lift = 16; // parmağın üstünde göstermek için
+  static const double _lift = 50; // parmağın belirgin şekilde üstünde göster
 
   int? _dragIdx;
   Offset _drawTL = Offset.zero; // sürüklenen parçanın sol-üstü (stack uzayı)
   int _tr = 0, _tc = 0;
   bool _valid = false;
   Set<int> _preview = {};
+  Set<int> _clearPreview = {}; // bırakınca silinecek (tam dolacak) hücreler
 
   @override
   void initState() {
@@ -157,6 +158,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     _reviveSelected = null;
     _dragIdx = null;
     _preview = {};
+    _clearPreview = {};
     if (mounted) setState(() {});
   }
 
@@ -423,10 +425,56 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     _tc = (rel.dx / _cell).round();
     _tr = (rel.dy / _cell).round();
     _valid = _fits(p, _tr, _tc);
-    _preview = _valid
-        ? {for (final cell in p.cells) (_tr + cell[0]) * _n + (_tc + cell[1])}
-        : {};
+    if (_valid) {
+      _preview = {
+        for (final cell in p.cells) (_tr + cell[0]) * _n + (_tc + cell[1])
+      };
+      // O konuma konunca tamamen dolacak (silinecek) satır/sütunları parlat.
+      _clearPreview = _clearCellsIfPlaced(p, _tr, _tc);
+    } else {
+      _preview = {};
+      _clearPreview = {};
+    }
     setState(() {});
+  }
+
+  /// Parça (tr,tc)'ye konursa tamamen dolacak satır/sütunların TÜM hücreleri
+  /// (silme önizlemesi için parlatılacak).
+  Set<int> _clearCellsIfPlaced(_Piece p, int tr, int tc) {
+    bool covered(int r, int c) => _grid[r][c] != null || p.has(r - tr, c - tc);
+    final cells = <int>{};
+    final rowsT = <int>{}, colsT = <int>{};
+    for (final cell in p.cells) {
+      rowsT.add(tr + cell[0]);
+      colsT.add(tc + cell[1]);
+    }
+    for (final r in rowsT) {
+      if (r < 0 || r >= _n) continue;
+      var full = true;
+      for (var c = 0; c < _n; c++) {
+        if (!covered(r, c)) {
+          full = false;
+          break;
+        }
+      }
+      if (full) {
+        for (var c = 0; c < _n; c++) cells.add(r * _n + c);
+      }
+    }
+    for (final c in colsT) {
+      if (c < 0 || c >= _n) continue;
+      var full = true;
+      for (var r = 0; r < _n; r++) {
+        if (!covered(r, c)) {
+          full = false;
+          break;
+        }
+      }
+      if (full) {
+        for (var r = 0; r < _n; r++) cells.add(r * _n + c);
+      }
+    }
+    return cells;
   }
 
   void _endDrag() {
@@ -435,12 +483,14 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     }
     _dragIdx = null;
     _preview = {};
+    _clearPreview = {};
     setState(() {});
   }
 
   void _cancelDrag() {
     _dragIdx = null;
     _preview = {};
+    _clearPreview = {};
     if (mounted) setState(() {});
   }
 
@@ -679,6 +729,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
             _grid,
             _preview,
             _dragIdx != null ? _tray[_dragIdx!]?.color : null,
+            _clearPreview,
           ),
         ),
       ),
@@ -1077,7 +1128,8 @@ class _GridPainter extends CustomPainter {
   final List<List<Color?>> grid;
   final Set<int> preview;
   final Color? previewColor;
-  _GridPainter(this.grid, this.preview, this.previewColor);
+  final Set<int> clearCells; // bırakınca silinecek hücreler (parlama)
+  _GridPainter(this.grid, this.preview, this.previewColor, this.clearCells);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1122,6 +1174,29 @@ class _GridPainter extends CustomPainter {
             ..strokeWidth = 1
             ..color = Colors.white.withValues(alpha: 0.18 * alpha),
         );
+      }
+    }
+
+    // ── Silme önizlemesi: bırakınca tam dolacak satır/sütunlar parlasın ──
+    if (clearCells.isNotEmpty) {
+      final glow = Paint()
+        ..color = const Color(0xFFFFE26A)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+      final lit = Paint()..color = const Color(0xFFFFF4C2).withValues(alpha: 0.82);
+      final edge = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0xFFFFF7D6);
+      for (final key in clearCells) {
+        final r = key ~/ _n, c = key % _n;
+        final rect = RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+              c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap),
+          radius,
+        );
+        canvas.drawRRect(rect, glow); // hale
+        canvas.drawRRect(rect, lit); // parlak dolgu
+        canvas.drawRRect(rect, edge); // parlak kenar
       }
     }
   }
