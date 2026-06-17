@@ -91,6 +91,18 @@ const List<Color> _palette = [
   Color(0xFFFFD93D),
 ];
 
+// Kurtarıcı (rescue) şekiller: ≤3 hücreli küçükler — sıkışık tahtada sığması
+// en olası ve rahatlatması en kolay olanlar.
+final List<List<List<int>>> _smallShapes =
+    _shapes.where((s) => s.length <= 3).toList();
+
+// Kombo çubukları: tek satır/sütun, ≥3 uzunluk — çoklu silme potansiyeli.
+final List<List<List<int>>> _barShapes = _shapes.where((s) {
+  final mr = s.map((e) => e[0]).reduce(max);
+  final mc = s.map((e) => e[1]).reduce(max);
+  return (mr == 0 || mc == 0) && s.length >= 3;
+}).toList();
+
 class _Piece {
   final List<List<int>> cells;
   final Color color;
@@ -135,9 +147,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
 
   void _reset() {
     _grid = List.generate(_n, (_) => List<Color?>.filled(_n, null));
-    _tray[0] = _newPiece();
-    _tray[1] = _newPiece();
-    _tray[2] = _newPiece();
+    _refillTray();
     _score = 0;
     _over = false;
     _newRecord = false;
@@ -150,10 +160,224 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     if (mounted) setState(() {});
   }
 
-  _Piece _newPiece() => _Piece(
-        _shapes[_rng.nextInt(_shapes.length)],
-        _palette[_rng.nextInt(_palette.length)],
-      );
+  Color _randColor() => _palette[_rng.nextInt(_palette.length)];
+
+  // ───────────── Akıllı taş üretimi (Shape Generation) ─────────────
+  // Üç kural: (1) Dinamik kurtarma, (2) Kombo teşviki, (3) Zorluk eğrisi.
+  // Tahta açıkken rastgele/zorlayıcı; doldukça kurtarıcı ve kombo şekiller
+  // ağırlık kazanır. Set, her tepsi yenilemesinde tahtanın o anki formuna
+  // göre üretilir.
+
+  int _emptyCount() {
+    var e = 0;
+    for (var r = 0; r < _n; r++) {
+      for (var c = 0; c < _n; c++) {
+        if (_grid[r][c] == null) e++;
+      }
+    }
+    return e;
+  }
+
+  /// Parçanın tahtada kaç farklı konuma sığdığı (yerleştirilebilirlik).
+  int _placements(_Piece p) {
+    var n = 0;
+    for (var r = 0; r < _n; r++) {
+      for (var c = 0; c < _n; c++) {
+        if (_fits(p, r, c)) n++;
+      }
+    }
+    return n;
+  }
+
+  /// Parça en uygun konuma konunca silinebilecek azami satır+sütun sayısı.
+  int _clearPotential(_Piece p) {
+    var best = 0;
+    for (var r = 0; r < _n; r++) {
+      for (var c = 0; c < _n; c++) {
+        if (!_fits(p, r, c)) continue;
+        final l = _linesIfPlaced(p, r, c);
+        if (l > best) best = l;
+      }
+    }
+    return best;
+  }
+
+  /// Parça (tr,tc)'ye konursa kaç satır/sütun tamamen dolar.
+  /// Yalnızca parçanın dokunduğu satır/sütunlar tamamlanabilir.
+  int _linesIfPlaced(_Piece p, int tr, int tc) {
+    final rowsT = <int>{};
+    final colsT = <int>{};
+    for (final cell in p.cells) {
+      rowsT.add(tr + cell[0]);
+      colsT.add(tc + cell[1]);
+    }
+    bool covered(int r, int c) => _grid[r][c] != null || p.has(r - tr, c - tc);
+    var lines = 0;
+    for (final r in rowsT) {
+      var full = true;
+      for (var c = 0; c < _n; c++) {
+        if (!covered(r, c)) {
+          full = false;
+          break;
+        }
+      }
+      if (full) lines++;
+    }
+    for (final c in colsT) {
+      var full = true;
+      for (var r = 0; r < _n; r++) {
+        if (!covered(r, c)) {
+          full = false;
+          break;
+        }
+      }
+      if (full) lines++;
+    }
+    return lines;
+  }
+
+  /// Tam dolmaya yalnızca 1 hücre kalan satır/sütun sayısı (kombo fırsatı).
+  int _almostLineCount() {
+    var n = 0;
+    for (var r = 0; r < _n; r++) {
+      var e = 0;
+      for (var c = 0; c < _n; c++) {
+        if (_grid[r][c] == null) e++;
+      }
+      if (e == 1) n++;
+    }
+    for (var c = 0; c < _n; c++) {
+      var e = 0;
+      for (var r = 0; r < _n; r++) {
+        if (_grid[r][c] == null) e++;
+      }
+      if (e == 1) n++;
+    }
+    return n;
+  }
+
+  bool _isBar(List<List<int>> s) {
+    final mr = s.map((e) => e[0]).reduce(max);
+    final mc = s.map((e) => e[1]).reduce(max);
+    return (mr == 0 || mc == 0) && s.length >= 3;
+  }
+
+  List<List<int>> _weightedPick(
+      List<List<List<int>>> cands, List<double> scores) {
+    var total = 0.0;
+    for (final w in scores) {
+      total += w < 0.1 ? 0.1 : w;
+    }
+    var r = _rng.nextDouble() * total;
+    for (var i = 0; i < cands.length; i++) {
+      final w = scores[i] < 0.1 ? 0.1 : scores[i];
+      if ((r -= w) <= 0) return cands[i];
+    }
+    return cands.last;
+  }
+
+  /// Kural 1: tahtayı rahatlatacak şekil. Sığan küçükler arasından; bir
+  /// satır/sütun silebilecek olanlar ve çok yerleşim noktası olanlar öncelikli.
+  List<List<int>> _rescueShape() {
+    final cands = <List<List<int>>>[];
+    final scores = <double>[];
+    for (final s in _smallShapes) {
+      final p = _Piece(s, _palette[0]);
+      final pc = _placements(p);
+      if (pc == 0) continue;
+      final clears = _clearPotential(p);
+      cands.add(s);
+      scores.add(pc + (clears > 0 ? 40.0 : 0.0) - s.length * 3.0);
+    }
+    if (cands.isEmpty) {
+      // Hiç küçük şekil sığmıyorsa sığan herhangi biri, o da yoksa 1x1.
+      for (final s in _shapes) {
+        if (_placements(_Piece(s, _palette[0])) > 0) return s;
+      }
+      return const [
+        [0, 0]
+      ];
+    }
+    return _weightedPick(cands, scores);
+  }
+
+  /// Kural 2: kombo/çoklu-silme potansiyelini büyüten şekil. Şu an bir
+  /// satır/sütun silebilecek (özellikle çok sayıda) şekiller ve uzun çubuklar
+  /// öne çıkar.
+  List<List<int>> _comboShape() {
+    final cands = <List<List<int>>>[];
+    final scores = <double>[];
+    for (final s in _shapes) {
+      final p = _Piece(s, _palette[0]);
+      if (_placements(p) == 0) continue;
+      final clears = _clearPotential(p);
+      if (clears <= 0) continue;
+      cands.add(s);
+      scores.add(1.0 + clears * 30.0 + (_isBar(s) ? 12.0 : 0.0));
+    }
+    if (cands.isEmpty) {
+      // Şu an silen yoksa gelecekteki kombo için sığan bir uzun çubuk ver.
+      final bars = _barShapes
+          .where((s) => _placements(_Piece(s, _palette[0])) > 0)
+          .toList();
+      if (bars.isNotEmpty) return bars[_rng.nextInt(bars.length)];
+      return _rescueShape();
+    }
+    return _weightedPick(cands, scores);
+  }
+
+  List<List<int>> _randomShape() => _shapes[_rng.nextInt(_shapes.length)];
+
+  /// Tahtanın o anki formuna göre 3'lü taş seti üretir.
+  List<_Piece> _genSet() {
+    final total = _n * _n;
+    final fill = (total - _emptyCount()) / total; // 0..1 doluluk
+    var fitForms = 0;
+    for (final s in _shapes) {
+      if (_placements(_Piece(s, _palette[0])) > 0) fitForms++;
+    }
+    final formRatio = fitForms / _shapes.length; // 1 = her şekil sığıyor
+    final almost = _almostLineCount();
+
+    // Baskı: doluluk + sığmayan şekil oranı. Açık tahtada ~0, sıkışıkta ~1.
+    final pressure = (fill * 0.55 + (1 - formRatio) * 0.75).clamp(0.0, 1.0);
+
+    final out = <_Piece>[];
+    for (var i = 0; i < 3; i++) {
+      final roll = _rng.nextDouble();
+      List<List<int>> shape;
+      if (almost > 0 && roll < 0.22 + 0.28 * pressure) {
+        shape = _comboShape(); // kural 2 — kombo fırsatı varken
+      } else if (roll < 0.12 + 0.78 * pressure) {
+        shape = _rescueShape(); // kural 1 — baskı arttıkça olasılık artar
+      } else {
+        shape = _randomShape(); // kural 3 — açıkken zorlayıcı/rastgele
+      }
+      out.add(_Piece(shape, _randColor()));
+    }
+
+    // Güvenlik ağı: tahta sıkışıkken hiç sığmayan parçaları kurtarıcıyla
+    // değiştir; setin tamamen tıkanmasını engelle (erken game over'ı azaltır).
+    if (pressure > 0.45) {
+      for (var i = 0; i < 3; i++) {
+        if (_placements(out[i]) == 0) {
+          out[i] = _Piece(_rescueShape(), _randColor());
+        }
+      }
+      if (!out.any((p) => _placements(p) > 0)) {
+        out[0] = _Piece(_rescueShape(), _randColor());
+      }
+    }
+    return out;
+  }
+
+  /// Tepsiyi akıllı set ile doldurur.
+  void _refillTray() {
+    final set = _genSet();
+    _tray[0] = set[0];
+    _tray[1] = set[1];
+    _tray[2] = set[2];
+  }
 
   bool _fits(_Piece p, int tr, int tc) {
     for (final cell in p.cells) {
@@ -229,9 +453,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     HapticFeedback.lightImpact();
     _clearLines();
     if (_tray.every((e) => e == null)) {
-      _tray[0] = _newPiece();
-      _tray[1] = _newPiece();
-      _tray[2] = _newPiece();
+      _refillTray();
     }
     if (!_anyMove) _gameOver();
   }
@@ -322,9 +544,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
       _reviveSelected = null;
       _grid = List.generate(_n, (_) => List<Color?>.filled(_n, null));
       if (_tray.every((e) => e == null)) {
-        _tray[0] = _newPiece();
-        _tray[1] = _newPiece();
-        _tray[2] = _newPiece();
+        _refillTray();
       }
     });
     HapticFeedback.mediumImpact();
