@@ -340,7 +340,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     final almost = _almostLineCount();
 
     // Baskı: doluluk + sığmayan şekil oranı. Açık tahtada ~0, sıkışıkta ~1.
-    final pressure = (fill * 0.55 + (1 - formRatio) * 0.75).clamp(0.0, 1.0);
+    final pressure = (fill * 0.6 + (1 - formRatio) * 0.8).clamp(0.0, 1.0);
 
     final out = <_Piece>[];
     for (var i = 0; i < 3; i++) {
@@ -348,7 +348,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
       List<List<int>> shape;
       if (almost > 0 && roll < 0.22 + 0.28 * pressure) {
         shape = _comboShape(); // kural 2 — kombo fırsatı varken
-      } else if (roll < 0.12 + 0.78 * pressure) {
+      } else if (roll < 0.2 + 0.85 * pressure) {
         shape = _rescueShape(); // kural 1 — baskı arttıkça olasılık artar
       } else {
         shape = _randomShape(); // kural 3 — açıkken zorlayıcı/rastgele
@@ -358,7 +358,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
 
     // Güvenlik ağı: tahta sıkışıkken hiç sığmayan parçaları kurtarıcıyla
     // değiştir; setin tamamen tıkanmasını engelle (erken game over'ı azaltır).
-    if (pressure > 0.45) {
+    if (pressure > 0.38) {
       for (var i = 0; i < 3; i++) {
         if (_placements(out[i]) == 0) {
           out[i] = _Piece(_rescueShape(), _randColor());
