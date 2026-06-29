@@ -18,7 +18,6 @@ class AppConfig {
     'assets/audio/Dolu_Kadehi_Ters_Tut.mp3',
     'assets/audio/Sad_Girl.mp3',
     'assets/audio/Takil_Yani_Takmiyo_Belli.mp3',
-    'assets/audio/Bal.mp3',
   ];
 
   /// Müzik açılışta otomatik başlasın mı? (Web'de tarayıcı ilk dokunuşu

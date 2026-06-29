@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
+import '../reels/widgets/music_button.dart';
 import 'revive_overlay.dart';
 
 /// Subway Surfers tarzı sahte-perspektif (2.5D) sonsuz koşu oyunu.
@@ -465,6 +466,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
             ),
           ),
           const Spacer(),
+          const MusicButton(),
+          const SizedBox(width: 8),
           _circleBtn(Icons.emoji_events_rounded, () {}),
           const SizedBox(width: 6),
           Text('$best',

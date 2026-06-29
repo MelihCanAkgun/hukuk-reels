@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../config/app_config.dart';
@@ -40,15 +42,20 @@ class AudioService {
     if (_initialized || !hasTracks) return;
     try {
       final sources = AppConfig.musicTracks.map(_sourceFor).toList();
+      // Her açılışta rastgele bir parçadan başla.
+      final startIndex =
+          sources.length > 1 ? Random().nextInt(sources.length) : 0;
       await _player.setAudioSource(
         ConcatenatingAudioSource(children: sources),
         preload: false,
+        initialIndex: startIndex,
       );
       await _player.setLoopMode(LoopMode.all);
       await _player.setVolume(AppConfig.musicVolume);
-      // Karıştırma KAPALI: parçalar listedeki sırayla çalar
-      // (ilk parça Wildflower, son parça Bal).
-      await _player.setShuffleModeEnabled(false);
+      // Karıştırma AÇIK + sıra yeniden rastgelelenir: her girişte parçalar
+      // rastgele sırayla çalar.
+      await _player.setShuffleModeEnabled(true);
+      await _player.shuffle();
       _initialized = true;
     } catch (e) {
       debugPrint('[Audio] init hatası: $e');

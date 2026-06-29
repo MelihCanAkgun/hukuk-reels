@@ -5,6 +5,7 @@ import '../../app/theme.dart';
 import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/progress_service.dart';
+import '../reels/widgets/music_button.dart';
 
 /// Block Blast benzeri bulmaca: 8×8 ızgaraya 3 parçayı sürükleyip yerleştir;
 /// dolan satır/sütunlar patlar. Hiçbir parça sığmazsa oyun biter.
@@ -691,6 +692,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
             ),
           ),
           const Spacer(),
+          const MusicButton(),
+          const SizedBox(width: 8),
           _circleBtn(Icons.refresh_rounded, _reset),
           const SizedBox(width: 8),
           Container(

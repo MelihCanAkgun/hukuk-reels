@@ -460,10 +460,11 @@ file:///Users/mqcan/hukuk_reels/lib/features/game/block_blast_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/game/flappy_cat_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/game/revive_overlay.dart
 file:///Users/mqcan/hukuk_reels/lib/features/game/subway_cat_screen.dart
-file:///Users/mqcan/hukuk_reels/lib/features/intro/confidence_gate_screen.dart
+file:///Users/mqcan/hukuk_reels/lib/features/games/games_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/profile/profile_settings_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/screens/reels_screen.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/widgets/corner_decorations.dart
+file:///Users/mqcan/hukuk_reels/lib/features/reels/widgets/music_button.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/widgets/music_control_panel.dart
 file:///Users/mqcan/hukuk_reels/lib/features/reels/widgets/question_card.dart
 file:///Users/mqcan/hukuk_reels/lib/main.dart

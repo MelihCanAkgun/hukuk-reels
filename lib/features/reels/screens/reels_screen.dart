@@ -6,6 +6,7 @@ import '../../../core/models/quiz_question.dart';
 import '../../../core/services/audio_service.dart';
 import '../../../core/services/progress_service.dart';
 import '../../beat/beat_mode_screen.dart';
+import '../../games/games_screen.dart';
 import '../../profile/profile_settings_screen.dart';
 import '../widgets/music_control_panel.dart';
 import '../widgets/question_card.dart';
@@ -188,6 +189,13 @@ class _ReelsScreenState extends State<ReelsScreen>
     }
   }
 
+  Future<void> _openGames() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const GamesScreen()),
+    );
+    if (mounted) setState(() {});
+  }
+
   Color get _currentAccent => _page < _questions.length
       ? _questions[_page].category.color
       : AppTheme.accent;
@@ -292,6 +300,7 @@ class _ReelsScreenState extends State<ReelsScreen>
                   answered: _answers.length,
                   showBack: _isRetry,
                   onBack: () => Navigator.of(context).maybePop(),
+                  onGames: _openGames,
                   onProfile: _openProfile,
                   showMusic: _audio.hasTracks,
                   musicOpen: _showMusicPanel,
@@ -456,6 +465,7 @@ class _TopBar extends StatelessWidget {
   final int answered;
   final bool showBack;
   final VoidCallback onBack;
+  final VoidCallback onGames;
   final VoidCallback onProfile;
   final bool showMusic;
   final bool musicOpen;
@@ -469,6 +479,7 @@ class _TopBar extends StatelessWidget {
     required this.answered,
     required this.showBack,
     required this.onBack,
+    required this.onGames,
     required this.onProfile,
     required this.showMusic,
     required this.musicOpen,
@@ -536,6 +547,12 @@ class _TopBar extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(width: 8),
+              _CircleIconButton(
+                icon: Icons.sports_esports_rounded,
+                color: AppTheme.accent,
+                onTap: onGames,
               ),
               const SizedBox(width: 8),
               _CircleIconButton(
