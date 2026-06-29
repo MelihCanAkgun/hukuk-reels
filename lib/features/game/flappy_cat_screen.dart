@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
+import '../reels/widgets/music_button.dart';
 import 'revive_overlay.dart';
 
 /// Profilden açılan mini oyun: "Flappy Silly Cat".
@@ -308,6 +309,8 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
                             ),
                           ),
                           const Spacer(),
+                          const MusicButton(),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 11, vertical: 6),

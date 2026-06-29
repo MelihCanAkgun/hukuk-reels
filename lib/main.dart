@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
 import 'core/services/progress_service.dart';
-import 'features/intro/confidence_gate_screen.dart';
+import 'features/reels/screens/reels_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +30,8 @@ class HukukReelsApp extends StatelessWidget {
       title: 'Medeni Usul Hukuku Final',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      home: const ConfidenceGateScreen(),
+      // Kapı (Kendine güveniyor musun?) kaldırıldı — doğrudan giriş.
+      home: const ReelsScreen(),
     );
   }
 }

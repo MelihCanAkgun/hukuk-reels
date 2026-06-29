@@ -4,10 +4,7 @@ import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/progress_service.dart';
-import '../game/block_blast_screen.dart';
-import '../game/flappy_cat_screen.dart';
-import '../game/subway_cat_screen.dart';
-import '../intro/confidence_gate_screen.dart';
+import '../reels/screens/reels_screen.dart';
 
 /// Profil (doğru/yanlış istatistikleri) + Ayarlar (sıfırlama) ekranı.
 class ProfileSettingsScreen extends StatefulWidget {
@@ -82,29 +79,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     _successCard(pct, totC, totW, totA),
                     const SizedBox(height: 12),
                     _poolCard(solvedInPool),
-                    const SizedBox(height: 22),
-                    _sectionHeader('🎮  Mini Oyunlar', null, AppTheme.accent),
-                    const SizedBox(height: 10),
-                    _gameTile(
-                      imageAsset: 'assets/images/SHINY_Cuh.png',
-                      title: 'Flappy Silly Cat',
-                      subtitle: 'Rekor: ${_progress.flappyHigh}',
-                      screen: const FlappyCatScreen(),
-                    ),
-                    const SizedBox(height: 8),
-                    _gameTile(
-                      emoji: '🧩',
-                      title: 'Block Blast',
-                      subtitle: 'Rekor: ${_progress.blockHigh}',
-                      screen: const BlockBlastScreen(),
-                    ),
-                    const SizedBox(height: 8),
-                    _gameTile(
-                      imageAsset: 'assets/images/SHINY_Cuh.png',
-                      title: 'Subway Silly',
-                      subtitle: 'Rekor: ${_progress.subwayHigh}',
-                      screen: const SubwayCatScreen(),
-                    ),
                     const SizedBox(height: 22),
                     _sectionHeader('❌  Yanlış Yaptıkların', wrongOnes.length,
                         AppTheme.danger),
@@ -198,7 +172,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     await AudioService.instance.pauseForLifecycle();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ConfidenceGateScreen()),
+      MaterialPageRoute(builder: (_) => const ReelsScreen()),
       (route) => false,
     );
   }
@@ -447,81 +421,6 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _gameTile({
-    String? imageAsset,
-    String? emoji,
-    required String title,
-    required String subtitle,
-    required Widget screen,
-  }) {
-    return GestureDetector(
-      onTap: () async {
-        await Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => screen));
-        if (mounted) setState(() {}); // dönüşte rekor güncellensin
-      },
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF3A1E30), Color(0xFF2A1521)],
-          ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.4)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.surfaceHigh,
-                border: Border.all(color: AppTheme.accent, width: 2),
-                image: imageAsset != null
-                    ? DecorationImage(
-                        image: AssetImage(imageAsset), fit: BoxFit.cover)
-                    : null,
-              ),
-              child: emoji != null
-                  ? Text(emoji, style: const TextStyle(fontSize: 22))
-                  : null,
-            ),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.play_circle_fill_rounded,
-                color: AppTheme.accent, size: 30),
-          ],
-        ),
       ),
     );
   }
