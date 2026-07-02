@@ -5,6 +5,7 @@ import '../../app/theme.dart';
 import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/progress_service.dart';
+import '../../core/services/sfx_service.dart';
 import '../reels/widgets/music_button.dart';
 
 /// Block Blast benzeri bulmaca: 8×8 ızgaraya 3 parçayı sürükleyip yerleştir;
@@ -150,6 +151,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   @override
   void initState() {
     super.initState();
+    SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
     _reset();
   }
 
@@ -517,6 +519,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     _score += p.cells.length;
     _tray[idx] = null;
     HapticFeedback.lightImpact();
+    SfxService.instance.place();
     _clearLines();
     if (_tray.every((e) => e == null)) {
       _refillTray();
@@ -547,6 +550,11 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     // Puan: temizlenen başına 10, çoklu temizlikte kombo bonusu.
     _score += cleared * 10 + (cleared > 1 ? (cleared - 1) * 15 : 0);
     HapticFeedback.mediumImpact();
+    if (cleared > 1) {
+      SfxService.instance.combo();
+    } else {
+      SfxService.instance.clear();
+    }
   }
 
   void _gameOver() {
@@ -562,6 +570,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   void _finishGame() {
     _over = true;
     HapticFeedback.heavyImpact();
+    SfxService.instance.gameOver();
     ProgressService.instance.submitBlockScore(_score).then((rec) {
       if (mounted && rec) setState(() => _newRecord = true);
     });

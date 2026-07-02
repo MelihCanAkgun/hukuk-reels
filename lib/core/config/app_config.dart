@@ -18,6 +18,16 @@ class AppConfig {
     'assets/audio/Dolu_Kadehi_Ters_Tut.mp3',
     'assets/audio/Sad_Girl.mp3',
     'assets/audio/Takil_Yani_Takmiyo_Belli.mp3',
+    'assets/audio/Aramizda_Dinozor.mp3',
+    'assets/audio/Bari_Ruyalarima_Gel_Be.mp3',
+    'assets/audio/Bekledigim_Gibiyim.mp3',
+    'assets/audio/Degistim.mp3',
+    'assets/audio/Far_From_Any_Road.mp3',
+    'assets/audio/Gunduz_Yuzlu_Kiz.mp3',
+    'assets/audio/O_Ben_Olurum.mp3',
+    'assets/audio/Sadece_Senin_Olmak.mp3',
+    'assets/audio/Sahte_Dualar.mp3',
+    'assets/audio/Zaman_Yok.mp3',
   ];
 
   /// Müzik açılışta otomatik başlasın mı? (Web'de tarayıcı ilk dokunuşu

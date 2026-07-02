@@ -58,6 +58,13 @@
       background-color: #1A0A14;
       overflow: hidden;
       -webkit-tap-highlight-color: transparent;
+      /* iOS: sürükleme/basılı tutma sırasında büyüteç, callout ve metin
+         seçimi çıkmasın (Block Blast sürüklemeleri için önemli) */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      /* iOS/Safari: sayfa kenarlarında lastik zıplama olmasın */
+      overscroll-behavior: none;
       /* iOS safe area desteği */
       padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     }
@@ -129,61 +136,6 @@
       _deferredInstallPrompt = null;
     });
 
-    // ── Web Kamera Yardımcı Fonksiyonları ──
-    // Flutter'dan JS interop ile çağrılır
-
-    let _cameraStream = null;
-    let _videoElement = null;
-
-    // Kamerayı başlat (arka kamera tercihli)
-    async function startCamera(viewId) {
-      try {
-        const constraints = {
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          },
-          audio: false
-        };
-        _cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-        _videoElement = document.getElementById(viewId);
-        if (_videoElement) {
-          _videoElement.srcObject = _cameraStream;
-          _videoElement.setAttribute('playsinline', 'true');
-          _videoElement.play();
-        }
-        return true;
-      } catch (e) {
-        console.error('[Camera] Hata:', e);
-        return false;
-      }
-    }
-
-    // Kameradan fotoğraf çek (base64 döner)
-    function capturePhoto() {
-      if (!_videoElement) return null;
-      const canvas = document.createElement('canvas');
-      canvas.width = _videoElement.videoWidth || 1280;
-      canvas.height = _videoElement.videoHeight || 720;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(_videoElement, 0, 0);
-      return canvas.toDataURL('image/png');
-    }
-
-    // Kamerayı kapat
-    function stopCamera() {
-      if (_cameraStream) {
-        _cameraStream.getTracks().forEach(t => t.stop());
-        _cameraStream = null;
-      }
-      if (_videoElement) {
-        _videoElement.srcObject = null;
-        _videoElement = null;
-      }
-    }
-
     // Service Worker kaydı + OTOMATİK GÜNCELLEME
     // Yeni sürüm yayınlandığında (push) kullanıcı uygulamayı bir sonraki
     // açışında otomatik olarak günceli alır; silip yeniden yüklemesi gerekmez.
@@ -195,7 +147,7 @@
         window.location.reload();
       });
       window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js?v=2001865349') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
+        navigator.serviceWorker.register('flutter_service_worker.js?v=4173857413') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
           console.log('[SW] kayıt başarılı:', reg.scope);
           // Yeni sürüm bulununca kurulur kurulmaz etkinleştir
           reg.addEventListener('updatefound', function () {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../app/theme.dart';
 import '../../../core/services/audio_service.dart';
+import '../../../core/services/sfx_service.dart';
 
 /// Küçük müzik denetim masası: çal/durdur, sonraki/önceki parça ve ses
 /// seviyesi. Müzik soru değiştikçe değişmez; sadece buradan yönetilir.
@@ -150,6 +151,65 @@ class MusicControlPanel extends StatelessWidget {
                       child: Slider(
                         value: vol,
                         onChanged: (v) => audio.setVolume(v),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+
+          // ── Oyun ses efektleri ──
+          const Divider(color: AppTheme.border, height: 18),
+          const Row(
+            children: [
+              Icon(Icons.videogame_asset_rounded,
+                  color: AppTheme.accent, size: 16),
+              SizedBox(width: 8),
+              Text(
+                'Oyun Efektleri',
+                style: TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          ValueListenableBuilder<double>(
+            valueListenable: SfxService.instance.volumeListenable,
+            builder: (context, sfxVol, _) {
+              return Row(
+                children: [
+                  GestureDetector(
+                    // Hoparlöre dokun: kapat / eski seviyeye dön
+                    onTap: () => SfxService.instance
+                        .setVolume(sfxVol > 0.005 ? 0.0 : 0.9),
+                    child: Icon(
+                      sfxVol <= 0.005
+                          ? Icons.volume_off_rounded
+                          : Icons.volume_up_rounded,
+                      color: sfxVol <= 0.005
+                          ? AppTheme.danger
+                          : AppTheme.textMuted,
+                      size: 17,
+                    ),
+                  ),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: 3,
+                        activeTrackColor: AppTheme.accent,
+                        inactiveTrackColor: AppTheme.border,
+                        thumbColor: AppTheme.accent,
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 14),
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 7),
+                      ),
+                      child: Slider(
+                        value: sfxVol.clamp(0.0, 1.0),
+                        onChanged: (v) => SfxService.instance.setVolume(v),
                       ),
                     ),
                   ),
