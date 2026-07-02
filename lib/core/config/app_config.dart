@@ -9,25 +9,25 @@ class AppConfig {
   /// ───── ARKA PLAN MÜZİKLERİ ─────
   ///
   /// 1) Müzik dosyanı (.mp3 / .m4a / .wav) `assets/audio/` klasörüne at.
-  /// 2) Dosya adını aşağıdaki listeye ekle: 'assets/audio/dosya_adi.mp3'
+  /// 2) Dosya adını aşağıdaki listeye ekle: 'assets/audio/dosya_adi.m4a'
   /// 3) Uygulamayı yeniden başlat (web için: flutter build web).
   ///
   /// Birden fazla parça eklersen hepsi sırayla, kesintisiz döngüyle çalar.
   static const List<String> musicTracks = [
-    'assets/audio/Wildflower.mp3',
-    'assets/audio/Dolu_Kadehi_Ters_Tut.mp3',
-    'assets/audio/Sad_Girl.mp3',
-    'assets/audio/Takil_Yani_Takmiyo_Belli.mp3',
-    'assets/audio/Aramizda_Dinozor.mp3',
-    'assets/audio/Bari_Ruyalarima_Gel_Be.mp3',
-    'assets/audio/Bekledigim_Gibiyim.mp3',
-    'assets/audio/Degistim.mp3',
-    'assets/audio/Far_From_Any_Road.mp3',
-    'assets/audio/Gunduz_Yuzlu_Kiz.mp3',
-    'assets/audio/O_Ben_Olurum.mp3',
-    'assets/audio/Sadece_Senin_Olmak.mp3',
-    'assets/audio/Sahte_Dualar.mp3',
-    'assets/audio/Zaman_Yok.mp3',
+    'assets/audio/Wildflower.m4a',
+    'assets/audio/Dolu_Kadehi_Ters_Tut.m4a',
+    'assets/audio/Sad_Girl.m4a',
+    'assets/audio/Takil_Yani_Takmiyo_Belli.m4a',
+    'assets/audio/Aramizda_Dinozor.m4a',
+    'assets/audio/Bari_Ruyalarima_Gel_Be.m4a',
+    'assets/audio/Bekledigim_Gibiyim.m4a',
+    'assets/audio/Degistim.m4a',
+    'assets/audio/Far_From_Any_Road.m4a',
+    'assets/audio/Gunduz_Yuzlu_Kiz.m4a',
+    'assets/audio/O_Ben_Olurum.m4a',
+    'assets/audio/Sadece_Senin_Olmak.m4a',
+    'assets/audio/Sahte_Dualar.m4a',
+    'assets/audio/Zaman_Yok.m4a',
   ];
 
   /// Müzik açılışta otomatik başlasın mı? (Web'de tarayıcı ilk dokunuşu
