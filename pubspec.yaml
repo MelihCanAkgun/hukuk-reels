@@ -30,6 +30,8 @@ flutter:
     # Kendi müziklerini buraya (assets/audio/) ekleyip
     # lib/core/config/app_config.dart içindeki listeye yazman yeterli.
     - assets/audio/
+    # Oyun ses efektleri (küçük WAV'lar)
+    - assets/sfx/
 
   # Türkçe karakterleri (ç ğ ı İ ö ş ü) tam destekleyen Inter fontu.
   fonts:
