@@ -136,6 +136,77 @@
       _deferredInstallPrompt = null;
     });
 
+    // ── Ses altyapısı (WebAudio) ──
+    // 1) SFX: WAV'lar belleğe alınır, her çağrıda yeni BufferSource ile
+    //    çalınır → üst üste ve sınırsız tekrar çalabilir, gecikme çok düşük.
+    // 2) Müzik sesi (iOS): Safari <audio>.volume'u yok sayar; müzik
+    //    elemanları bir GainNode'a bağlanınca kaydırıcı iOS'ta da çalışır.
+    var _ac = null, _musicGain = null, _sfxGain = null;
+    var _sfxBuffers = {};
+    var _wiredEls = [];
+    var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function _audioCtx() {
+      if (_ac) return _ac;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      _ac = new AC();
+      _musicGain = _ac.createGain();
+      _musicGain.connect(_ac.destination);
+      _sfxGain = _ac.createGain();
+      _sfxGain.connect(_ac.destination);
+      return _ac;
+    }
+    function _resumeCtx() {
+      if (_ac && _ac.state === 'suspended') _ac.resume();
+    }
+    document.addEventListener('pointerdown', _resumeCtx, { passive: true });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) _resumeCtx();
+    });
+
+    function sfxLoad(name, url) {
+      var ctx = _audioCtx();
+      if (!ctx) return;
+      fetch(url)
+        .then(function (r) { return r.arrayBuffer(); })
+        .then(function (b) { return ctx.decodeAudioData(b); })
+        .then(function (buf) { _sfxBuffers[name] = buf; })
+        .catch(function (e) { console.warn('[SFX] yüklenemedi:', name, e); });
+    }
+    function sfxPlay(name) {
+      var ctx = _audioCtx(), buf = _sfxBuffers[name];
+      if (!ctx || !buf) return;
+      _resumeCtx();
+      try {
+        var s = ctx.createBufferSource();
+        s.buffer = buf;
+        s.connect(_sfxGain);
+        s.start(0);
+      } catch (e) {}
+    }
+    function sfxSetVolume(v) {
+      if (_audioCtx()) _sfxGain.gain.value = v;
+    }
+
+    function musicSetVolume(v) {
+      // iOS dışında element.volume zaten çalışıyor; dokunma.
+      if (!_isIOS) return;
+      var ctx = _audioCtx();
+      if (!ctx) return;
+      _resumeCtx();
+      document.querySelectorAll('audio').forEach(function (el) {
+        if (_wiredEls.indexOf(el) >= 0) return;
+        try {
+          var src = ctx.createMediaElementSource(el);
+          src.connect(_musicGain);
+          _wiredEls.push(el);
+        } catch (e) {}
+      });
+      _musicGain.gain.value = v;
+    }
+
     // Service Worker kaydı + OTOMATİK GÜNCELLEME
     // Yeni sürüm yayınlandığında (push) kullanıcı uygulamayı bir sonraki
     // açışında otomatik olarak günceli alır; silip yeniden yüklemesi gerekmez.

@@ -3,6 +3,8 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import '../config/app_config.dart';
+import 'web_audio_bridge_stub.dart'
+    if (dart.library.js_interop) 'web_audio_bridge_web.dart' as bridge;
 
 /// Arka plan müziği servisi.
 ///
@@ -77,6 +79,9 @@ class AudioService {
     if (_player.playing) return;
     try {
       await _player.play();
+      // iOS Safari <audio>.volume'u yok sayar; müzik elemanını GainNode'a
+      // bağlayıp başlangıç seviyesini uygula (iOS dışında no-op).
+      bridge.musicSetVolume(_player.volume);
     } catch (e) {
       debugPrint('[Audio] start hatası: $e');
     }
@@ -125,7 +130,10 @@ class AudioService {
   }
 
   Future<void> setVolume(double v) async {
-    await _player.setVolume(v.clamp(0.0, 1.0));
+    final vol = v.clamp(0.0, 1.0);
+    await _player.setVolume(vol);
+    // iOS'ta element.volume işlemez; GainNode üzerinden gerçekten uygula.
+    bridge.musicSetVolume(vol);
   }
 
   // ── Uygulama yaşam döngüsü ──
