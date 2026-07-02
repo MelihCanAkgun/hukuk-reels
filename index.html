@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <base href="/hukuk-reels/">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+  <!-- ── PWA Temel ── -->
+  <meta name="theme-color" content="#170B12">
+  <meta name="description" content="Çevrimdışı hukuk eğitim uygulaması">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- ── iOS Safari PWA (Add to Home Screen) ── -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Hukuk Reels">
+
+  <!-- iOS Safari ikon boyutları -->
+  <link rel="apple-touch-icon" href="icons/icon-180x180.png">
+  <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-167x167.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180x180.png">
+
+  <!-- iOS Splash Screen'ler (en yaygın cihazlar) -->
+  <!-- iPhone 15 Pro Max / 14 Pro Max (430x932) -->
+  <link rel="apple-touch-startup-image"
+        href="icons/splash-1290x2796.png"
+        media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPhone 15 / 14 (390x844) -->
+  <link rel="apple-touch-startup-image"
+        href="icons/splash-1170x2532.png"
+        media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
+  <!-- iPhone SE 3 (375x667) -->
+  <link rel="apple-touch-startup-image"
+        href="icons/splash-750x1334.png"
+        media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+  <!-- iPad Air / 10.9" (820x1180) -->
+  <link rel="apple-touch-startup-image"
+        href="icons/splash-1640x2360.png"
+        media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2)">
+
+  <!-- ── Android Chrome PWA ── -->
+  <meta name="application-name" content="Hukuk Reels">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1A0A14">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon.png">
+
+  <title>Hukuk Reels</title>
+
+  <style>
+    /* Yükleme ekranı */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #1A0A14;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      /* iOS: sürükleme/basılı tutma sırasında büyüteç, callout ve metin
+         seçimi çıkmasın (Block Blast sürüklemeleri için önemli) */
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      /* iOS/Safari: sayfa kenarlarında lastik zıplama olmasın */
+      overscroll-behavior: none;
+      /* iOS safe area desteği */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #loading .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #FF80AB;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    #loading p {
+      color: rgba(255,255,255,0.5);
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    /* iOS rubber-band scroll engeli */
+    html, body {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Hukuk Reels yükleniyor...</p>
+  </div>
+
+  <script>
+    // ── Android Chrome PWA Install Prompt ──
+    let _deferredInstallPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      _deferredInstallPrompt = e;
+      console.log('[PWA] Install prompt yakalandı');
+    });
+
+    // Flutter'dan çağrılabilir: Chrome'un native install dialog'unu göster
+    async function triggerInstallPrompt() {
+      if (!_deferredInstallPrompt) return false;
+      _deferredInstallPrompt.prompt();
+      const result = await _deferredInstallPrompt.userChoice;
+      _deferredInstallPrompt = null;
+      return result.outcome === 'accepted';
+    }
+
+    // PWA modunda mı çalışıyor kontrolü
+    function isRunningStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches
+          || window.navigator.standalone === true;
+    }
+
+    window.addEventListener('appinstalled', function() {
+      console.log('[PWA] Uygulama yüklendi!');
+      _deferredInstallPrompt = null;
+    });
+
+    // ── Ses altyapısı (WebAudio) ──
+    // 1) SFX: WAV'lar belleğe alınır, her çağrıda yeni BufferSource ile
+    //    çalınır → üst üste ve sınırsız tekrar çalabilir, gecikme çok düşük.
+    // 2) Müzik sesi (iOS): Safari <audio>.volume'u yok sayar; müzik
+    //    elemanları bir GainNode'a bağlanınca kaydırıcı iOS'ta da çalışır.
+    var _ac = null, _musicGain = null, _sfxGain = null;
+    var _sfxBuffers = {};
+    var _wiredEls = [];
+    var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    function _audioCtx() {
+      if (_ac) return _ac;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      _ac = new AC();
+      _musicGain = _ac.createGain();
+      _musicGain.connect(_ac.destination);
+      _sfxGain = _ac.createGain();
+      _sfxGain.connect(_ac.destination);
+      return _ac;
+    }
+    function _resumeCtx() {
+      if (_ac && _ac.state === 'suspended') _ac.resume();
+    }
+    document.addEventListener('pointerdown', _resumeCtx, { passive: true });
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) _resumeCtx();
+    });
+
+    function sfxLoad(name, url) {
+      var ctx = _audioCtx();
+      if (!ctx) return;
+      fetch(url)
+        .then(function (r) { return r.arrayBuffer(); })
+        .then(function (b) { return ctx.decodeAudioData(b); })
+        .then(function (buf) { _sfxBuffers[name] = buf; })
+        .catch(function (e) { console.warn('[SFX] yüklenemedi:', name, e); });
+    }
+    function sfxPlay(name) {
+      var ctx = _audioCtx(), buf = _sfxBuffers[name];
+      if (!ctx || !buf) return;
+      _resumeCtx();
+      try {
+        var s = ctx.createBufferSource();
+        s.buffer = buf;
+        s.connect(_sfxGain);
+        s.start(0);
+      } catch (e) {}
+    }
+    function sfxSetVolume(v) {
+      if (_audioCtx()) _sfxGain.gain.value = v;
+    }
+
+    function musicSetVolume(v) {
+      // iOS dışında element.volume zaten çalışıyor; dokunma.
+      if (!_isIOS) return;
+      var ctx = _audioCtx();
+      if (!ctx) return;
+      _resumeCtx();
+      document.querySelectorAll('audio').forEach(function (el) {
+        if (_wiredEls.indexOf(el) >= 0) return;
+        try {
+          var src = ctx.createMediaElementSource(el);
+          src.connect(_musicGain);
+          _wiredEls.push(el);
+        } catch (e) {}
+      });
+      _musicGain.gain.value = v;
+    }
+
+    // Service Worker kaydı + OTOMATİK GÜNCELLEME
+    // Yeni sürüm yayınlandığında (push) kullanıcı uygulamayı bir sonraki
+    // açışında otomatik olarak günceli alır; silip yeniden yüklemesi gerekmez.
+    if ('serviceWorker' in navigator) {
+      var _swRefreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (_swRefreshing) return;
+        _swRefreshing = true;
+        window.location.reload();
+      });
+      window.addEventListener('flutter-first-frame', function () {
+        navigator.serviceWorker.register('flutter_service_worker.js?v=828230000') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
+          console.log('[SW] kayıt başarılı:', reg.scope);
+          // Yeni sürüm bulununca kurulur kurulmaz etkinleştir
+          reg.addEventListener('updatefound', function () {
+            var nw = reg.installing;
+            if (!nw) return;
+            nw.addEventListener('statechange', function () {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                nw.postMessage('skipWaiting');
+              }
+            });
+          });
+          // Uygulama açıkken de saatte bir güncellemeyi kontrol et
+          setInterval(function () { reg.update(); }, 60 * 60 * 1000);
+        });
+      });
+    }
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
