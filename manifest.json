@@ -1,14 +1,17 @@
 {
   "name": "Hukuk Reels",
   "short_name": "HukukReels",
-  "description": "Çevrimdışı hukuk eğitim uygulaması - Reels tarzı flashcard ve test sistemi",
+  "description": "Mini oyunlar ve hukuk soru bankası",
   "start_url": ".",
-  "scope": "/",
+  "scope": ".",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "background_color": "#1A0A14",
   "theme_color": "#E91E63",
-  "categories": ["education"],
+  "categories": [
+    "games",
+    "education"
+  ],
   "lang": "tr",
   "prefer_related_applications": false,
   "screenshots": [
