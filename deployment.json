@@ -1,0 +1,9 @@
+{
+  "source_commit": "ae717c23718cbd6238b605331741c1ae7be0b578",
+  "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
+  "checks": {
+    "flutter_tests": 21,
+    "analysis": "passed",
+    "web_runtime": "passed"
+  }
+}
