@@ -47,7 +47,8 @@ void main() {
     final gesture = await tester.startGesture(start);
     await gesture.moveBy(const Offset(0, -20));
     await tester.pump();
-    await gesture.moveTo(board.topLeft + Offset(cell / 2, cell + 50));
+    final liftedOrigin = start - Offset(cell / 2, cell + 64);
+    await gesture.moveTo(start + (board.topLeft - liftedOrigin) / 1.8);
     await tester.pump();
     await gesture.up();
     await tester.pump();
@@ -62,6 +63,56 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('311'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    ProgressService.instance.clearBlockGame();
+    await tester.pump();
+  });
+
+  testWidgets(
+      'touch lifts immediately, travels farther and ignores a second finger',
+      (tester) async {
+    final game = BlockBlastEngine()
+      ..tray = [
+        const BlockPiece(9, 0),
+        const BlockPiece(0, 1),
+        const BlockPiece(0, 2)
+      ];
+    ProgressService.instance.saveBlockGame(game.toJson());
+    await tester.pumpWidget(const MaterialApp(home: BlockBlastScreen()));
+    await tester.pumpAndSettle();
+    final start = tester.getCenter(find.byKey(const ValueKey('block-tray-0')));
+    final first = await tester.startGesture(start, pointer: 1);
+    await tester.pump();
+    final feedback = find.byKey(const ValueKey('block-drag-feedback'));
+    expect(feedback, findsOneWidget); // no pan threshold or hold required
+    await tester.pump(const Duration(milliseconds: 120));
+    final initial = tester.getRect(feedback);
+    final board = tester.getRect(find.byKey(const ValueKey('block-board')));
+    expect(initial.width, closeTo(board.width / 4, .1)); // full 2-cell size
+    expect(initial.bottom, closeTo(start.dy - 64, .1));
+    await first.moveBy(const Offset(20, -30));
+    await tester.pump();
+    final moved = tester.getRect(feedback);
+    expect(moved.left - initial.left, closeTo(36, .1));
+    expect(moved.top - initial.top, closeTo(-54, .1));
+    final second = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('block-tray-1'))),
+        pointer: 2);
+    await second.moveBy(const Offset(80, -80));
+    await second.up();
+    await tester.pump();
+    expect(tester.getRect(feedback), moved);
+    await first.cancel();
+    await tester.pump();
+    expect(feedback, findsNothing);
+    expect(ProgressService.instance.loadBlockGame()!['score'], 0);
+    final tap = await tester.startGesture(start);
+    await tester.pump();
+    expect(feedback, findsOneWidget);
+    await tap.up();
+    await tester.pump();
+    expect(feedback, findsNothing);
+    expect(ProgressService.instance.loadBlockGame()!['score'], 0);
     await tester.pumpWidget(const SizedBox());
     ProgressService.instance.clearBlockGame();
     await tester.pump();
