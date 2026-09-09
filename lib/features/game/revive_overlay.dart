@@ -35,7 +35,8 @@ class _ReviveOverlayState extends State<ReviveOverlay> {
     setState(() {
       _quiz = true;
       _selected = null;
-      _q = kQuestions[_rng.nextInt(kQuestions.length)].withShuffledOptions(_rng);
+      _q =
+          kQuestions[_rng.nextInt(kQuestions.length)].withShuffledOptions(_rng);
     });
   }
 
@@ -67,7 +68,8 @@ class _ReviveOverlayState extends State<ReviveOverlay> {
   }
 
   Widget _askCard() {
-    return Container(
+    return SingleChildScrollView(
+        child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 36),
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
       decoration: BoxDecoration(
@@ -100,7 +102,7 @@ class _ReviveOverlayState extends State<ReviveOverlay> {
           _bigBtn('Hayır, bitir', primary: false, onTap: widget.onGiveUp),
         ],
       ),
-    );
+    ));
   }
 
   Widget _quizCard() {

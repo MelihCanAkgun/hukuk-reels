@@ -15,10 +15,10 @@ class CornerDecorations extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final imgs = AppConfig.cornerImages;
-    final s = AppConfig.cornerImageSize;
-    final o = AppConfig.cornerImageOpacity;
-    final bleed = s * 0.22; // köşeden hafif taşma
+    const imgs = AppConfig.cornerImages;
+    const s = AppConfig.cornerImageSize;
+    const o = AppConfig.cornerImageOpacity;
+    const bleed = s * 0.22; // köşeden hafif taşma
 
     return Positioned.fill(
       child: IgnorePointer(

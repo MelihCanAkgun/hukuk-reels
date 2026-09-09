@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -17,6 +18,8 @@ class AudioService {
 
   final AudioPlayer _player = AudioPlayer();
   bool _initialized = false;
+  Future<void>? _initializing;
+  bool _hasStarted = false;
   bool _userPaused = false; // kullanıcı bilerek durdurduysa true
 
   bool get hasTracks => AppConfig.musicTracks.isNotEmpty;
@@ -40,7 +43,10 @@ class AudioService {
     return name.replaceAll('_', ' ').replaceAll('-', ' ').trim();
   }
 
-  Future<void> init() async {
+  Future<void> init() =>
+      _initializing ??= _initialize().whenComplete(() => _initializing = null);
+
+  Future<void> _initialize() async {
     if (_initialized || !hasTracks) return;
     try {
       final sources = AppConfig.musicTracks.map(_sourceFor).toList();
@@ -66,10 +72,18 @@ class AudioService {
 
   AudioSource _sourceFor(String assetPath) {
     if (kIsWeb) {
-      final url = '${Uri.base}assets/$assetPath';
+      final url = Uri.base.resolve('assets/$assetPath').toString();
       return AudioSource.uri(Uri.parse(url));
     }
     return AudioSource.asset(assetPath);
+  }
+
+  void _play() {
+    _hasStarted = true;
+    unawaited(_player.play().catchError((Object error) {
+      debugPrint('[Audio] play hatası: $error');
+    }));
+    bridge.musicSetVolume(_player.volume);
   }
 
   /// İlk kullanıcı etkileşiminde çağrılır (web autoplay kısıtı için).
@@ -78,7 +92,7 @@ class AudioService {
     await init();
     if (_player.playing) return;
     try {
-      await _player.play();
+      _play();
       // iOS Safari <audio>.volume'u yok sayar; müzik elemanını GainNode'a
       // bağlayıp başlangıç seviyesini uygula (iOS dışında no-op).
       bridge.musicSetVolume(_player.volume);
@@ -96,7 +110,7 @@ class AudioService {
     } else {
       _userPaused = false;
       try {
-        await _player.play();
+        _play();
       } catch (e) {
         debugPrint('[Audio] play hatası: $e');
       }
@@ -110,7 +124,7 @@ class AudioService {
     _userPaused = false;
     try {
       await _player.seekToNext();
-      if (!_player.playing) await _player.play();
+      if (!_player.playing) _play();
     } catch (e) {
       debugPrint('[Audio] next hatası: $e');
     }
@@ -123,7 +137,7 @@ class AudioService {
     _userPaused = false;
     try {
       await _player.seekToPrevious();
-      if (!_player.playing) await _player.play();
+      if (!_player.playing) _play();
     } catch (e) {
       debugPrint('[Audio] previous hatası: $e');
     }
@@ -144,9 +158,9 @@ class AudioService {
   }
 
   Future<void> resumeForLifecycle() async {
-    if (_userPaused || !hasTracks) return;
+    if (_userPaused || !hasTracks || !_hasStarted) return;
     try {
-      await _player.play();
+      _play();
     } catch (_) {}
   }
 

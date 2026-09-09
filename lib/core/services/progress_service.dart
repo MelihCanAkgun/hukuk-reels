@@ -41,6 +41,11 @@ class ProgressService {
   static const _kSession = 'session_v1';
   static const _kFlappyHigh = 'flappy_high_v1';
   static const _kBlockHigh = 'block_high_v1';
+  static const _kBlockGame = 'block_game_v1';
+  String? _blockMemory;
+  bool _blockLoaded = false;
+  Future<void> _blockWrites = Future.value();
+  int _blockHighMemory = 0;
   static const _kSubwayHigh = 'subway_high_v1';
 
   SharedPreferences? _prefs;
@@ -119,12 +124,50 @@ class ProgressService {
     return true;
   }
 
-  int get blockHigh => _prefs?.getInt(_kBlockHigh) ?? 0;
+  int get blockHigh => max(_blockHighMemory, _prefs?.getInt(_kBlockHigh) ?? 0);
 
   Future<bool> submitBlockScore(int score) async {
     if (score <= blockHigh) return false;
-    await _prefs?.setInt(_kBlockHigh, score);
+    _blockHighMemory = score;
+    try {
+      await _prefs?.setInt(_kBlockHigh, score);
+    } catch (_) {}
     return true;
+  }
+
+  Map<String, dynamic>? loadBlockGame() {
+    try {
+      if (!_blockLoaded) {
+        _blockMemory = _prefs?.getString(_kBlockGame);
+        _blockLoaded = true;
+      }
+      final raw = _blockMemory;
+      return raw == null ? null : jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveBlockGame(Map<String, dynamic> game) {
+    final raw = jsonEncode(game);
+    _blockLoaded = true;
+    _blockMemory = raw;
+    // Serialize snapshots so an older asynchronous write cannot win.
+    return _blockWrites = _blockWrites.then((_) async {
+      try {
+        await _prefs?.setString(_kBlockGame, raw);
+      } catch (_) {}
+    });
+  }
+
+  Future<void> clearBlockGame() {
+    _blockLoaded = true;
+    _blockMemory = null;
+    return _blockWrites = _blockWrites.then((_) async {
+      try {
+        await _prefs?.remove(_kBlockGame);
+      } catch (_) {}
+    });
   }
 
   int get subwayHigh => _prefs?.getInt(_kSubwayHigh) ?? 0;
@@ -179,8 +222,7 @@ class ProgressService {
     final deckJson = <Map<String, dynamic>>[];
     final questions = <QuizQuestion>[];
     for (final q in pick) {
-      final ord = List<int>.generate(q.options.length, (i) => i)
-        ..shuffle(rng);
+      final ord = List<int>.generate(q.options.length, (i) => i)..shuffle(rng);
       deckJson.add({'id': q.id, 'ord': ord});
       questions.add(q.withOptionOrder(ord));
     }
@@ -216,6 +258,8 @@ class ProgressService {
 
   /// Her şeyi sıfırlar: istatistik + havuz + oturum.
   Future<void> resetAll() async {
+    _blockHighMemory = 0;
+    await clearBlockGame();
     await _prefs?.remove(_kStats);
     await _prefs?.remove(_kSolved);
     await _prefs?.remove(_kSession);

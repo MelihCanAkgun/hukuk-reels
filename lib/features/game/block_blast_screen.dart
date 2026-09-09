@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:math';
+import 'block_blast_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
@@ -19,69 +21,6 @@ class BlockBlastScreen extends StatefulWidget {
 
 const int _n = 8; // ızgara boyutu
 
-// Parça şekilleri (normalize: min r=0, min c=0). [r,c] hücreleri.
-// Tanıdık Block Blast / Tetris parçaları; her birinin dönüşleri dahil.
-const List<List<List<int>>> _shapes = [
-  // Tekli
-  [[0, 0]],
-
-  // İkili (yatay / dikey)
-  [[0, 0], [0, 1]],
-  [[0, 0], [1, 0]],
-
-  // Üçlü çizgi
-  [[0, 0], [0, 1], [0, 2]],
-  [[0, 0], [1, 0], [2, 0]],
-
-  // Dörtlü çizgi
-  [[0, 0], [0, 1], [0, 2], [0, 3]],
-  [[0, 0], [1, 0], [2, 0], [3, 0]],
-
-  // Beşli çizgi
-  [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]],
-  [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]],
-
-  // 2x2 kare
-  [[0, 0], [0, 1], [1, 0], [1, 1]],
-
-  // 3x3 kare
-  [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2], [2, 0], [2, 1], [2, 2]],
-
-  // Küçük L köşe (3 hücre) — 4 dönüş
-  [[0, 0], [0, 1], [1, 0]],
-  [[0, 0], [0, 1], [1, 1]],
-  [[0, 0], [1, 0], [1, 1]],
-  [[0, 1], [1, 0], [1, 1]],
-
-  // L (4 hücre) — 4 dönüş
-  [[0, 0], [1, 0], [2, 0], [2, 1]],
-  [[0, 0], [0, 1], [0, 2], [1, 0]],
-  [[0, 0], [0, 1], [1, 1], [2, 1]],
-  [[0, 2], [1, 0], [1, 1], [1, 2]],
-
-  // J (4 hücre) — 4 dönüş
-  [[0, 1], [1, 1], [2, 0], [2, 1]],
-  [[0, 0], [1, 0], [1, 1], [1, 2]],
-  [[0, 0], [0, 1], [1, 0], [2, 0]],
-  [[0, 0], [0, 1], [0, 2], [1, 2]],
-
-  // T (4 hücre) — 4 dönüş
-  [[0, 0], [0, 1], [0, 2], [1, 1]],
-  [[0, 1], [1, 0], [1, 1], [1, 2]],
-  [[0, 0], [1, 0], [1, 1], [2, 0]],
-  [[0, 1], [1, 0], [1, 1], [2, 1]],
-
-  // S / Z (4 hücre)
-  [[0, 1], [0, 2], [1, 0], [1, 1]],
-  [[0, 0], [1, 0], [1, 1], [2, 1]],
-  [[0, 0], [0, 1], [1, 1], [1, 2]],
-  [[0, 1], [1, 0], [1, 1], [2, 0]],
-
-  // Dikdörtgenler
-  [[0, 0], [0, 1], [0, 2], [1, 0], [1, 1], [1, 2]], // 2x3
-  [[0, 0], [0, 1], [1, 0], [1, 1], [2, 0], [2, 1]], // 3x2
-];
-
 const List<Color> _palette = [
   Color(0xFFFF5C8A),
   Color(0xFFB06CFF),
@@ -93,41 +32,27 @@ const List<Color> _palette = [
   Color(0xFFFFD93D),
 ];
 
-// Kurtarıcı (rescue) şekiller: ≤3 hücreli küçükler — sıkışık tahtada sığması
-// en olası ve rahatlatması en kolay olanlar.
-final List<List<List<int>>> _smallShapes =
-    _shapes.where((s) => s.length <= 3).toList();
-
-// Kombo çubukları: tek satır/sütun, ≥3 uzunluk — çoklu silme potansiyeli.
-final List<List<List<int>>> _barShapes = _shapes.where((s) {
-  final mr = s.map((e) => e[0]).reduce(max);
-  final mc = s.map((e) => e[1]).reduce(max);
-  return (mr == 0 || mc == 0) && s.length >= 3;
-}).toList();
-
-class _Piece {
-  final List<List<int>> cells;
-  final Color color;
-  final int rows, cols;
-  _Piece(this.cells, this.color)
-      : rows = cells.map((e) => e[0]).reduce(max) + 1,
-        cols = cells.map((e) => e[1]).reduce(max) + 1;
-  bool has(int r, int c) => cells.any((e) => e[0] == r && e[1] == c);
-}
-
-class _BlockBlastScreenState extends State<BlockBlastScreen> {
+class _BlockBlastScreenState extends State<BlockBlastScreen>
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _rng = Random();
   final _gridKey = GlobalKey();
   final _stackKey = GlobalKey();
 
-  late List<List<Color?>> _grid;
-  final List<_Piece?> _tray = [null, null, null];
-  int _score = 0;
+  late BlockBlastEngine _game;
+  List<List<int?>> get _grid => _game.grid;
+  List<BlockPiece?> get _tray => _game.tray;
+  int get _score => _game.score;
+  late final AnimationController _burst;
+  Map<int, int> _burstCells = {};
+  String _feedback = '';
+  Timer? _reviveTimer;
+  bool _resolving = false;
+  int _run = 0;
   bool _over = false;
   bool _newRecord = false;
 
   // Devam etme (revive): oyun başına yalnızca 1 kez bir soruyla hak kazanılır.
-  bool _reviveUsed = false;
+  bool get _reviveUsed => _game.reviveUsed;
   bool _askContinue = false;
   QuizQuestion? _reviveQ;
   int? _reviveSelected;
@@ -142,7 +67,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   bool _dragHasAnchor = false;
   // Kaydırma hassasiyeti: parmak hareketi bu katsayıyla büyütülür (>1 = aynı
   // mesafeye daha az parmak hareketiyle ulaşılır).
-  static const double _dragGain = 2.0;
+  static const double _dragGain = 1.0;
   int _tr = 0, _tc = 0;
   bool _valid = false;
   Set<int> _preview = {};
@@ -152,275 +77,94 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   void initState() {
     super.initState();
     SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
-    _reset();
+    WidgetsBinding.instance.addObserver(this);
+    _burst = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 420))
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed && mounted) {
+          setState(() {
+            _resolving = false;
+            _burstCells = {};
+          });
+          if (!_game.hasMove) _gameOver();
+        }
+      });
+    _game = BlockBlastEngine.restore(ProgressService.instance.loadBlockGame(),
+            random: _rng) ??
+        BlockBlastEngine(random: _rng);
+    if (!_game.hasMove) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _gameOver();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _reviveTimer?.cancel();
+    _burst.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _cancelDrag();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_dragIdx != null) _cancelDrag();
+  }
+
+  void _save() {
+    unawaited(ProgressService.instance.saveBlockGame(_game.toJson()));
+    final run = _run;
+    unawaited(ProgressService.instance.submitBlockScore(_score).then((record) {
+      if (mounted && run == _run && record) setState(() => _newRecord = true);
+    }));
   }
 
   void _reset() {
-    _grid = List.generate(_n, (_) => List<Color?>.filled(_n, null));
-    _refillTray();
-    _score = 0;
+    _run++;
+    _reviveTimer?.cancel();
+    _burst.stop();
+    _burstCells = {};
+    _resolving = false;
+    _feedback = '';
+    _game = BlockBlastEngine(random: _rng);
     _over = false;
     _newRecord = false;
-    _reviveUsed = false;
     _askContinue = false;
     _reviveQ = null;
     _reviveSelected = null;
     _dragIdx = null;
+    _valid = false;
     _preview = {};
     _clearPreview = {};
+    _save();
     if (mounted) setState(() {});
   }
 
-  Color _randColor() => _palette[_rng.nextInt(_palette.length)];
-
-  // ───────────── Akıllı taş üretimi (Shape Generation) ─────────────
-  // Üç kural: (1) Dinamik kurtarma, (2) Kombo teşviki, (3) Zorluk eğrisi.
-  // Tahta açıkken rastgele/zorlayıcı; doldukça kurtarıcı ve kombo şekiller
-  // ağırlık kazanır. Set, her tepsi yenilemesinde tahtanın o anki formuna
-  // göre üretilir.
-
-  int _emptyCount() {
-    var e = 0;
-    for (var r = 0; r < _n; r++) {
-      for (var c = 0; c < _n; c++) {
-        if (_grid[r][c] == null) e++;
-      }
-    }
-    return e;
-  }
-
-  /// Parçanın tahtada kaç farklı konuma sığdığı (yerleştirilebilirlik).
-  int _placements(_Piece p) {
-    var n = 0;
-    for (var r = 0; r < _n; r++) {
-      for (var c = 0; c < _n; c++) {
-        if (_fits(p, r, c)) n++;
-      }
-    }
-    return n;
-  }
-
-  /// Parça en uygun konuma konunca silinebilecek azami satır+sütun sayısı.
-  int _clearPotential(_Piece p) {
-    var best = 0;
-    for (var r = 0; r < _n; r++) {
-      for (var c = 0; c < _n; c++) {
-        if (!_fits(p, r, c)) continue;
-        final l = _linesIfPlaced(p, r, c);
-        if (l > best) best = l;
-      }
-    }
-    return best;
-  }
-
-  /// Parça (tr,tc)'ye konursa kaç satır/sütun tamamen dolar.
-  /// Yalnızca parçanın dokunduğu satır/sütunlar tamamlanabilir.
-  int _linesIfPlaced(_Piece p, int tr, int tc) {
-    final rowsT = <int>{};
-    final colsT = <int>{};
-    for (final cell in p.cells) {
-      rowsT.add(tr + cell[0]);
-      colsT.add(tc + cell[1]);
-    }
-    bool covered(int r, int c) => _grid[r][c] != null || p.has(r - tr, c - tc);
-    var lines = 0;
-    for (final r in rowsT) {
-      var full = true;
-      for (var c = 0; c < _n; c++) {
-        if (!covered(r, c)) {
-          full = false;
-          break;
-        }
-      }
-      if (full) lines++;
-    }
-    for (final c in colsT) {
-      var full = true;
-      for (var r = 0; r < _n; r++) {
-        if (!covered(r, c)) {
-          full = false;
-          break;
-        }
-      }
-      if (full) lines++;
-    }
-    return lines;
-  }
-
-  /// Tam dolmaya yalnızca 1 hücre kalan satır/sütun sayısı (kombo fırsatı).
-  int _almostLineCount() {
-    var n = 0;
-    for (var r = 0; r < _n; r++) {
-      var e = 0;
-      for (var c = 0; c < _n; c++) {
-        if (_grid[r][c] == null) e++;
-      }
-      if (e == 1) n++;
-    }
-    for (var c = 0; c < _n; c++) {
-      var e = 0;
-      for (var r = 0; r < _n; r++) {
-        if (_grid[r][c] == null) e++;
-      }
-      if (e == 1) n++;
-    }
-    return n;
-  }
-
-  bool _isBar(List<List<int>> s) {
-    final mr = s.map((e) => e[0]).reduce(max);
-    final mc = s.map((e) => e[1]).reduce(max);
-    return (mr == 0 || mc == 0) && s.length >= 3;
-  }
-
-  List<List<int>> _weightedPick(
-      List<List<List<int>>> cands, List<double> scores) {
-    var total = 0.0;
-    for (final w in scores) {
-      total += w < 0.1 ? 0.1 : w;
-    }
-    var r = _rng.nextDouble() * total;
-    for (var i = 0; i < cands.length; i++) {
-      final w = scores[i] < 0.1 ? 0.1 : scores[i];
-      if ((r -= w) <= 0) return cands[i];
-    }
-    return cands.last;
-  }
-
-  /// Kural 1: tahtayı rahatlatacak şekil. Sığan küçükler arasından; bir
-  /// satır/sütun silebilecek olanlar ve çok yerleşim noktası olanlar öncelikli.
-  List<List<int>> _rescueShape() {
-    final cands = <List<List<int>>>[];
-    final scores = <double>[];
-    for (final s in _smallShapes) {
-      final p = _Piece(s, _palette[0]);
-      final pc = _placements(p);
-      if (pc == 0) continue;
-      final clears = _clearPotential(p);
-      cands.add(s);
-      scores.add(pc + (clears > 0 ? 40.0 : 0.0) - s.length * 3.0);
-    }
-    if (cands.isEmpty) {
-      // Hiç küçük şekil sığmıyorsa sığan herhangi biri, o da yoksa 1x1.
-      for (final s in _shapes) {
-        if (_placements(_Piece(s, _palette[0])) > 0) return s;
-      }
-      return const [
-        [0, 0]
-      ];
-    }
-    return _weightedPick(cands, scores);
-  }
-
-  /// Kural 2: kombo/çoklu-silme potansiyelini büyüten şekil. Şu an bir
-  /// satır/sütun silebilecek (özellikle çok sayıda) şekiller ve uzun çubuklar
-  /// öne çıkar.
-  List<List<int>> _comboShape() {
-    final cands = <List<List<int>>>[];
-    final scores = <double>[];
-    for (final s in _shapes) {
-      final p = _Piece(s, _palette[0]);
-      if (_placements(p) == 0) continue;
-      final clears = _clearPotential(p);
-      if (clears <= 0) continue;
-      cands.add(s);
-      scores.add(1.0 + clears * 30.0 + (_isBar(s) ? 12.0 : 0.0));
-    }
-    if (cands.isEmpty) {
-      // Şu an silen yoksa gelecekteki kombo için sığan bir uzun çubuk ver.
-      final bars = _barShapes
-          .where((s) => _placements(_Piece(s, _palette[0])) > 0)
-          .toList();
-      if (bars.isNotEmpty) return bars[_rng.nextInt(bars.length)];
-      return _rescueShape();
-    }
-    return _weightedPick(cands, scores);
-  }
-
-  List<List<int>> _randomShape() => _shapes[_rng.nextInt(_shapes.length)];
-
-  /// Tahtanın o anki formuna göre 3'lü taş seti üretir.
-  List<_Piece> _genSet() {
-    final total = _n * _n;
-    final fill = (total - _emptyCount()) / total; // 0..1 doluluk
-    var fitForms = 0;
-    for (final s in _shapes) {
-      if (_placements(_Piece(s, _palette[0])) > 0) fitForms++;
-    }
-    final formRatio = fitForms / _shapes.length; // 1 = her şekil sığıyor
-    final almost = _almostLineCount();
-
-    // Baskı: doluluk + sığmayan şekil oranı. Açık tahtada ~0, sıkışıkta ~1.
-    final pressure = (fill * 0.6 + (1 - formRatio) * 0.8).clamp(0.0, 1.0);
-
-    final out = <_Piece>[];
-    for (var i = 0; i < 3; i++) {
-      final roll = _rng.nextDouble();
-      List<List<int>> shape;
-      if (almost > 0 && roll < 0.22 + 0.28 * pressure) {
-        shape = _comboShape(); // kural 2 — kombo fırsatı varken
-      } else if (roll < 0.2 + 0.85 * pressure) {
-        shape = _rescueShape(); // kural 1 — baskı arttıkça olasılık artar
-      } else {
-        shape = _randomShape(); // kural 3 — açıkken zorlayıcı/rastgele
-      }
-      out.add(_Piece(shape, _randColor()));
-    }
-
-    // Güvenlik ağı: tahta sıkışıkken hiç sığmayan parçaları kurtarıcıyla
-    // değiştir; setin tamamen tıkanmasını engelle (erken game over'ı azaltır).
-    if (pressure > 0.38) {
-      for (var i = 0; i < 3; i++) {
-        if (_placements(out[i]) == 0) {
-          out[i] = _Piece(_rescueShape(), _randColor());
-        }
-      }
-      if (!out.any((p) => _placements(p) > 0)) {
-        out[0] = _Piece(_rescueShape(), _randColor());
-      }
-    }
-    return out;
-  }
-
-  /// Tepsiyi akıllı set ile doldurur.
-  void _refillTray() {
-    final set = _genSet();
-    _tray[0] = set[0];
-    _tray[1] = set[1];
-    _tray[2] = set[2];
-  }
-
-  bool _fits(_Piece p, int tr, int tc) {
-    for (final cell in p.cells) {
-      final r = tr + cell[0], c = tc + cell[1];
-      if (r < 0 || r >= _n || c < 0 || c >= _n) return false;
-      if (_grid[r][c] != null) return false;
-    }
-    return true;
-  }
-
-  bool _canPlaceAnywhere(_Piece p) {
-    for (var r = 0; r < _n; r++) {
-      for (var c = 0; c < _n; c++) {
-        if (_fits(p, r, c)) return true;
-      }
-    }
-    return false;
-  }
-
-  bool get _anyMove =>
-      _tray.any((p) => p != null && _canPlaceAnywhere(p));
+  bool _fits(BlockPiece p, int r, int c) => _game.fits(p, r, c);
 
   // ── Sürükleme ──
   void _startDrag(int i, Offset global) {
+    if (_dragIdx != null ||
+        _resolving ||
+        _over ||
+        _askContinue ||
+        _reviveQ != null) {
+      return;
+    }
+    _valid = false;
     _dragIdx = i;
     _dragHasAnchor = false;
     _updateDrag(global);
   }
 
   void _updateDrag(Offset global) {
-    final stackBox =
-        _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     final gridBox = _gridKey.currentContext?.findRenderObject() as RenderBox?;
     if (stackBox == null || gridBox == null || _dragIdx == null) return;
     final p = _tray[_dragIdx!];
@@ -458,41 +202,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
 
   /// Parça (tr,tc)'ye konursa tamamen dolacak satır/sütunların TÜM hücreleri
   /// (silme önizlemesi için parlatılacak).
-  Set<int> _clearCellsIfPlaced(_Piece p, int tr, int tc) {
-    bool covered(int r, int c) => _grid[r][c] != null || p.has(r - tr, c - tc);
-    final cells = <int>{};
-    final rowsT = <int>{}, colsT = <int>{};
-    for (final cell in p.cells) {
-      rowsT.add(tr + cell[0]);
-      colsT.add(tc + cell[1]);
-    }
-    for (final r in rowsT) {
-      if (r < 0 || r >= _n) continue;
-      var full = true;
-      for (var c = 0; c < _n; c++) {
-        if (!covered(r, c)) {
-          full = false;
-          break;
-        }
-      }
-      if (full) {
-        for (var c = 0; c < _n; c++) cells.add(r * _n + c);
-      }
-    }
-    for (final c in colsT) {
-      if (c < 0 || c >= _n) continue;
-      var full = true;
-      for (var r = 0; r < _n; r++) {
-        if (!covered(r, c)) {
-          full = false;
-          break;
-        }
-      }
-      if (full) {
-        for (var r = 0; r < _n; r++) cells.add(r * _n + c);
-      }
-    }
-    return cells;
+  Set<int> _clearCellsIfPlaced(BlockPiece p, int tr, int tc) {
+    return _game.preview(p, tr, tc);
   }
 
   void _endDrag() {
@@ -500,6 +211,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
       _place(_tray[_dragIdx!]!, _tr, _tc, _dragIdx!);
     }
     _dragIdx = null;
+    _valid = false;
     _preview = {};
     _clearPreview = {};
     setState(() {});
@@ -507,54 +219,40 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
 
   void _cancelDrag() {
     _dragIdx = null;
+    _valid = false;
     _preview = {};
     _clearPreview = {};
     if (mounted) setState(() {});
   }
 
-  void _place(_Piece p, int tr, int tc, int idx) {
-    for (final cell in p.cells) {
-      _grid[tr + cell[0]][tc + cell[1]] = p.color;
-    }
-    _score += p.cells.length;
-    _tray[idx] = null;
-    HapticFeedback.lightImpact();
-    SfxService.instance.place();
-    _clearLines();
-    if (_tray.every((e) => e == null)) {
-      _refillTray();
-    }
-    if (!_anyMove) _gameOver();
-  }
-
-  void _clearLines() {
-    final rows = <int>[], cols = <int>[];
-    for (var r = 0; r < _n; r++) {
-      if (List.generate(_n, (c) => _grid[r][c]).every((e) => e != null)) {
-        rows.add(r);
+  void _place(BlockPiece p, int tr, int tc, int idx) {
+    final move = _game.place(idx, tr, tc);
+    if (move == null) return;
+    _feedback = move.allClear
+        ? 'TERTEMİZ! +${move.points}'
+        : move.lines > 0
+            ? '${move.lines > 1 ? "${move.lines} ÇİZGİ · " : ""}+${move.points}'
+            : '';
+    _save();
+    if (move.lines > 0) {
+      HapticFeedback.mediumImpact();
+      if (_game.combo > 1 || move.lines > 1) {
+        SfxService.instance.combo(_game.combo);
+      } else {
+        SfxService.instance.clear();
       }
-    }
-    for (var c = 0; c < _n; c++) {
-      if (List.generate(_n, (r) => _grid[r][c]).every((e) => e != null)) {
-        cols.add(c);
+      _burstCells = move.clearedCells;
+      if (!MediaQuery.disableAnimationsOf(context)) {
+        _resolving = true;
+        _burst.forward(from: 0);
+      } else {
+        _burstCells = {};
       }
-    }
-    final cleared = rows.length + cols.length;
-    if (cleared == 0) return;
-    for (final r in rows) {
-      for (var c = 0; c < _n; c++) _grid[r][c] = null;
-    }
-    for (final c in cols) {
-      for (var r = 0; r < _n; r++) _grid[r][c] = null;
-    }
-    // Puan: temizlenen başına 10, çoklu temizlikte kombo bonusu.
-    _score += cleared * 10 + (cleared > 1 ? (cleared - 1) * 15 : 0);
-    HapticFeedback.mediumImpact();
-    if (cleared > 1) {
-      SfxService.instance.combo();
     } else {
-      SfxService.instance.clear();
+      HapticFeedback.lightImpact();
+      SfxService.instance.place();
     }
+    if (!_resolving && !_game.hasMove) _gameOver();
   }
 
   void _gameOver() {
@@ -569,6 +267,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
 
   void _finishGame() {
     _over = true;
+    unawaited(ProgressService.instance.clearBlockGame());
     HapticFeedback.heavyImpact();
     SfxService.instance.gameOver();
     ProgressService.instance.submitBlockScore(_score).then((rec) {
@@ -584,11 +283,14 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   }
 
   void _acceptContinue() {
+    // Consume the attempt before showing the question; reopening cannot retry it.
+    _game.reviveUsed = true;
+    _save();
     setState(() {
       _askContinue = false;
       _reviveSelected = null;
-      _reviveQ = kQuestions[_rng.nextInt(kQuestions.length)]
-          .withShuffledOptions(_rng);
+      _reviveQ =
+          kQuestions[_rng.nextInt(kQuestions.length)].withShuffledOptions(_rng);
     });
   }
 
@@ -597,7 +299,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     setState(() => _reviveSelected = i);
     final correct = i == _reviveQ!.correctIndex;
     HapticFeedback.lightImpact();
-    Future.delayed(const Duration(milliseconds: 1200), () {
+    _reviveTimer = Timer(const Duration(milliseconds: 1200), () {
       if (!mounted) return;
       if (correct) {
         _revive();
@@ -614,14 +316,11 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   /// Doğru cevap: revive hakkı yakıldı, tahta temizlendi, oyun devam.
   void _revive() {
     setState(() {
-      _reviveUsed = true;
+      _game.revive();
       _reviveQ = null;
       _reviveSelected = null;
-      _grid = List.generate(_n, (_) => List<Color?>.filled(_n, null));
-      if (_tray.every((e) => e == null)) {
-        _refillTray();
-      }
     });
+    _save();
     HapticFeedback.mediumImpact();
   }
 
@@ -629,9 +328,14 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   Widget build(BuildContext context) {
     final best = ProgressService.instance.blockHigh;
     return Scaffold(
-      backgroundColor: AppTheme.bg,
+      backgroundColor: const Color(0xFF182B50),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
+        decoration: const BoxDecoration(
+            gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF294879), Color(0xFF172849)],
+        )),
         child: SafeArea(
           child: Stack(
             key: _stackKey,
@@ -642,8 +346,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, c) {
-                        final gridSize =
-                            min(c.maxWidth - 28, 384).toDouble();
+                        final gridSize = min(min(c.maxWidth - 28, 440),
+                                max(80, (c.maxHeight - 134) / 1.37))
+                            .toDouble();
                         _cell = gridSize / _n;
                         return Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -687,80 +392,99 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
       padding: const EdgeInsets.fromLTRB(8, 4, 14, 4),
       child: Row(
         children: [
-          _circleBtn(Icons.arrow_back_rounded,
-              () => Navigator.of(context).maybePop()),
+          _circleBtn(
+              Icons.arrow_back_rounded, () => Navigator.of(context).maybePop()),
           const SizedBox(width: 6),
           const Text('🧩', style: TextStyle(fontSize: 18)),
           const SizedBox(width: 6),
-          const Text(
+          const Expanded(
+              child: Text(
             'Block Blast',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: AppTheme.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
-          ),
-          const Spacer(),
+          )),
           const MusicButton(),
           const SizedBox(width: 8),
           _circleBtn(Icons.refresh_rounded, _reset),
           const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceHigh,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: AppTheme.border),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('🏆', style: TextStyle(fontSize: 13)),
-                const SizedBox(width: 5),
-                Text('$best',
-                    style: const TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800)),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _scoreText() => Text(
-        '$_score',
-        style: const TextStyle(
-          fontSize: 44,
-          fontWeight: FontWeight.w900,
-          color: AppTheme.textPrimary,
-        ),
+  Widget _scoreText() => SizedBox(
+        height: 112,
+        child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child:
+                Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Text('🏆 ${ProgressService.instance.blockHigh}',
+                  style: const TextStyle(
+                      color: Color(0xFFFFD36A), fontWeight: FontWeight.w700)),
+              TweenAnimationBuilder<double>(
+                tween: Tween(end: _score.toDouble()),
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 240),
+                builder: (context, value, child) => Text('${value.round()}',
+                    style: const TextStyle(
+                        fontSize: 36,
+                        height: 1.1,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white)),
+              ),
+              Text(
+                  _game.combo > 0
+                      ? 'KOMBO ×${_game.combo} · ${BlockBlastEngine.comboGrace - _game.misses} hamle'
+                      : 'Bir satır veya sütun doldur',
+                  style:
+                      const TextStyle(fontSize: 12, color: Color(0xFFFFD36A))),
+              Text(_feedback,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700)),
+            ])),
       );
 
   Widget _gridWidget(double size) {
     // 64 ayrı widget yerine tek CustomPaint — sürükleme akıcı olsun.
-    return Container(
-      key: _gridKey,
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppTheme.bgElevated,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: RepaintBoundary(
-        child: CustomPaint(
-          size: Size.square(size),
-          painter: _GridPainter(
-            _grid,
-            _preview,
-            _dragIdx != null ? _tray[_dragIdx!]?.color : null,
-            _clearPreview,
+    return Semantics(
+        key: const ValueKey('block-board'),
+        label: '8 × 8 oyun tahtası',
+        child: Container(
+          key: _gridKey,
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: const Color(0xFF101F3B),
+            borderRadius: BorderRadius.circular(14),
           ),
-        ),
-      ),
-    );
+          child: Stack(children: [
+            Positioned.fill(
+                child: RepaintBoundary(
+                    child: CustomPaint(
+              painter: _GridPainter(
+                  _grid,
+                  _preview,
+                  _dragIdx != null && _tray[_dragIdx!] != null
+                      ? _palette[_tray[_dragIdx!]!.color]
+                      : null,
+                  _clearPreview),
+            ))),
+            Positioned.fill(
+                child: IgnorePointer(
+                    child: RepaintBoundary(
+                        child: CustomPaint(
+              painter: _BurstPainter(_burst, _burstCells),
+            )))),
+          ]),
+        ));
   }
 
   Widget _cellBox(Color? color, {double alpha = 1}) {
@@ -792,7 +516,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   }
 
   Widget _trayWidget() {
-    final tc = _cell * 0.58;
+    final tc =
+        min(_cell * 0.58, (MediaQuery.sizeOf(context).width / 3 - 12) / 5);
     return SizedBox(
       height: tc * 5 + 16,
       child: Row(
@@ -807,15 +532,24 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
               child: _tray[i] == null
                   ? const SizedBox.expand()
                   : GestureDetector(
+                      key: ValueKey('block-tray-$i'),
                       behavior: HitTestBehavior.opaque,
                       onPanStart: (d) => _startDrag(i, d.globalPosition),
-                      onPanUpdate: (d) => _updateDrag(d.globalPosition),
-                      onPanEnd: (_) => _endDrag(),
-                      onPanCancel: _cancelDrag,
+                      onPanUpdate: (d) {
+                        if (_dragIdx == i) _updateDrag(d.globalPosition);
+                      },
+                      onPanEnd: (_) {
+                        if (_dragIdx == i) _endDrag();
+                      },
+                      onPanCancel: () {
+                        if (_dragIdx == i) _cancelDrag();
+                      },
                       child: SizedBox.expand(
                         child: Center(
                           child: Opacity(
-                            opacity: _dragIdx == i ? 0.22 : 1.0,
+                            opacity: _dragIdx == i
+                                ? 0.18
+                                : (_game.canPlace(_tray[i]!) ? 1.0 : 0.35),
                             child: _pieceGrid(_tray[i]!, tc),
                           ),
                         ),
@@ -827,7 +561,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     );
   }
 
-  Widget _pieceGrid(_Piece p, double cell) {
+  Widget _pieceGrid(BlockPiece p, double cell) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -842,7 +576,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
                   child: p.has(r, c)
                       ? Padding(
                           padding: const EdgeInsets.all(1.5),
-                          child: _cellBox(p.color),
+                          child: _cellBox(_palette[p.color]),
                         )
                       : null,
                 ),
@@ -853,18 +587,11 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
   }
 
   Widget _circleBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: AppTheme.surfaceHigh,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Icon(icon, color: AppTheme.textPrimary, size: 20),
-      ),
+    return IconButton(
+      tooltip: icon == Icons.refresh_rounded ? 'Yeni oyun' : 'Oyunlara dön',
+      onPressed: onTap,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      icon: Icon(icon, color: Colors.white, size: 22),
     );
   }
 
@@ -872,7 +599,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     return Container(
       color: Colors.black.withValues(alpha: 0.6),
       alignment: Alignment.center,
-      child: Container(
+      child: SingleChildScrollView(
+          child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 36),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
         decoration: BoxDecoration(
@@ -897,9 +625,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
               'Bir soruyu doğru bilirsen tahta temizlenir ve devam edersin.\n(Oyun başına yalnızca 1 hak)',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  fontSize: 13.5,
-                  height: 1.35,
-                  color: AppTheme.textSecondary),
+                  fontSize: 13.5, height: 1.35, color: AppTheme.textSecondary),
             ),
             const SizedBox(height: 20),
             _bigBtn('Evet, soruyu göster 🧠',
@@ -908,7 +634,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
             _bigBtn('Hayır, bitir', primary: false, onTap: _declineContinue),
           ],
         ),
-      ),
+      )),
     );
   }
 
@@ -937,8 +663,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
                 decoration: BoxDecoration(
                   color: q.category.color.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(30),
-                  border:
-                      Border.all(color: q.category.color.withValues(alpha: 0.5)),
+                  border: Border.all(
+                      color: q.category.color.withValues(alpha: 0.5)),
                 ),
                 child: Text(
                   'DEVAM SORUSU · ${q.category.label.toUpperCase()}',
@@ -961,8 +687,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              for (var i = 0; i < q.options.length; i++)
-                _reviveOption(i, q),
+              for (var i = 0; i < q.options.length; i++) _reviveOption(i, q),
               const SizedBox(height: 4),
               Text(
                 answered
@@ -1057,7 +782,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
     return Container(
       color: Colors.black.withValues(alpha: 0.55),
       alignment: Alignment.center,
-      child: Container(
+      child: SingleChildScrollView(
+          child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 40),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
         decoration: BoxDecoration(
@@ -1068,7 +794,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_newRecord ? '🎉' : '🧱', style: const TextStyle(fontSize: 48)),
+            Text(_newRecord ? '🎉' : '🧱',
+                style: const TextStyle(fontSize: 48)),
             const SizedBox(height: 10),
             Text(
               _newRecord ? 'Yeni Rekor!' : 'Oyun Bitti',
@@ -1093,12 +820,11 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
             const SizedBox(height: 22),
             _bigBtn('Tekrar Oyna', primary: true, onTap: _reset),
             const SizedBox(height: 10),
-            _bigBtn('Profile Dön',
-                primary: false,
-                onTap: () => Navigator.of(context).maybePop()),
+            _bigBtn('Oyunlara Dön',
+                primary: false, onTap: () => Navigator.of(context).maybePop()),
           ],
         ),
-      ),
+      )),
     );
   }
 
@@ -1144,8 +870,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
                   fontSize: 26, fontWeight: FontWeight.w900, color: color)),
           const SizedBox(height: 2),
           Text(label,
-              style: const TextStyle(
-                  fontSize: 12, color: AppTheme.textSecondary)),
+              style:
+                  const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
         ],
       ),
     );
@@ -1155,7 +881,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen> {
 /// Izgarayı tek seferde çizer (64 widget yerine). Sürükleme sırasında yalnızca
 /// bu boyanır; performans için hafiftir.
 class _GridPainter extends CustomPainter {
-  final List<List<Color?>> grid;
+  final List<List<int?>> grid;
   final Set<int> preview;
   final Color? previewColor;
   final Set<int> clearCells; // bırakınca silinecek hücreler (parlama)
@@ -1165,7 +891,7 @@ class _GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cell = size.width / _n;
     const gap = 3.0;
-    final empty = Paint()..color = AppTheme.surface.withValues(alpha: 0.5);
+    final empty = Paint()..color = const Color(0xFF1C3153);
     final radius = Radius.circular(cell * 0.16);
 
     for (var r = 0; r < _n; r++) {
@@ -1175,7 +901,7 @@ class _GridPainter extends CustomPainter {
               c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap),
           radius,
         );
-        Color? col = grid[r][c];
+        Color? col = grid[r][c] == null ? null : _palette[grid[r][c]!];
         var alpha = 1.0;
         if (previewColor != null && preview.contains(r * _n + c)) {
           col = previewColor;
@@ -1212,7 +938,8 @@ class _GridPainter extends CustomPainter {
       final glow = Paint()
         ..color = const Color(0xFFFFE26A)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
-      final lit = Paint()..color = const Color(0xFFFFF4C2).withValues(alpha: 0.82);
+      final lit = Paint()
+        ..color = const Color(0xFFFFF4C2).withValues(alpha: 0.82);
       final edge = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
@@ -1233,4 +960,38 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridPainter old) => true;
+}
+
+/// Burst uses the compositor tick only while a line clears; no idle ticker.
+class _BurstPainter extends CustomPainter {
+  final Animation<double> animation;
+  final Map<int, int> cells;
+  _BurstPainter(this.animation, this.cells) : super(repaint: animation);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = animation.value;
+    final cell = size.width / 8;
+    for (final entry in cells.entries) {
+      final center =
+          Offset((entry.key % 8 + .5) * cell, (entry.key ~/ 8 + .5) * cell);
+      final color = _palette[entry.value];
+      final side = cell * (1 - t) * .94;
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(
+              Rect.fromCenter(center: center, width: side, height: side),
+              const Radius.circular(4)),
+          Paint()
+            ..color =
+                Color.lerp(Colors.white, color, t)!.withValues(alpha: 1 - t));
+      for (var i = 0; i < 4; i++) {
+        final angle = i * pi / 2 + entry.key * .7;
+        final pos = center + Offset(cos(angle), sin(angle)) * cell * t * 1.3;
+        canvas.drawCircle(pos, (1 - t) * 2.5,
+            Paint()..color = color.withValues(alpha: 1 - t));
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BurstPainter old) => old.cells != cells;
 }
