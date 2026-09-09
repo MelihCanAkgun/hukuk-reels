@@ -166,7 +166,7 @@ class _CelebrationPainter extends CustomPainter {
         } else {
           canvas.drawRRect(
               RRect.fromRectAndRadius(
-                  Rect.fromLTWH(-2, -4, 4, 8), const Radius.circular(1)),
+                  const Rect.fromLTWH(-2, -4, 4, 8), const Radius.circular(1)),
               paint);
         }
         canvas.restore();
