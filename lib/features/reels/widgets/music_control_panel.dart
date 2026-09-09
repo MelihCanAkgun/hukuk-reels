@@ -138,15 +138,15 @@ class MusicControlPanel extends StatelessWidget {
                   ),
                   Expanded(
                     child: SliderTheme(
-                      data: SliderThemeData(
+                      data: const SliderThemeData(
                         trackHeight: 3,
                         activeTrackColor: AppTheme.accent,
                         inactiveTrackColor: AppTheme.border,
                         thumbColor: AppTheme.accent,
                         overlayShape:
-                            const RoundSliderOverlayShape(overlayRadius: 14),
+                            RoundSliderOverlayShape(overlayRadius: 14),
                         thumbShape:
-                            const RoundSliderThumbShape(enabledThumbRadius: 7),
+                            RoundSliderThumbShape(enabledThumbRadius: 7),
                       ),
                       child: Slider(
                         value: vol,
@@ -197,15 +197,15 @@ class MusicControlPanel extends StatelessWidget {
                   ),
                   Expanded(
                     child: SliderTheme(
-                      data: SliderThemeData(
+                      data: const SliderThemeData(
                         trackHeight: 3,
                         activeTrackColor: AppTheme.accent,
                         inactiveTrackColor: AppTheme.border,
                         thumbColor: AppTheme.accent,
                         overlayShape:
-                            const RoundSliderOverlayShape(overlayRadius: 14),
+                            RoundSliderOverlayShape(overlayRadius: 14),
                         thumbShape:
-                            const RoundSliderThumbShape(enabledThumbRadius: 7),
+                            RoundSliderThumbShape(enabledThumbRadius: 7),
                       ),
                       child: Slider(
                         value: sfxVol.clamp(0.0, 1.0),

@@ -7,7 +7,7 @@ import 'web_audio_bridge_stub.dart'
 
 /// Oyun ses efektleri (yerleştirme, satır silme, kombo, oyun bitti).
 ///
-/// Web'de efektler WebAudio buffer'larıyla çalınır (index.html'deki
+/// Web'de efektler WebAudio buffer'larıyla çalınır (audio.js içindeki
 /// sfxLoad/sfxPlay): her çağrıda yeni BufferSource açıldığı için efekt
 /// sınırsız kez ve üst üste çalabilir; gecikme çok düşüktür ve ses
 /// seviyesi iOS'ta da gerçekten uygulanır (GainNode).
@@ -23,8 +23,10 @@ class SfxService {
 
   static const _kVol = 'sfx_vol_v1';
 
-  final Map<String, AudioPlayer> _players = {}; // yalnızca web dışı
+  final Map<String, List<AudioPlayer>> _players = {}; // iki ses kanalı / efekt
+  final Set<AudioPlayer> _busy = {};
   bool _initialized = false;
+  Future<void>? _initializing;
   double _volume = 0.9;
 
   /// UI kaydırıcısının dinlediği canlı değer.
@@ -40,9 +42,11 @@ class SfxService {
     'over': 'assets/sfx/over.wav',
   };
 
-  Future<void> init() async {
+  Future<void> init() =>
+      _initializing ??= _initialize().whenComplete(() => _initializing = null);
+
+  Future<void> _initialize() async {
     if (_initialized) return;
-    _initialized = true;
     try {
       final prefs = await SharedPreferences.getInstance()
           .timeout(const Duration(seconds: 3));
@@ -52,22 +56,29 @@ class SfxService {
 
     if (kIsWeb) {
       for (final e in _files.entries) {
-        bridge.sfxLoad(e.key, '${Uri.base}assets/${e.value}');
+        bridge.sfxLoad(e.key, Uri.base.resolve('assets/${e.value}').toString());
       }
       bridge.sfxSetVolume(_volume);
+      _initialized = true;
       return;
     }
 
     for (final e in _files.entries) {
-      try {
-        final p = AudioPlayer();
-        await p.setAsset(e.value, preload: true);
-        await p.setVolume(_volume);
-        _players[e.key] = p;
-      } catch (err) {
-        debugPrint('[Sfx] ${e.key} yüklenemedi: $err');
+      final pool = _players.putIfAbsent(e.key, () => []);
+      while (pool.length < 2) {
+        final player = AudioPlayer();
+        try {
+          await player.setAsset(e.value, preload: true);
+          await player.setVolume(_volume);
+          pool.add(player);
+        } catch (error) {
+          await player.dispose();
+          debugPrint('[Sfx] ${e.key} yüklenemedi: $error');
+          break;
+        }
       }
     }
+    _initialized = _players.values.every((pool) => pool.length == 2);
   }
 
   Future<void> setVolume(double v) async {
@@ -76,7 +87,7 @@ class SfxService {
     if (kIsWeb) {
       bridge.sfxSetVolume(_volume);
     } else {
-      for (final p in _players.values) {
+      for (final p in _players.values.expand((pool) => pool)) {
         try {
           await p.setVolume(_volume);
         } catch (_) {}
@@ -89,27 +100,35 @@ class SfxService {
     } catch (_) {}
   }
 
-  void _play(String key) {
+  void _play(String key, {double rate = 1}) {
     if (!enabled) return;
     if (kIsWeb) {
-      bridge.sfxPlay(key);
+      bridge.sfxPlay(key, rate);
       return;
     }
-    final p = _players[key];
-    if (p == null) return;
+    final available =
+        (_players[key] ?? <AudioPlayer>[]).where((p) => !_busy.contains(p));
+    if (available.isEmpty) return;
+    final p = available.first;
+    _busy.add(p);
     // Ateşle-unut. Önce pause: klip bittiğinde just_audio "completed +
     // playing" durumunda kalır; pause'suz seek(0)+play ikinci kez çalmaz.
     () async {
       try {
         if (p.playing) await p.pause();
+        await p.setSpeed(rate);
         await p.seek(Duration.zero);
         await p.play();
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        _busy.remove(p);
+      }
     }();
   }
 
   void place() => _play('place');
   void clear() => _play('clear');
-  void combo() => _play('combo');
+  void combo([int chain = 1]) =>
+      _play('combo', rate: 1 + (chain - 1).clamp(0, 8) * 0.04);
   void gameOver() => _play('over');
 }

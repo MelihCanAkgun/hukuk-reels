@@ -8,7 +8,7 @@ import 'dart:js_interop';
 external void _sfxLoad(JSString name, JSString url);
 
 @JS('sfxPlay')
-external void _sfxPlay(JSString name);
+external void _sfxPlay(JSString name, JSNumber rate);
 
 @JS('sfxSetVolume')
 external void _sfxSetVolume(JSNumber v);
@@ -22,9 +22,9 @@ void sfxLoad(String name, String url) {
   } catch (_) {}
 }
 
-void sfxPlay(String name) {
+void sfxPlay(String name, [double rate = 1]) {
   try {
-    _sfxPlay(name.toJS);
+    _sfxPlay(name.toJS, rate.toJS);
   } catch (_) {}
 }
 

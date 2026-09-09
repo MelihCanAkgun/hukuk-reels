@@ -9,7 +9,8 @@ import 'music_control_panel.dart';
 /// müzik değiştirilebilir / durdurulabilir. Parça yoksa hiç görünmez.
 class MusicButton extends StatefulWidget {
   final Color color;
-  const MusicButton({super.key, this.color = AppTheme.accent});
+  final VoidCallback? onOpen;
+  const MusicButton({super.key, this.color = AppTheme.accent, this.onOpen});
 
   @override
   State<MusicButton> createState() => _MusicButtonState();
@@ -22,6 +23,7 @@ class _MusicButtonState extends State<MusicButton> {
   void _toggle() => _open ? _close() : _openPanel();
 
   void _openPanel() {
+    widget.onOpen?.call();
     final overlay = Overlay.of(context);
     _entry = OverlayEntry(
       builder: (ctx) => Stack(
@@ -47,6 +49,7 @@ class _MusicButtonState extends State<MusicButton> {
 
   void _close() {
     _entry?.remove();
+    _entry?.dispose();
     _entry = null;
     if (mounted) setState(() {});
   }
@@ -54,6 +57,7 @@ class _MusicButtonState extends State<MusicButton> {
   @override
   void dispose() {
     _entry?.remove();
+    _entry?.dispose();
     _entry = null;
     super.dispose();
   }
@@ -64,8 +68,8 @@ class _MusicButtonState extends State<MusicButton> {
     return GestureDetector(
       onTap: _toggle,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 44,
+        height: 44,
         decoration: BoxDecoration(
           color: _open
               ? widget.color.withValues(alpha: 0.2)

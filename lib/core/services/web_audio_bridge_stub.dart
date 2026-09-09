@@ -3,6 +3,6 @@
 library;
 
 void sfxLoad(String name, String url) {}
-void sfxPlay(String name) {}
+void sfxPlay(String name, [double rate = 1]) {}
 void sfxSetVolume(double v) {}
 void musicSetVolume(double v) {}

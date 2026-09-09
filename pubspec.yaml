@@ -1,10 +1,11 @@
 name: hukuk_reels
-description: Medeni Usul Hukuku Final - Reels tarzı dikey kaydırmalı soru çözme uygulaması
+description: Apple cihazlar için mini oyunlar ve hukuk soru bankası
 publish_to: 'none'
 version: 2.0.0+1
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.6.0 <4.0.0'
+  flutter: '>=3.27.0'
 
 dependencies:
   flutter:
@@ -23,6 +24,8 @@ dev_dependencies:
   flutter_lints: ^4.0.0
 
 flutter:
+  config:
+    enable-swift-package-manager: true
   uses-material-design: true
   assets:
     # Kendi köşe görsellerini buraya (assets/images/) ekleyebilirsin.

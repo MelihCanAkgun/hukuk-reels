@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
 import '../game/block_blast_screen.dart';
+import '../reels/screens/reels_screen.dart';
+import '../profile/profile_settings_screen.dart';
 import '../game/flappy_cat_screen.dart';
 import '../game/subway_cat_screen.dart';
 import '../reels/widgets/music_button.dart';
@@ -34,11 +36,12 @@ class _GamesScreenState extends State<GamesScreen> {
                 padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
                 child: Row(
                   children: [
-                    IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: AppTheme.textPrimary),
-                    ),
+                    if (Navigator.of(context).canPop())
+                      IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back_rounded,
+                            color: AppTheme.textPrimary),
+                      ),
                     const Text('🎮', style: TextStyle(fontSize: 18)),
                     const SizedBox(width: 8),
                     const Text(
@@ -65,13 +68,6 @@ class _GamesScreenState extends State<GamesScreen> {
                     ),
                     const SizedBox(height: 14),
                     _gameTile(
-                      imageAsset: 'assets/images/SHINY_Cuh.png',
-                      title: 'Flappy Silly Cat',
-                      subtitle: 'Rekor: ${_progress.flappyHigh}',
-                      screen: const FlappyCatScreen(),
-                    ),
-                    const SizedBox(height: 10),
-                    _gameTile(
                       emoji: '🧩',
                       title: 'Block Blast',
                       subtitle: 'Rekor: ${_progress.blockHigh}',
@@ -80,9 +76,34 @@ class _GamesScreenState extends State<GamesScreen> {
                     const SizedBox(height: 10),
                     _gameTile(
                       imageAsset: 'assets/images/SHINY_Cuh.png',
+                      title: 'Flappy Silly Cat',
+                      subtitle: 'Rekor: ${_progress.flappyHigh}',
+                      screen: const FlappyCatScreen(),
+                    ),
+                    const SizedBox(height: 10),
+                    _gameTile(
+                      imageAsset: 'assets/images/SHINY_Cuh.png',
                       title: 'Subway Silly',
                       subtitle: 'Rekor: ${_progress.subwayHigh}',
                       screen: const SubwayCatScreen(),
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.school_outlined),
+                      title: const Text('Soru bankası'),
+                      subtitle: const Text('Hukuk testlerine devam et'),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const ReelsScreen())),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.person_outline),
+                      title: const Text('Profil ve ayarlar'),
+                      onTap: () async {
+                        await Navigator.of(context).push(MaterialPageRoute(
+                            builder: (_) => const ProfileSettingsScreen()));
+                        if (mounted) setState(() {});
+                      },
                     ),
                   ],
                 ),

@@ -1,22 +1,25 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
 import 'core/services/progress_service.dart';
-import 'features/reels/screens/reels_screen.dart';
+import 'features/games/games_screen.dart';
+import 'core/services/sfx_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Kalıcı ilerleme deposunu ve müziği hazırla.
   await ProgressService.instance.init();
-  await AudioService.instance.init();
+  // Audio must never hold the first frame hostage.
+  unawaited(AudioService.instance.init());
+  unawaited(SfxService.instance.init());
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
   ));
-  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
 
   runApp(const HukukReelsApp());
 }
@@ -27,11 +30,11 @@ class HukukReelsApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Medeni Usul Hukuku Final',
+      title: 'Hukuk Reels · Oyunlar',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      // Kapı (Kendine güveniyor musun?) kaldırıldı — doğrudan giriş.
-      home: const ReelsScreen(),
+      // Oyunlara doğrudan erişim; soru bankası oyun menüsünde.
+      home: const GamesScreen(),
     );
   }
 }

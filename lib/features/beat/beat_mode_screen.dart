@@ -468,7 +468,7 @@ class _BeatCardState extends State<_BeatCard>
         const SizedBox(width: 6),
         Text(
           'Karta vur:  $_hits / $kHitsNeeded',
-          style: TextStyle(
+          style: const TextStyle(
             color: AppTheme.textSecondary,
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -491,11 +491,11 @@ class _BeatCardState extends State<_BeatCard>
   }
 
   Widget _apologyMessage() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 2),
       child: Text(
         _apologyMsg,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 16.5,
           height: 1.5,
           fontStyle: FontStyle.italic,

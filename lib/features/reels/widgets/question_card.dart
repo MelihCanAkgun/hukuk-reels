@@ -389,11 +389,11 @@ class _QuestionCardState extends State<QuestionCard> {
               ),
             ),
             const SizedBox(height: 8),
-            Row(
+            const Row(
               children: [
-                const Icon(Icons.keyboard_double_arrow_up_rounded,
+                Icon(Icons.keyboard_double_arrow_up_rounded,
                     color: AppTheme.textMuted, size: 15),
-                const SizedBox(width: 5),
+                SizedBox(width: 5),
                 Text(
                   'Sonraki soru için yukarı kaydır',
                   style: TextStyle(

@@ -412,7 +412,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Çözdüğün sorular sonraki testlerde tekrar karşına çıkmaz.',
             style: TextStyle(
               fontSize: 12,

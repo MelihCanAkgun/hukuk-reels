@@ -6,6 +6,7 @@ import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
 import '../reels/widgets/music_button.dart';
 import 'revive_overlay.dart';
+import 'game_pause_overlay.dart';
 
 /// Profilden açılan mini oyun: "Flappy Silly Cat".
 /// Dokunarak kediyi zıplat, borulardaki boşluklardan geç.
@@ -26,7 +27,9 @@ class _Pipe {
 }
 
 class _FlappyCatScreenState extends State<FlappyCatScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  bool _paused = false;
+  double _accumulator = 0;
   // ── Fizik / ölçü sabitleri ──
   static const double _gravity = 1500; // px/s²
   static const double _flapV = -430; // zıplama hızı
@@ -59,22 +62,56 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ticker = createTicker(_onTick)..start();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _pause();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_state == _GameState.playing) _pause();
+  }
+
+  void _pause() {
+    if (_paused) return;
+    _ticker.stop();
+    _last = Duration.zero;
+    _accumulator = 0;
+    setState(() => _paused = true);
+  }
+
+  void _resume() {
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    _last = Duration.zero;
+    _accumulator = 0;
+    setState(() => _paused = false);
+    _ticker.start();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     super.dispose();
   }
 
   void _onTick(Duration elapsed) {
-    final dt = _last == Duration.zero
-        ? 0.0
-        : (elapsed - _last).inMicroseconds / 1e6;
+    final dt =
+        _last == Duration.zero ? 0.0 : (elapsed - _last).inMicroseconds / 1e6;
     _last = elapsed;
     if (dt <= 0 || _w == 0) return;
-    _update(dt > 0.05 ? 0.05 : dt); // büyük sıçramaları sınırla
+    _accumulator += dt.clamp(0.0, 0.05);
+    while (_accumulator >= 1 / 120) {
+      _update(1 / 120);
+      _accumulator -= 1 / 120;
+    }
   }
 
   void _update(double dt) {
@@ -126,13 +163,15 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
 
   void _spawnPipe() {
     const margin = 58.0;
-    final minY = _gap / 2 + margin;
+    const minY = _gap / 2 + margin;
     final maxY = _playH - _gap / 2 - margin;
-    final gapY = maxY <= minY ? _playH / 2 : minY + _rng.nextDouble() * (maxY - minY);
+    final gapY =
+        maxY <= minY ? _playH / 2 : minY + _rng.nextDouble() * (maxY - minY);
     _pipes.add(_Pipe(_w, gapY));
   }
 
   void _flap() {
+    if (_paused) return;
     if (_state == _GameState.over) {
       if (_reviving) return; // revive katmanı açıkken dokunuş restart etmesin
       // Ölüm dokunuşu oyunu hemen yeniden başlatmasın.
@@ -309,7 +348,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
                             ),
                           ),
                           const Spacer(),
-                          const MusicButton(),
+                          MusicButton(onOpen: _pause),
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -352,6 +391,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
 
                 // ── Oyun bitti katmanı ──
                 if (_state == _GameState.over && !_reviving) _overOverlay(best),
+                if (_paused) GamePauseOverlay(onResume: _resume),
               ],
             ),
           );
@@ -445,8 +485,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: 0.35),
                 borderRadius: BorderRadius.circular(20),
@@ -491,7 +530,8 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_newRecord ? '🎉' : '😹', style: const TextStyle(fontSize: 48)),
+            Text(_newRecord ? '🎉' : '😹',
+                style: const TextStyle(fontSize: 48)),
             const SizedBox(height: 10),
             Text(
               _newRecord ? 'Yeni Rekor!' : 'Oyun Bitti',
@@ -578,8 +618,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-                fontSize: 12, color: AppTheme.textSecondary),
+            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
           ),
         ],
       ),

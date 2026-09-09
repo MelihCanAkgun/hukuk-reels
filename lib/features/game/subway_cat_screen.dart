@@ -9,6 +9,7 @@ import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
 import '../reels/widgets/music_button.dart';
 import 'revive_overlay.dart';
+import 'game_pause_overlay.dart';
 
 /// Subway Surfers tarzı sahte-perspektif (2.5D) sonsuz koşu oyunu.
 /// Silly cat 3 şeritte koşar; kaydır = şerit değiştir, yukarı = zıpla,
@@ -38,7 +39,9 @@ class _Ent {
 }
 
 class _SubwayCatScreenState extends State<SubwayCatScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  bool _paused = false;
+  double _accumulator = 0;
   // ── Çizimi yöneten kare sayacı (setState yerine sadece tuvali boyar) ──
   final ValueNotifier<int> _frame = ValueNotifier<int>(0);
   late final Ticker _ticker;
@@ -100,6 +103,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadImg();
     _ticker = createTicker(_tick)..start();
   }
@@ -109,15 +113,51 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
       final data = await rootBundle.load('assets/images/SHINY_Cuh.png');
       final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
       final frame = await codec.getNextFrame();
-      if (mounted) setState(() => _catImg = frame.image);
+      codec.dispose();
+      if (mounted) {
+        setState(() => _catImg = frame.image);
+      } else {
+        frame.image.dispose();
+      }
     } catch (_) {/* görsel yüklenmezse pembe daire ile oynanır */}
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _pause();
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (_phase == _Phase.playing) _pause();
+  }
+
+  void _pause() {
+    if (_paused) return;
+    _ticker.stop();
+    _last = null;
+    _accumulator = 0;
+    setState(() => _paused = true);
+  }
+
+  void _resume() {
+    if (WidgetsBinding.instance.lifecycleState != null &&
+        WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
+      return;
+    }
+    _last = null;
+    _accumulator = 0;
+    setState(() => _paused = false);
+    _ticker.start();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _frame.dispose();
     _focus.dispose();
+    _catImg?.dispose();
     super.dispose();
   }
 
@@ -128,7 +168,16 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
     if (last == null) return;
     final dt = (now - last).inMicroseconds / 1e6;
     if (dt <= 0) return;
-    if (_phase == _Phase.playing) _update(dt.clamp(0.0, 0.05));
+    if (_phase == _Phase.playing) {
+      _accumulator += dt.clamp(0.0, 0.05);
+      while (_accumulator >= 1 / 120) {
+        if (_phase == _Phase.playing) _update(1 / 120);
+        _accumulator -= 1 / 120;
+      }
+    } else {
+      _accumulator = 0;
+      return;
+    }
     _frame.value++;
   }
 
@@ -350,7 +399,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   }
 
   void _onPanUpdate(DragUpdateDetails d) {
-    if (_phase != _Phase.playing || _acted) return;
+    if (_paused || _phase != _Phase.playing || _acted) return;
     final v = d.localPosition - _panStart;
     const th = 22.0;
     if (v.dx.abs() > v.dy.abs()) {
@@ -373,6 +422,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (_paused) return KeyEventResult.ignored;
     if (e is! KeyDownEvent && e is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -414,7 +464,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () {
-            if (_phase == _Phase.ready) _start();
+            if (!_paused && _phase == _Phase.ready) _start();
           },
           onPanDown: _onPanDown,
           onPanUpdate: _onPanUpdate,
@@ -440,6 +490,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
               if (_phase == _Phase.over && _reviving)
                 ReviveOverlay(onRevive: _doRevive, onGiveUp: _giveUp),
               if (_phase == _Phase.over && !_reviving) _overOverlay(best),
+              if (_paused) GamePauseOverlay(onResume: _resume),
             ],
           ),
         ),
@@ -452,8 +503,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
       padding: const EdgeInsets.fromLTRB(8, 6, 14, 4),
       child: Row(
         children: [
-          _circleBtn(Icons.arrow_back_rounded,
-              () => Navigator.of(context).maybePop()),
+          _circleBtn(
+              Icons.arrow_back_rounded, () => Navigator.of(context).maybePop()),
           const Spacer(),
           ValueListenableBuilder<int>(
             valueListenable: _frame,
@@ -466,7 +517,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
             ),
           ),
           const Spacer(),
-          const MusicButton(),
+          MusicButton(onOpen: _pause),
           const SizedBox(width: 8),
           _circleBtn(Icons.emoji_events_rounded, () {}),
           const SizedBox(width: 6),
@@ -539,8 +590,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
             _bigBtn('Başla', primary: true, onTap: _start),
             const SizedBox(height: 10),
             _bigBtn('Nasıl oynanır?',
-                primary: false,
-                onTap: () => setState(() => _showHelp = true)),
+                primary: false, onTap: () => setState(() => _showHelp = true)),
           ],
         ),
       ),
@@ -584,8 +634,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
               _howto('👇', 'Aşağı kaydır → eğil (kay)'),
               const SizedBox(height: 4),
               const Text('Bilgisayarda: ok tuşları / boşluk',
-                  style:
-                      TextStyle(fontSize: 11.5, color: AppTheme.textMuted)),
+                  style: TextStyle(fontSize: 11.5, color: AppTheme.textMuted)),
               const SizedBox(height: 18),
               const Text('ENGELLER',
                   style: TextStyle(
@@ -594,14 +643,15 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
                       letterSpacing: 0.6,
                       color: AppTheme.accent)),
               const SizedBox(height: 10),
-              _legend(_RunnerPainter.cJump, 16, 30,
-                  'Alçak engel', 'ÜZERİNDEN ATLA (yukarı)'),
-              _legend(_RunnerPainter.cRoll, 8, 30,
-                  'Üst kiriş', 'ALTINDAN EĞİL (aşağı)'),
-              _legend(_RunnerPainter.cWall, 30, 22,
-                  'Yüksek duvar', 'YANINDAN GEÇ (şerit değiştir)'),
-              _legend(const Color(0xFFFFC93C), 18, 18,
-                  'Coin', 'Topla → +10 puan', circle: true),
+              _legend(_RunnerPainter.cJump, 16, 30, 'Alçak engel',
+                  'ÜZERİNDEN ATLA (yukarı)'),
+              _legend(_RunnerPainter.cRoll, 8, 30, 'Üst kiriş',
+                  'ALTINDAN EĞİL (aşağı)'),
+              _legend(_RunnerPainter.cWall, 30, 22, 'Yüksek duvar',
+                  'YANINDAN GEÇ (şerit değiştir)'),
+              _legend(
+                  const Color(0xFFFFC93C), 18, 18, 'Coin', 'Topla → +10 puan',
+                  circle: true),
               const SizedBox(height: 8),
               const Text(
                 'İpucu: yüksek duvarın üzerinden atlanmaz — şerit değiştir. '
@@ -613,7 +663,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
                     color: AppTheme.textSecondary),
               ),
               const SizedBox(height: 18),
-              _bigBtn('Anladım', primary: true,
+              _bigBtn('Anladım',
+                  primary: true,
                   onTap: () => setState(() => _showHelp = false)),
             ],
           ),
@@ -644,8 +695,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
                       Color.lerp(color, Colors.black, 0.2)!,
                     ],
                   ),
-                  borderRadius:
-                      BorderRadius.circular(circle ? w : 4),
+                  borderRadius: BorderRadius.circular(circle ? w : 4),
                 ),
               ),
             ),
@@ -706,7 +756,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(_newRecord ? '🎉' : '🙀', style: const TextStyle(fontSize: 48)),
+            Text(_newRecord ? '🎉' : '🙀',
+                style: const TextStyle(fontSize: 48)),
             const SizedBox(height: 10),
             Text(_newRecord ? 'Yeni Rekor!' : 'Yakalandın!',
                 style: const TextStyle(
@@ -728,8 +779,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
             _bigBtn('Tekrar Oyna', primary: true, onTap: _start),
             const SizedBox(height: 10),
             _bigBtn('Profile Dön',
-                primary: false,
-                onTap: () => Navigator.of(context).maybePop()),
+                primary: false, onTap: () => Navigator.of(context).maybePop()),
           ],
         ),
       ),
@@ -784,7 +834,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 // ═══════════════════════════ Çizim ═══════════════════════════
 class _RunnerPainter extends CustomPainter {
   final _SubwayCatScreenState g;
-  _RunnerPainter(this.g, {required Listenable repaint}) : super(repaint: repaint);
+  _RunnerPainter(this.g, {required Listenable repaint})
+      : super(repaint: repaint);
 
   // Eylem renk kodları (yardım ekranıyla aynı): yeşil=atla, sarı=eğil, kırmızı=geç
   static const Color cJump = Color(0xFF49C56B);
@@ -945,8 +996,7 @@ class _RunnerPainter extends CustomPainter {
           break;
         case _Kind.wall:
           _groundGlow(canvas, x, y, 0.92 * laneSpread * s, cWall);
-          _box3D(canvas, x, y, 0.84 * laneSpread * s, 80 * s, cWall,
-              panels: 3);
+          _box3D(canvas, x, y, 0.84 * laneSpread * s, 80 * s, cWall, panels: 3);
           break;
         case _Kind.bar:
           _groundGlow(canvas, x, y, 0.92 * laneSpread * s, cRoll);
@@ -958,8 +1008,8 @@ class _RunnerPainter extends CustomPainter {
 
   void _drawCoin(Canvas canvas, double x, double y, double r, int lane) {
     final spin = 0.4 + 0.6 * (math.sin(g._animT * 4 + lane * 1.6)).abs();
-    final rect =
-        Rect.fromCenter(center: Offset(x, y), width: 2 * r * spin, height: 2 * r);
+    final rect = Rect.fromCenter(
+        center: Offset(x, y), width: 2 * r * spin, height: 2 * r);
     // Katmanlı düz daireler (shader yok)
     _p
       ..style = PaintingStyle.fill
@@ -990,8 +1040,8 @@ class _RunnerPainter extends CustomPainter {
   }
 
   // Ön + üst + sağ yüzlü küboid (sahte 3D), gradyan + detay çizgileri/şeritleri.
-  void _box3D(Canvas canvas, double cxp, double baseY, double w, double h,
-      Color front,
+  void _box3D(
+      Canvas canvas, double cxp, double baseY, double w, double h, Color front,
       {int panels = 0, bool stripes = false}) {
     final depth = (w * 0.26).clamp(5.0, 24.0);
     final l = cxp - w / 2, rgt = cxp + w / 2;
@@ -1029,8 +1079,7 @@ class _RunnerPainter extends CustomPainter {
     _p.color = Color.lerp(front, Colors.white, 0.10)!;
     canvas.drawRRect(fr, _p);
     _p.color = Color.lerp(front, Colors.black, 0.22)!;
-    canvas.drawRect(
-        Rect.fromLTRB(l, topY + h * 0.5, rgt, baseY), _p);
+    canvas.drawRect(Rect.fromLTRB(l, topY + h * 0.5, rgt, baseY), _p);
 
     // Panel çizgileri (konteyner görünümü — duvar için)
     if (panels > 0) {
@@ -1140,15 +1189,16 @@ class _RunnerPainter extends CustomPainter {
       rh = 18;
     }
     final cy = baseY - rh - g._jumpY + bob;
-    final dst = Rect.fromCenter(center: Offset(sx, cy), width: rw * 2, height: rh * 2);
+    final dst =
+        Rect.fromCenter(center: Offset(sx, cy), width: rw * 2, height: rh * 2);
 
     final img = g._catImg;
     if (img != null) {
       canvas.save();
       final clip = Path()..addOval(dst);
       canvas.clipPath(clip);
-      final src = Rect.fromLTWH(
-          0, 0, img.width.toDouble(), img.height.toDouble());
+      final src =
+          Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
       _p.color = Colors.white;
       canvas.drawImageRect(img, src, dst, _p);
       canvas.restore();
