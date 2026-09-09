@@ -48,7 +48,7 @@ void main() {
     await gesture.moveBy(const Offset(0, -20));
     await tester.pump();
     final liftedOrigin = start - Offset(cell / 2, cell + 64);
-    await gesture.moveTo(start + (board.topLeft - liftedOrigin) / 1.8);
+    await gesture.moveTo(start + (board.topLeft - liftedOrigin) / 2.2);
     await tester.pump();
     await gesture.up();
     await tester.pump();
@@ -93,8 +93,8 @@ void main() {
     await first.moveBy(const Offset(20, -30));
     await tester.pump();
     final moved = tester.getRect(feedback);
-    expect(moved.left - initial.left, closeTo(36, .1));
-    expect(moved.top - initial.top, closeTo(-54, .1));
+    expect(moved.left - initial.left, closeTo(44, .1));
+    expect(moved.top - initial.top, closeTo(-66, .1));
     final second = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('block-tray-1'))),
         pointer: 2);

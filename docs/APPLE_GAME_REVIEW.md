@@ -20,7 +20,7 @@ Orijinal oyunun [resmî App Store açıklaması](https://apps.apple.com/us/app/b
 | Blok üretimi | Her parça yalnız mevcut tahtada değerlendiriliyordu; yoğun kurtarma küçük bloklara yığılıyordu | Sanal tahtada ardışık üç yerleştirme ve eşzamanlı çizgi temizliği; karıştırılmış çözülebilir tepsi, tekrar ağırlığı azaltma, skor/doluluk ağırlıkları |
 | Puan | Hücre + küçük çizgi bonusu; gerçek zincir yok | Açık formül, çoklu çizgi çarpanı, üç hamlelik kombo toleransı, tüm tahtayı temizleme bonusu |
 | Geri bildirim | Çizgiler anında kayboluyordu | Parçacık/parlama animasyonu, artan puan sayacı, kombo ve hamle göstergesi; azaltılmış hareket ayarına saygı |
-| Kontrol | Sürükleme hareketi 2× büyütülüyordu | Dokunmada 1.8× hareket, basıldığı anda büyüyüp parmak üstüne kaldırma (farede 1:1), tek etkin sürükleme, geçersiz bırakmada geri dönüş, ekran değişiminde sürüklemeyi iptal etme |
+| Kontrol | Sürükleme hareketi 2× büyütülüyordu | Dokunmada 2.2× hareket, basıldığı anda büyüyüp parmak üstüne kaldırma (farede 1:1), tek etkin sürükleme, geçersiz bırakmada geri dönüş, ekran değişiminde sürüklemeyi iptal etme |
 | Görünüm | Uygulamanın genel pembe teması, genişliğe göre sabit tahta | Lacivert oyun alanı, renkli bloklar; yüksekliğe de uyan tahta, tepsiye sığan uzun bloklar, soluk oynanamaz parçalar |
 | Kayıt | Yalnız oyun sonunda rekor; tahta kayboluyordu | Her hamlede tahta/tepsi/kombo/devam hakkı; sıralı disk yazımı, bozuk kayıt denetimi, anlık rekor; eski rekorlar korunur |
 | Devam hakkı | Sorudan çıkıp tekrar girme suistimal edilebilirdi | Hak soru açılırken tüketilir ve kaydedilir; gecikmiş cevap zamanlayıcısı çıkış/reset sırasında iptal edilir |
@@ -56,3 +56,5 @@ Orijinal oyunun [resmî App Store açıklaması](https://apps.apple.com/us/app/b
 Test ve derleme komutları README'dedir. İnceleme sırasında mevcut kullanıcı `.DS_Store` değişiklikleri korunmuştur. Mağaza gönderimi yapılmamıştır. Web sürümü mevcut GitHub Pages kanalından yayımlanır.
 
 10 Eylül sürükleme düzeltmesi: jest eşiği kaldırıldı; dokunur dokunmaz 110 ms büyüme, 64 px kaldırma ve 1.8× parmak hareketi. Parça alt kenarı aşağı düzeltmelerde de parmağın en az 32 px üstünde kalır. Sadece kayan parçanın konumu her pointer olayında güncellenir; ekran yalnız hedef hücre değiştiğinde yeniden kurulur. İkinci parmak ve yalnız dokunup bırakma yerleştirme yapmaz.
+
+10 Eylül ikinci ayar: dokunma kazancı 2.2×, kaldırma büyümesi 80 ms. Ayrı paint animasyonunda COMBO / SUPER / SSS / PERFECT dereceleri, yaylanarak giriş, renkli yazı, ışık geçişi, şok dalgası, konfeti ve puan rozeti. SSS eşiği kombo ≥6 veya tek hamlede ≥4 çizgi; bu görsel derece puan formülünü değiştirmez. Kutlama 1.25 saniyede söner, dokunmaları engellemez ve azaltılmış hareket ayarında sabit gösterilir.
