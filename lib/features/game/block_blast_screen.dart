@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'block_blast_engine.dart';
+import 'block_celebration.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -46,6 +47,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   late final AnimationController _burst;
   Map<int, int> _burstCells = {};
   String _feedback = '';
+  BlockCelebrationData? _celebration;
+  int _celebrationId = 0;
   Timer? _reviveTimer;
   bool _resolving = false;
   int _run = 0;
@@ -66,7 +69,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   int? _dragPointer;
   Offset _pointerDown = Offset.zero;
   bool _dragMoved = false;
-  double _dragGain = 1.8;
+  double _dragGain = 2.2;
   Offset _dragAnchor = Offset.zero; // sürükleme başında parmak (stack uzayı)
   Offset _anchorTL = Offset.zero; // sürükleme başında parçanın sol-üstü
   bool _dragHasAnchor = false;
@@ -138,6 +141,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _burstCells = {};
     _resolving = false;
     _feedback = '';
+    _celebration = null;
     _game = BlockBlastEngine(random: _rng);
     _over = false;
     _newRecord = false;
@@ -167,7 +171,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _dragPointer = event.pointer;
     _pointerDown = event.position;
     _dragMoved = false;
-    _dragGain = event.kind == PointerDeviceKind.mouse ? 1.0 : 1.8;
+    _dragGain = event.kind == PointerDeviceKind.mouse ? 1.0 : 2.2;
     _valid = false;
     _dragIdx = i;
     _dragHasAnchor = false;
@@ -256,6 +260,14 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
             : '';
     _save();
     if (move.lines > 0) {
+      if (_game.combo > 1 || move.lines > 1 || move.allClear) {
+        _celebration = BlockCelebrationData.forClear(
+            combo: _game.combo,
+            lines: move.lines,
+            points: move.points,
+            allClear: move.allClear);
+        _celebrationId++;
+      }
       HapticFeedback.mediumImpact();
       if (_game.combo > 1 || move.lines > 1) {
         SfxService.instance.combo(_game.combo);
@@ -395,7 +407,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                       tween: Tween(begin: 0.72, end: 1.0),
                       duration: MediaQuery.disableAnimationsOf(context)
                           ? Duration.zero
-                          : const Duration(milliseconds: 110),
+                          : const Duration(milliseconds: 80),
                       curve: Curves.easeOutCubic,
                       child: _pieceGrid(_tray[_dragIdx!]!, _cell),
                       builder: (context, scale, child) => Transform.scale(
@@ -515,6 +527,10 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                         child: CustomPaint(
               painter: _BurstPainter(_burst, _burstCells),
             )))),
+            if (_celebration != null)
+              Positioned.fill(
+                  child: BlockCelebration(
+                      key: ValueKey(_celebrationId), data: _celebration!)),
           ]),
         ));
   }
