@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'block_blast_engine.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../core/data/questions_data.dart';
@@ -58,16 +59,20 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   int? _reviveSelected;
 
   double _cell = 40; // build'de hesaplanır
-  static const double _lift = 50; // parmağın belirgin şekilde üstünde göster
+  static const double _lift = 64; // parmağın belirgin şekilde üstünde göster
 
   int? _dragIdx;
-  Offset _drawTL = Offset.zero; // sürüklenen parçanın sol-üstü (stack uzayı)
+  final _dragPosition = ValueNotifier<Offset>(Offset.zero);
+  int? _dragPointer;
+  Offset _pointerDown = Offset.zero;
+  bool _dragMoved = false;
+  double _dragGain = 1.8;
   Offset _dragAnchor = Offset.zero; // sürükleme başında parmak (stack uzayı)
   Offset _anchorTL = Offset.zero; // sürükleme başında parçanın sol-üstü
   bool _dragHasAnchor = false;
   // Kaydırma hassasiyeti: parmak hareketi bu katsayıyla büyütülür (>1 = aynı
   // mesafeye daha az parmak hareketiyle ulaşılır).
-  static const double _dragGain = 1.0;
+
   int _tr = 0, _tc = 0;
   bool _valid = false;
   Set<int> _preview = {};
@@ -104,6 +109,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     WidgetsBinding.instance.removeObserver(this);
     _reviveTimer?.cancel();
     _burst.dispose();
+    _dragPosition.dispose();
     super.dispose();
   }
 
@@ -139,6 +145,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _reviveQ = null;
     _reviveSelected = null;
     _dragIdx = null;
+    _dragPointer = null;
     _valid = false;
     _preview = {};
     _clearPreview = {};
@@ -149,7 +156,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   bool _fits(BlockPiece p, int r, int c) => _game.fits(p, r, c);
 
   // ── Sürükleme ──
-  void _startDrag(int i, Offset global) {
+  void _startDrag(int i, PointerDownEvent event) {
     if (_dragIdx != null ||
         _resolving ||
         _over ||
@@ -157,10 +164,16 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
         _reviveQ != null) {
       return;
     }
+    _dragPointer = event.pointer;
+    _pointerDown = event.position;
+    _dragMoved = false;
+    _dragGain = event.kind == PointerDeviceKind.mouse ? 1.0 : 1.8;
     _valid = false;
     _dragIdx = i;
     _dragHasAnchor = false;
-    _updateDrag(global);
+    _updateDrag(event.position);
+    HapticFeedback.selectionClick();
+    setState(() {});
   }
 
   void _updateDrag(Offset global) {
@@ -181,12 +194,18 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       _dragHasAnchor = true;
     }
     // Parmak hareketini büyüterek uygula (hassasiyet).
-    _drawTL = _anchorTL + (local - _dragAnchor) * _dragGain;
+    final target = _anchorTL + (local - _dragAnchor) * _dragGain;
+    // The piece always stays above the finger, including downward corrections.
+    _dragPosition.value =
+        Offset(target.dx, min(target.dy, local.dy - hpx - 32));
 
-    final rel = _drawTL - gridTL;
+    final oldRow = _tr, oldCol = _tc;
+    final wasValid = _valid;
+    final rel = _dragPosition.value - gridTL;
     _tc = (rel.dx / _cell).round();
     _tr = (rel.dy / _cell).round();
     _valid = _fits(p, _tr, _tc);
+    if (oldRow == _tr && oldCol == _tc && wasValid == _valid) return;
     if (_valid) {
       _preview = {
         for (final cell in p.cells) (_tr + cell[0]) * _n + (_tc + cell[1])
@@ -211,6 +230,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       _place(_tray[_dragIdx!]!, _tr, _tc, _dragIdx!);
     }
     _dragIdx = null;
+    _dragPointer = null;
     _valid = false;
     _preview = {};
     _clearPreview = {};
@@ -219,6 +239,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   void _cancelDrag() {
     _dragIdx = null;
+    _dragPointer = null;
     _valid = false;
     _preview = {};
     _clearPreview = {};
@@ -366,15 +387,26 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
               // Sürüklenen parça (parmağın üstünde, tıklamayı engellemez)
               if (_dragIdx != null && _tray[_dragIdx!] != null)
-                Positioned(
-                  left: _drawTL.dx,
-                  top: _drawTL.dy,
+                ValueListenableBuilder<Offset>(
+                  valueListenable: _dragPosition,
                   child: IgnorePointer(
-                    child: Opacity(
-                      opacity: 0.95,
+                      child: RepaintBoundary(
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.72, end: 1.0),
+                      duration: MediaQuery.disableAnimationsOf(context)
+                          ? Duration.zero
+                          : const Duration(milliseconds: 110),
+                      curve: Curves.easeOutCubic,
                       child: _pieceGrid(_tray[_dragIdx!]!, _cell),
+                      builder: (context, scale, child) => Transform.scale(
+                          key: const ValueKey('block-drag-feedback'),
+                          scale: scale,
+                          alignment: Alignment.bottomCenter,
+                          child: child),
                     ),
-                  ),
+                  )),
+                  builder: (context, position, child) => Positioned(
+                      left: position.dx, top: position.dy, child: child!),
                 ),
 
               if (_askContinue) _continueOverlay(),
@@ -526,23 +558,33 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           for (var i = 0; i < 3; i++)
             // Her parçanın seçim alanı, tepsinin 1/3'lük bölgesinin TAMAMIDIR;
             // parçanın tam üstüne basmaya gerek yok, o bölgeye dokunmak yeter.
-            // GestureDetector sürükleme başlayınca da ağaçta kalmalı (yoksa
-            // onPanUpdate/End tetiklenmez); parçayı yalnızca soluklaştırıyoruz.
+            // Pointer dinleyicisi basıldığı anda kaldırır; jest eşiğini beklemez.
+            // Tek aktif parmak izlenir; ikinci dokunuş sürüklemeyi devralamaz.
             Expanded(
               child: _tray[i] == null
                   ? const SizedBox.expand()
-                  : GestureDetector(
+                  : Listener(
                       key: ValueKey('block-tray-$i'),
                       behavior: HitTestBehavior.opaque,
-                      onPanStart: (d) => _startDrag(i, d.globalPosition),
-                      onPanUpdate: (d) {
-                        if (_dragIdx == i) _updateDrag(d.globalPosition);
+                      onPointerDown: (event) => _startDrag(i, event),
+                      onPointerMove: (event) {
+                        if (_dragPointer != event.pointer) return;
+                        if ((event.position - _pointerDown).distance > 6) {
+                          _dragMoved = true;
+                        }
+                        _updateDrag(event.position);
                       },
-                      onPanEnd: (_) {
-                        if (_dragIdx == i) _endDrag();
+                      onPointerUp: (event) {
+                        if (_dragPointer != event.pointer) return;
+                        if (_dragMoved) {
+                          _updateDrag(event.position);
+                          _endDrag();
+                        } else {
+                          _cancelDrag();
+                        }
                       },
-                      onPanCancel: () {
-                        if (_dragIdx == i) _cancelDrag();
+                      onPointerCancel: (event) {
+                        if (_dragPointer == event.pointer) _cancelDrag();
                       },
                       child: SizedBox.expand(
                         child: Center(
