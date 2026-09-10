@@ -6,6 +6,7 @@ import 'block_board_fx.dart';
 import 'block_leaderboard.dart';
 import '../../core/services/social_bridge.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
@@ -528,24 +529,28 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           child: Stack(children: [
             Positioned.fill(
                 child: RepaintBoundary(
+                    key: const ValueKey('block-static-grid'),
                     child: CustomPaint(
-              painter: _GridPainter(
-                  _grid,
-                  _preview,
-                  _dragIdx != null && _tray[_dragIdx!] != null
-                      ? _palette[_tray[_dragIdx!]!.color]
-                      : null,
-                  _clearPreview,
-                  _fxClock,
-                  _boardFx),
-            ))),
+                      painter: _GridPainter(
+                          _grid,
+                          _preview,
+                          _dragIdx != null && _tray[_dragIdx!] != null
+                              ? _palette[_tray[_dragIdx!]!.color]
+                              : null,
+                          _clearPreview,
+                          {
+                            for (final impact in _boardFx.impacts)
+                              ...impact.cells
+                          }),
+                    ))),
             Positioned.fill(
                 child: IgnorePointer(
                     child: RepaintBoundary(
+                        key: const ValueKey('block-board-fx'),
                         child: CustomPaint(
-              painter: BlockBoardFxPainter(
-                  _fxClock, _boardFx, _grid, _palette, _preview),
-            )))),
+                          painter: BlockBoardFxPainter(
+                              _fxClock, _boardFx, _grid, _palette, _preview),
+                        )))),
             if (_celebration != null)
               Positioned.fill(
                   child: BlockCelebration(
@@ -964,11 +969,10 @@ class _GridPainter extends CustomPainter {
   final Set<int> preview;
   final Color? previewColor;
   final Set<int> clearCells; // bırakınca silinecek hücreler (parlama)
-  final Animation<double> clock;
-  final BlockBoardFx fx;
-  _GridPainter(this.grid, this.preview, this.previewColor, this.clearCells,
-      this.clock, this.fx)
-      : super(repaint: clock);
+  final Set<int> movingCells;
+  _GridPainter(List<List<int?>> grid, this.preview, this.previewColor,
+      this.clearCells, this.movingCells)
+      : grid = [for (final row in grid) List.of(row)];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -984,7 +988,9 @@ class _GridPainter extends CustomPainter {
               c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap),
           radius,
         );
-        Color? col = grid[r][c] == null ? null : _palette[grid[r][c]!];
+        Color? col = grid[r][c] == null || movingCells.contains(r * _n + c)
+            ? null
+            : _palette[grid[r][c]!];
         var alpha = 1.0;
         if (previewColor != null && preview.contains(r * _n + c)) {
           col = previewColor;
@@ -995,28 +1001,22 @@ class _GridPainter extends CustomPainter {
           continue;
         }
         canvas.drawRRect(rect, empty);
-        canvas.save();
-        if (grid[r][c] != null) {
-          fx
-              .impactAt(r * _n + c, clock.value)
-              ?.transform(canvas, cell, clock.value);
-        }
         paintBlockCell(canvas, rect, col, alpha: alpha);
-        canvas.restore();
       }
     }
 
     // ── Silme önizlemesi: bırakınca tam dolacak satır/sütunlar parlasın ──
     if (clearCells.isNotEmpty) {
       final glow = Paint()
-        ..color = const Color(0xFFFFE26A).withValues(alpha: .18)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+        ..color = const Color(0xFFFFE26A).withValues(alpha: .42)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
       final lit = Paint()
-        ..color = const Color(0xFFFFF4C2).withValues(alpha: 0.18);
+        ..color = const Color(0xFFFFF4C2).withValues(alpha: 0.48);
       final edge = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0xFFFFF7D6).withValues(alpha: .55);
+        ..color = const Color(0xFFFFF7D6).withValues(alpha: .85);
+      final glowPath = Path();
       for (final key in clearCells) {
         final r = key ~/ _n, c = key % _n;
         final rect = RRect.fromRectAndRadius(
@@ -1024,13 +1024,20 @@ class _GridPainter extends CustomPainter {
               c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap),
           radius,
         );
-        canvas.drawRRect(rect, glow); // hale
+        glowPath.addRRect(rect);
         canvas.drawRRect(rect, lit); // parlak dolgu
         canvas.drawRRect(rect, edge); // parlak kenar
       }
+      canvas.drawPath(
+          glowPath, glow); // One cached preview halo, not 64 animated blurs.
     }
   }
 
   @override
-  bool shouldRepaint(_GridPainter old) => true;
+  bool shouldRepaint(_GridPainter old) =>
+      previewColor != old.previewColor ||
+      !setEquals(preview, old.preview) ||
+      !setEquals(clearCells, old.clearCells) ||
+      !setEquals(movingCells, old.movingCells) ||
+      List.generate(_n, (i) => i).any((i) => !listEquals(grid[i], old.grid[i]));
 }

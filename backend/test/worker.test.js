@@ -96,3 +96,13 @@ test('player two cannot send manual notifications or spoof admin identity', asyn
   db.prepare('UPDATE players SET active=0 WHERE id=2').run();
   assert.equal((await call('/message',{message:'Test'},1)).status,403);
 });
+
+test('board reports actual recipient registrations instead of inferred permission',async()=>{
+  const {db,call}=await setup();
+  assert.equal((await call('/board')).data.otherRegisteredDevices,0);
+  db.prepare("INSERT INTO subscriptions VALUES('recipient-device',2,'{}')").run();
+  const board=(await call('/board')).data;
+  assert.equal(board.otherRegisteredDevices,1);
+  assert.equal(board.otherCanReceive,true);
+  assert.equal((await call('/board',undefined,1)).data.otherRegisteredDevices,0);
+});

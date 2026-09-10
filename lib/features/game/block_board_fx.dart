@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-/// Visual snapshots only. The engine commits placements/_clears immediately.
+/// Visual snapshots only. The engine commits placements/clears immediately.
 /// One screen-owned clock drives all events; nothing allocates a ticker per cell.
 class BlockBoardFx {
   final impacts = <BlockImpact>[];
@@ -19,12 +19,12 @@ class BlockBoardFx {
     if (impacts.length > 3) impacts.removeAt(0);
     if (cleared.isEmpty) return;
     final wave = _ClearWave(now, cleared, lines, ++_seed);
-    // Budget all concurrent _clears together, including rapid consecutive moves.
+    // Budget all concurrent clears together, including rapid consecutive moves.
     while (_clears.isNotEmpty &&
         (_clears.length >= 2 ||
             _clears.fold(0, (n, e) => n + e.particles.length) +
                     wave.particles.length >
-                160)) {
+                96)) {
       _clears.removeAt(0);
     }
     _clears.add(wave);
@@ -95,8 +95,7 @@ class _ClearWave {
     }
     duration = delays.values.reduce(max) + 300;
     final random = Random(seed);
-    final perCell =
-        min(lines >= 4 ? 4 : (lines >= 2 ? 3 : 2), 128 ~/ cells.length);
+    final perCell = min(lines >= 4 ? 3 : 2, 96 ~/ cells.length);
     for (final entry in cells.entries) {
       for (var i = 0; i < perCell; i++) {
         final angle = (i + random.nextDouble() * .6) * pi * 2 / perCell;
@@ -121,26 +120,36 @@ class _CellParticle {
       this.rotation, this.spin);
 }
 
-/// Shared block finish prevents an initial flash when a cell becomes an FX ghost.
+// Eight cached, unit-space gradients serve the whole board and every FX frame.
+final _cellFills = <Color, Paint>{};
+final _cellEdge = Paint()..style = PaintingStyle.stroke;
+final _unitCell = Rect.fromCenter(center: Offset.zero, width: 1, height: 1);
+
 void paintBlockCell(Canvas canvas, RRect rect, Color color,
     {double alpha = 1}) {
-  canvas.drawRRect(
-      rect,
-      Paint()
+  if (rect.width <= 0 || rect.height <= 0) return;
+  final fill = _cellFills.putIfAbsent(
+      color,
+      () => Paint()
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(color, Colors.white, .25)!.withValues(alpha: alpha),
-            color.withValues(alpha: alpha),
-          ],
-        ).createShader(rect.outerRect));
-  canvas.drawRRect(
-      rect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = Colors.white.withValues(alpha: .18 * alpha));
+          colors: [Color.lerp(color, Colors.white, .25)!, color],
+        ).createShader(_unitCell));
+  fill.color = Colors.white.withValues(alpha: alpha);
+  _cellEdge
+    ..strokeWidth = 1 / min(rect.width, rect.height)
+    ..color = Colors.white.withValues(alpha: .18 * alpha);
+  final unit = RRect.fromRectAndRadius(
+      _unitCell,
+      Radius.elliptical(
+          rect.tlRadiusX / rect.width, rect.tlRadiusY / rect.height));
+  canvas.save();
+  canvas.translate(rect.center.dx, rect.center.dy);
+  canvas.scale(rect.width, rect.height);
+  canvas.drawRRect(unit, fill);
+  canvas.drawRRect(unit, _cellEdge);
+  canvas.restore();
 }
 
 class BlockBoardFxPainter extends CustomPainter {
@@ -160,6 +169,23 @@ class BlockBoardFxPainter extends CustomPainter {
     canvas.save();
     canvas.clipRRect(
         RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(14)));
+    // Only moving cells repaint on clock ticks; the other 64 cells stay cached.
+    for (final impact in fx.impacts) {
+      canvas.save();
+      impact.transform(canvas, cell, now);
+      for (final key in impact.cells) {
+        final color = grid[key ~/ 8][key % 8];
+        if (color == null || fx.impactAt(key, now) != impact) continue;
+        paintBlockCell(
+            canvas,
+            RRect.fromRectAndRadius(
+                Rect.fromLTWH((key % 8) * cell + 1.5, (key ~/ 8) * cell + 1.5,
+                    cell - 3, cell - 3),
+                Radius.circular(cell * .16)),
+            palette[color]);
+      }
+      canvas.restore();
+    }
     for (final wave in fx._clears) {
       final age = now - wave.start;
       if (wave.intensity == 1) {
@@ -201,13 +227,16 @@ class BlockBoardFxPainter extends CustomPainter {
                 width: (cell - 3) * scale,
                 height: (cell - 3) * scale),
             Radius.circular(cell * .16 * scale));
-        final glow = sin(pi * t) * (.12 + wave.intensity * .10);
+        final glow = sin(pi * t) * (.22 + wave.intensity * .10);
         if (glow > 0) {
+          canvas.drawRRect(rect.inflate(cell * .035),
+              Paint()..color = const Color(0xFFFFE5A0).withValues(alpha: glow));
           canvas.drawRRect(
-              rect.inflate(cell * .035),
+              rect.inflate(cell * .075),
               Paint()
-                ..color = color.withValues(alpha: glow)
-                ..maskFilter = MaskFilter.blur(BlurStyle.normal, cell * .065));
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = cell * .045
+                ..color = color.withValues(alpha: glow * .55));
         }
         paintBlockCell(canvas, rect, color, alpha: alpha);
         canvas.restore();

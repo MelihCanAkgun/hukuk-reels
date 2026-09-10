@@ -12,7 +12,8 @@ class BlockLeaderboard extends StatefulWidget {
   State<BlockLeaderboard> createState() => _BlockLeaderboardState();
 }
 
-class _BlockLeaderboardState extends State<BlockLeaderboard> {
+class _BlockLeaderboardState extends State<BlockLeaderboard>
+    with WidgetsBindingObserver {
   final _name = TextEditingController();
   final _code = TextEditingController();
   final _message = TextEditingController();
@@ -24,6 +25,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _refresh();
     _poll = Timer.periodic(const Duration(seconds: 20), (_) {
       if (!_busy &&
@@ -35,6 +37,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _poll?.cancel();
     _name.dispose();
     _code.dispose();
@@ -42,12 +45,17 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_busy) _refresh();
+  }
+
   Future<void> _refresh() async {
     final result = await socialCall('state');
     if (mounted) {
       setState(() {
         _data = result;
-        if (result['error'] != null) _notice = result['error'] as String;
+        _notice = result['error'] as String?;
       });
     }
   }
@@ -60,6 +68,8 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
     });
     // Do not insert an await here: Safari requires the permission call inside the tap.
     final result = await socialCall(action, payload);
+    if (!mounted) return;
+    if (action == 'message') await _refresh();
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -170,6 +180,12 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
             const Text(
                 'Diğer oyuncu rekorunu geçtiğinde telefonuna bildirim gelsin. iPhone’da uygulamayı ana ekrandan açıp izin ver. (yerse)'),
             const SizedBox(height: 12),
+            Text(_data['subscribed'] == true
+                ? 'Bu cihazın bildirim kaydı aktif.'
+                : _data['permission'] == 'granted'
+                    ? 'İzin açık; bildirim cihazı kaydı tamamlanmalı.'
+                    : 'Bu cihazda bildirimler henüz açık değil.'),
+            if (_data['pushError'] != null) Text(_data['pushError'] as String),
             FilledButton.icon(
               onPressed: _busy
                   ? null
@@ -195,11 +211,20 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
                   maxLines: 4,
                   decoration: const InputDecoration(
                       hintText: '', border: OutlineInputBorder())),
+              Text(_data['error'] != null
+                  ? 'Alıcının bildirim durumu güncellenemedi.'
+                  : _data['otherCanReceive'] == true
+                      ? 'Alıcı: ${_data['otherRegisteredDevices'] ?? 1} bildirim cihazı kayıtlı.'
+                      : 'Alıcı: kayıtlı bildirim cihazı yok.'),
+              TextButton.icon(
+                  onPressed: _busy ? null : _refresh,
+                  icon: const Icon(Icons.sync),
+                  label: const Text('Alıcı durumunu kontrol et')),
               if (_data['otherCanReceive'] != true)
                 const Text(
                     'Mesaj göndermek için diğer oyuncunun bildirimleri açması gerekiyor.'),
               FilledButton.icon(
-                  onPressed: _busy || _data['otherCanReceive'] != true
+                  onPressed: _busy
                       ? null
                       : () => _action('message', {'message': _message.text}),
                   icon: const Icon(Icons.send_rounded),

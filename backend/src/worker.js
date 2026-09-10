@@ -29,7 +29,8 @@ async function body(request) {
 async function board(env, playerId) {
   const {results} = await env.DB.prepare('SELECT id, name, best, active FROM players ORDER BY best DESC, id').all();
   const other = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscriptions WHERE player_id != ?').bind(playerId).first();
-  return {players: results, me: playerId, otherCanReceive: other.count > 0, publicKey: env.VAPID_PUBLIC_KEY};
+  return {players: results, me: playerId, otherCanReceive: other.count > 0,
+    otherRegisteredDevices: other.count, publicKey: env.VAPID_PUBLIC_KEY};
 }
 
 export async function route(request, env, ctx) {
@@ -77,7 +78,7 @@ export async function route(request, env, ctx) {
     const target = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
     if (!target) fail('Diğer oyuncu henüz katılmadı.');
     const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscriptions WHERE player_id = ?').bind(target.id).first();
-    if (!count.count) fail('Diğer oyuncu henüz bildirim izni vermedi.');
+    if (!count.count) fail('Diğer oyuncunun kayıtlı bildirim cihazı yok. Uygulamayı ana ekrandan açıp Bildirimleri aç düğmesine dokunması gerekiyor.');
     // Atomic cooldown prevents double taps/retries from sending multiple messages.
     const now = Math.floor(Date.now()/1000);
     const result = await env.DB.prepare('UPDATE players SET last_message = ? WHERE id = ? AND last_message <= ? RETURNING id')
