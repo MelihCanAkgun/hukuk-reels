@@ -85,3 +85,12 @@ test('expired subscriptions are deleted; transient failure remains queued',async
   await deliver(env,async()=>{calls++;return 201;});
   assert.equal(calls,0, 'active lease must not be delivered twice');
 });
+
+test('player two cannot send manual notifications or spoof admin identity', async()=>{
+  const {db,call}=await setup();
+  for (const payload of [{message:'Test'}, {message:'Test',id:1,me:1,admin:true}]) {
+    assert.equal((await call('/message',payload,1)).status,403);
+  }
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM notifications').get().n,0);
+  assert.equal(db.prepare('SELECT last_message FROM players WHERE id=2').get().last_message,0);
+});
