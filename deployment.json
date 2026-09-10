@@ -1,10 +1,11 @@
 {
-  "source_commit": "ea6ac4c045c9a890d2cee283fa4ad9ad573e4e8c",
+  "source_commit": "2228fb157771929d76f9ccd27526fa25e427f1f8",
   "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
   "checks": {
-    "block_blast_related_tests": 26,
+    "block_blast_related_tests": 27,
+    "social_tests": 11,
     "analysis": "passed",
     "user_text_changes": "preserved"
   },
-  "change": "Restrained staggered clears, placement impact and strong-clear shockwave"
+  "change": "Unclipped celebrations, cached board rendering, restored warm glow and push registration recovery"
 }
