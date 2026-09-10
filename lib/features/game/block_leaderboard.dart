@@ -89,12 +89,11 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
           const Icon(Icons.emoji_events_rounded,
               color: Color(0xFFFFD76A), size: 52),
           const SizedBox(height: 12),
-          const Text('Rekor sende mi?',
+          const Text('Lider Tablosu',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
-          const Text(
-              'İki oyuncu, en yüksek skorlar. Lider değişince haberin olsun.',
+          const Text('İyi olan kazansın bir tanem 😘',
               textAlign: TextAlign.center),
           const SizedBox(height: 24),
           if (_data.isEmpty)
@@ -169,7 +168,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             const Text(
-                'Diğer oyuncu rekorunu geçtiğinde telefonuna bildirim gelsin. iPhone’da uygulamayı ana ekrandan açıp izin ver.'),
+                'Diğer oyuncu rekorunu geçtiğinde telefonuna bildirim gelsin. iPhone’da uygulamayı ana ekrandan açıp izin ver. (yerse)'),
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: _busy
@@ -186,7 +185,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
             ),
             if (_data['me'] == 1) ...[
               const Divider(height: 32),
-              const Text('Diğer oyuncuya mesaj',
+              const Text('ariciğime bildirim gönderme paneli: ',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               TextField(
@@ -195,7 +194,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
                   minLines: 2,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                      hintText: 'Bir tur daha oynayalım mı?',
+                      hintText: '',
                       border: OutlineInputBorder())),
               if (_data['otherCanReceive'] != true)
                 const Text(

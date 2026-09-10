@@ -66,14 +66,14 @@
       /* iOS/Safari: sayfa kenarlarında lastik zıplama olmasın */
       overscroll-behavior: none;
       /* iOS safe area desteği */
-      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      box-sizing: border-box;
     }
     #loading {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100vh;
+      height: 100dvh;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     #loading .spinner {
@@ -106,6 +106,7 @@
     <p>Hukuk Reels yükleniyor...</p>
   </div>
 
+  <script src="audio.js"></script>
   <script>
     // ── Android Chrome PWA Install Prompt ──
     let _deferredInstallPrompt = null;
@@ -136,107 +137,43 @@
       _deferredInstallPrompt = null;
     });
 
-    // ── Ses altyapısı (WebAudio) ──
-    // 1) SFX: WAV'lar belleğe alınır, her çağrıda yeni BufferSource ile
-    //    çalınır → üst üste ve sınırsız tekrar çalabilir, gecikme çok düşük.
-    // 2) Müzik sesi (iOS): Safari <audio>.volume'u yok sayar; müzik
-    //    elemanları bir GainNode'a bağlanınca kaydırıcı iOS'ta da çalışır.
-    var _ac = null, _musicGain = null, _sfxGain = null;
-    var _sfxBuffers = {};
-    var _wiredEls = [];
-    var _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-
-    function _audioCtx() {
-      if (_ac) return _ac;
-      var AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      _ac = new AC();
-      _musicGain = _ac.createGain();
-      _musicGain.connect(_ac.destination);
-      _sfxGain = _ac.createGain();
-      _sfxGain.connect(_ac.destination);
-      return _ac;
-    }
-    function _resumeCtx() {
-      if (_ac && _ac.state === 'suspended') _ac.resume();
-    }
-    document.addEventListener('pointerdown', _resumeCtx, { passive: true });
-    document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) _resumeCtx();
-    });
-
-    function sfxLoad(name, url) {
-      var ctx = _audioCtx();
-      if (!ctx) return;
-      fetch(url)
-        .then(function (r) { return r.arrayBuffer(); })
-        .then(function (b) { return ctx.decodeAudioData(b); })
-        .then(function (buf) { _sfxBuffers[name] = buf; })
-        .catch(function (e) { console.warn('[SFX] yüklenemedi:', name, e); });
-    }
-    function sfxPlay(name) {
-      var ctx = _audioCtx(), buf = _sfxBuffers[name];
-      if (!ctx || !buf) return;
-      _resumeCtx();
-      try {
-        var s = ctx.createBufferSource();
-        s.buffer = buf;
-        s.connect(_sfxGain);
-        s.start(0);
-      } catch (e) {}
-    }
-    function sfxSetVolume(v) {
-      if (_audioCtx()) _sfxGain.gain.value = v;
-    }
-
-    function musicSetVolume(v) {
-      // iOS dışında element.volume zaten çalışıyor; dokunma.
-      if (!_isIOS) return;
-      var ctx = _audioCtx();
-      if (!ctx) return;
-      _resumeCtx();
-      document.querySelectorAll('audio').forEach(function (el) {
-        if (_wiredEls.indexOf(el) >= 0) return;
-        try {
-          var src = ctx.createMediaElementSource(el);
-          src.connect(_musicGain);
-          _wiredEls.push(el);
-        } catch (e) {}
-      });
-      _musicGain.gain.value = v;
-    }
-
-    // Service Worker kaydı + OTOMATİK GÜNCELLEME
-    // Yeni sürüm yayınlandığında (push) kullanıcı uygulamayı bir sonraki
-    // açışında otomatik olarak günceli alır; silip yeniden yüklemesi gerekmez.
-    if ('serviceWorker' in navigator) {
-      var _swRefreshing = false;
+    // Updates wait for the player: never reload an active game automatically.
+    window.addEventListener('flutter-first-frame', function () {
+      document.getElementById('loading')?.remove();
+      if (!('serviceWorker' in navigator)) return;
+      let applyingUpdate = false;
       navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (_swRefreshing) return;
-        _swRefreshing = true;
-        window.location.reload();
+        if (applyingUpdate) window.location.reload();
       });
-      window.addEventListener('flutter-first-frame', function () {
-        navigator.serviceWorker.register('flutter_service_worker.js?v=828230000') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
-          console.log('[SW] kayıt başarılı:', reg.scope);
-          // Yeni sürüm bulununca kurulur kurulmaz etkinleştir
-          reg.addEventListener('updatefound', function () {
-            var nw = reg.installing;
-            if (!nw) return;
-            nw.addEventListener('statechange', function () {
-              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                nw.postMessage('skipWaiting');
-              }
-            });
+      navigator.serviceWorker.register('flutter_service_worker.js?v=1036065715') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
+        function offerUpdate() {
+          if (!reg.waiting || !navigator.serviceWorker.controller || document.getElementById('update-app')) return;
+          const button = document.createElement('button');
+          button.id = 'update-app';
+          button.textContent = 'Yeni sürüm hazır · Yenile';
+          button.style.cssText = 'position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:99999;padding:14px 20px;border:0;border-radius:24px;background:#ffe26a;color:#182b50;font:600 14px -apple-system,sans-serif';
+          button.onclick = function () {
+            if (!reg.waiting) return;
+            applyingUpdate = true;
+            reg.waiting.postMessage('skipWaiting');
+          };
+          document.body.appendChild(button);
+        }
+        offerUpdate();
+        reg.addEventListener('updatefound', function () {
+          const worker = reg.installing;
+          if (worker) worker.addEventListener('statechange', function () {
+            if (worker.state === 'installed') offerUpdate();
           });
-          // Uygulama açıkken de saatte bir güncellemeyi kontrol et
-          setInterval(function () { reg.update(); }, 60 * 60 * 1000);
         });
-      });
-    }
+        document.addEventListener('visibilitychange', function () {
+          if (!document.hidden) reg.update().catch(function () {});
+        });
+      }).catch(function (error) { console.warn('[PWA]', error); });
+    });
   </script>
 
+  <script src="social.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

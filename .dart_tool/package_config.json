@@ -395,7 +395,7 @@
       "name": "hukuk_reels",
       "rootUri": "../",
       "packageUri": "lib/",
-      "languageVersion": "3.2"
+      "languageVersion": "3.6"
     }
   ],
   "generator": "pub",
