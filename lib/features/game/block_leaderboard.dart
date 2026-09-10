@@ -184,27 +184,29 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
                   ? 'Bildirimleri kapat'
                   : 'Bildirimleri aç'),
             ),
-            const Divider(height: 32),
-            const Text('Diğer oyuncuya mesaj',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 12),
-            TextField(
-                controller: _message,
-                maxLength: 180,
-                minLines: 2,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                    hintText: 'Bir tur daha oynayalım mı?',
-                    border: OutlineInputBorder())),
-            if (_data['otherCanReceive'] != true)
-              const Text(
-                  'Mesaj göndermek için diğer oyuncunun bildirimleri açması gerekiyor.'),
-            FilledButton.icon(
-                onPressed: _busy || _data['otherCanReceive'] != true
-                    ? null
-                    : () => _action('message', {'message': _message.text}),
-                icon: const Icon(Icons.send_rounded),
-                label: const Text('Bildirim gönder')),
+            if (_data['me'] == 1) ...[
+              const Divider(height: 32),
+              const Text('Diğer oyuncuya mesaj',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              TextField(
+                  controller: _message,
+                  maxLength: 180,
+                  minLines: 2,
+                  maxLines: 4,
+                  decoration: const InputDecoration(
+                      hintText: 'Bir tur daha oynayalım mı?',
+                      border: OutlineInputBorder())),
+              if (_data['otherCanReceive'] != true)
+                const Text(
+                    'Mesaj göndermek için diğer oyuncunun bildirimleri açması gerekiyor.'),
+              FilledButton.icon(
+                  onPressed: _busy || _data['otherCanReceive'] != true
+                      ? null
+                      : () => _action('message', {'message': _message.text}),
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text('Bildirim gönder')),
+            ],
             const SizedBox(height: 16),
             TextButton(
                 onPressed: _busy ? null : () => _action('leave'),
