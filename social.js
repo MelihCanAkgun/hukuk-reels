@@ -5,6 +5,7 @@
   try { Object.assign(config, JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch (_) {}
   let lastBoard = null;
   let sending = false;
+  let verifiedSubscription = '';
   let scoreTimer;
   const persist = () => localStorage.setItem(storageKey, JSON.stringify(config));
   async function api(path, data, token = config.token) {
@@ -35,7 +36,19 @@
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     const reg = supported ? await navigator.serviceWorker.getRegistration() : null;
     const sub = reg ? await reg.pushManager.getSubscription() : null;
-    return {supported, subscribed: !!sub && config.endpoint === sub.endpoint && Notification.permission === 'granted', permission: supported ? Notification.permission : 'unsupported'};
+    const permission = supported ? Notification.permission : 'unsupported';
+    let pushError;
+    const key = sub && config.token ? config.token + ':' + sub.endpoint : '';
+    // Recover an interrupted server registration without asking for permission again.
+    if (sub && permission === 'granted' && config.token && config.url && verifiedSubscription !== key) {
+      try {
+        await api('/subscribe', sub.toJSON());
+        config.endpoint = sub.endpoint;
+        persist();
+        verifiedSubscription = key;
+      } catch (e) { pushError = 'Bildirim izni açık, ancak cihaz kaydedilemedi: ' + e.message; }
+    }
+    return {supported, subscribed: !!key && verifiedSubscription === key && permission === 'granted', permission, pushError};
   }
   async function state(refresh = true) {
     let error;
@@ -80,7 +93,11 @@
       }
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') throw new Error('Bildirim izni verilmedi. Telefonun bildirim ayarlarından izin verebilirsin.');
-      const reg = await navigator.serviceWorker.ready;
+      let timer;
+      const reg = await Promise.race([
+        navigator.serviceWorker.ready,
+        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Uygulama güncellemesini tamamlayıp tekrar dene.')), 12000); }),
+      ]).finally(() => clearTimeout(timer));
       let sub = await reg.pushManager.getSubscription();
       if (!sub) {
         const key = lastBoard?.publicKey;
@@ -90,6 +107,7 @@
       }
       await api('/subscribe', sub.toJSON());
       config.endpoint = sub.endpoint; persist();
+      verifiedSubscription = config.token + ':' + sub.endpoint;
       return state(false);
     }
     if (action === 'unsubscribe' || action === 'leave') {
@@ -98,10 +116,10 @@
       if (sub) {
         await api('/unsubscribe', {endpoint: sub.endpoint});
         await sub.unsubscribe();
-        config.endpoint = ''; persist();
+        config.endpoint = ''; verifiedSubscription = ''; persist();
       }
       if (action === 'leave') {
-        config.token = ''; config.best = 0; lastBoard = null; persist();
+        config.token = ''; config.best = 0; verifiedSubscription = ''; lastBoard = null; persist();
       }
       return state(false);
     }
