@@ -35,7 +35,8 @@ class BlockCelebrationData {
 /// Paint-only celebration. It never intercepts a drag or locks the game.
 class BlockCelebration extends StatefulWidget {
   final BlockCelebrationData data;
-  const BlockCelebration({super.key, required this.data});
+  final bool compact;
+  const BlockCelebration({super.key, required this.data, this.compact = false});
   @override
   State<BlockCelebration> createState() => _BlockCelebrationState();
 }
@@ -73,7 +74,8 @@ class _BlockCelebrationState extends State<BlockCelebration>
       child: RepaintBoundary(
           child: CustomPaint(
         painter: _CelebrationPainter(_controller, widget.data,
-            reducedMotion: MediaQuery.disableAnimationsOf(context)),
+            reducedMotion: MediaQuery.disableAnimationsOf(context),
+            compact: widget.compact),
         child: const SizedBox.expand(),
       )),
     ));
@@ -83,22 +85,24 @@ class _BlockCelebrationState extends State<BlockCelebration>
 class _CelebrationPainter extends CustomPainter {
   final Animation<double> animation;
   final BlockCelebrationData data;
-  final bool reducedMotion;
+  final bool reducedMotion, compact;
   late final TextPainter _outline, _title, _detail;
-  _CelebrationPainter(this.animation, this.data, {required this.reducedMotion})
+  _CelebrationPainter(this.animation, this.data,
+      {required this.reducedMotion, required this.compact})
       : super(repaint: reducedMotion ? null : animation) {
     final style = TextStyle(
         fontFamily: 'Inter',
-        fontSize: data.legendary ? 88 : 52,
+        fontSize:
+            compact ? (data.legendary ? 42 : 34) : (data.legendary ? 88 : 52),
         fontWeight: FontWeight.w900,
-        letterSpacing: data.legendary ? 6 : -1,
+        letterSpacing: compact ? 0 : (data.legendary ? 6 : -1),
         height: 1);
     _outline = _text(
         data.title,
         style.copyWith(
             foreground: Paint()
               ..style = PaintingStyle.stroke
-              ..strokeWidth = 7
+              ..strokeWidth = compact ? 3 : 7
               ..color = const Color(0xFF19254B)));
     _title = _text(
         data.title,
@@ -135,8 +139,8 @@ class _CelebrationPainter extends CustomPainter {
     final alpha =
         reducedMotion ? 1.0 : (min(t / .07, (1 - t) / .22)).clamp(0.0, 1.0);
     if (alpha <= 0) return;
-    final center = Offset(size.width / 2, size.height * .44);
-    if (!reducedMotion) {
+    final center = Offset(size.width / 2, size.height * (compact ? .12 : .44));
+    if (!reducedMotion && !compact) {
       // Expanding shockwave, followed by deterministic confetti and sparks.
       final wave = Curves.easeOutCubic.transform((t / .65).clamp(0.0, 1.0));
       canvas.drawCircle(
@@ -188,7 +192,7 @@ class _CelebrationPainter extends CustomPainter {
     final origin = Offset(-_title.width / 2, 0);
     _outline.paint(canvas, origin + const Offset(0, 4));
     _title.paint(canvas, origin);
-    if (!reducedMotion && t > .18 && t < .6) {
+    if (!reducedMotion && !compact && t > .18 && t < .6) {
       final textRect = origin & _title.size;
       final sweep = (t - .18) / .42;
       final x = textRect.left - 60 + (_title.width + 120) * sweep;
@@ -225,5 +229,7 @@ class _CelebrationPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CelebrationPainter old) =>
-      old.data != data || old.reducedMotion != reducedMotion;
+      old.data != data ||
+      old.reducedMotion != reducedMotion ||
+      old.compact != compact;
 }

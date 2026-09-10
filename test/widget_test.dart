@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hukuk_reels/main.dart';
 import 'package:hukuk_reels/core/services/progress_service.dart';
 import 'package:hukuk_reels/features/game/block_blast_screen.dart';
+import 'package:hukuk_reels/features/game/block_leaderboard.dart';
 import 'package:hukuk_reels/features/game/block_blast_engine.dart';
 import 'package:hukuk_reels/features/game/flappy_cat_screen.dart';
 import 'package:hukuk_reels/features/game/subway_cat_screen.dart';
@@ -33,7 +34,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('İkimizin sıralaması'));
     await tester.pumpAndSettle();
-    expect(find.text('Rekor sende mi?'), findsOneWidget);
+    expect(find.byType(BlockLeaderboard), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pageBack();
     await tester.pumpAndSettle();
@@ -72,6 +73,12 @@ void main() {
     expect(saved.score, 311);
     expect(saved.combo, 1);
     expect(saved.grid.every((r) => r.every((c) => c == null)), isTrue);
+    // A clear wave must not lock the next piece or obscure its drag feedback.
+    final next = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('block-tray-1'))));
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byKey(const ValueKey('block-drag-feedback')), findsOneWidget);
+    await next.cancel();
     // Leave while burst is running: rules must already be committed.
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(const MaterialApp(home: BlockBlastScreen()));
