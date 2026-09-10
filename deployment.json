@@ -1,9 +1,10 @@
 {
-  "source_commit": "2f9a6f7d1bcfc02fb915d174d65299e6584d2f92",
+  "source_commit": "64ad0f7c8a61a3de5cf97ece6af5e97641df0239",
   "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
   "checks": {
-    "flutter_tests": 25,
+    "flutter_tests": 26,
+    "social_tests": 7,
     "analysis": "passed"
   },
-  "change": "Faster touch dragging and tiered combo celebrations"
+  "change": "Private two-player leaderboard and Web Push notifications"
 }
