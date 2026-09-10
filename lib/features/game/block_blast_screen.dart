@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'block_blast_engine.dart';
 import 'block_celebration.dart';
+import 'block_board_fx.dart';
 import 'block_leaderboard.dart';
 import '../../core/services/social_bridge.dart';
 import 'package:flutter/material.dart';
@@ -46,13 +47,12 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   List<List<int?>> get _grid => _game.grid;
   List<BlockPiece?> get _tray => _game.tray;
   int get _score => _game.score;
-  late final AnimationController _burst;
-  Map<int, int> _burstCells = {};
+  late final AnimationController _fxClock;
+  final _boardFx = BlockBoardFx();
   String _feedback = '';
   BlockCelebrationData? _celebration;
   int _celebrationId = 0;
   Timer? _reviveTimer;
-  bool _resolving = false;
   int _run = 0;
   bool _over = false;
   bool _newRecord = false;
@@ -90,16 +90,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
         socialCall('score', {'score': ProgressService.instance.blockHigh})));
     SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
     WidgetsBinding.instance.addObserver(this);
-    _burst = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 420))
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed && mounted) {
-          setState(() {
-            _resolving = false;
-            _burstCells = {};
-          });
-          if (!_game.hasMove) _gameOver();
-        }
+    _fxClock = AnimationController.unbounded(vsync: this)
+      ..addListener(() {
+        if (_boardFx.retire(_fxClock.value) && mounted) setState(() {});
       });
     _game = BlockBlastEngine.restore(ProgressService.instance.loadBlockGame(),
             random: _rng) ??
@@ -112,10 +105,19 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _fxClock.stop();
+      _boardFx.reset();
+    }
+  }
+
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _reviveTimer?.cancel();
-    _burst.dispose();
+    _fxClock.dispose();
     _dragPosition.dispose();
     super.dispose();
   }
@@ -142,9 +144,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   void _reset() {
     _run++;
     _reviveTimer?.cancel();
-    _burst.stop();
-    _burstCells = {};
-    _resolving = false;
+    _fxClock.stop();
+    _boardFx.reset();
     _feedback = '';
     _celebration = null;
     _game = BlockBlastEngine(random: _rng);
@@ -166,11 +167,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   // ── Sürükleme ──
   void _startDrag(int i, PointerDownEvent event) {
-    if (_dragIdx != null ||
-        _resolving ||
-        _over ||
-        _askContinue ||
-        _reviveQ != null) {
+    if (_dragIdx != null || _over || _askContinue || _reviveQ != null) {
       return;
     }
     _dragPointer = event.pointer;
@@ -264,6 +261,17 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
             ? '${move.lines > 1 ? "${move.lines} ÇİZGİ · " : ""}+${move.points}'
             : '';
     _save();
+    if (!MediaQuery.disableAnimationsOf(context)) {
+      if (_boardFx.isEmpty) _fxClock.value = 0;
+      final now = _fxClock.value;
+      _boardFx.add(
+          now,
+          {for (final cell in p.cells) (tr + cell[0]) * _n + tc + cell[1]},
+          move.clearedCells,
+          move.lines);
+      _fxClock.animateTo(_boardFx.end,
+          duration: Duration(milliseconds: (_boardFx.end - now).ceil()));
+    }
     if (move.lines > 0) {
       if (_game.combo > 1 || move.lines > 1 || move.allClear) {
         _celebration = BlockCelebrationData.forClear(
@@ -279,18 +287,11 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       } else {
         SfxService.instance.clear();
       }
-      _burstCells = move.clearedCells;
-      if (!MediaQuery.disableAnimationsOf(context)) {
-        _resolving = true;
-        _burst.forward(from: 0);
-      } else {
-        _burstCells = {};
-      }
     } else {
       HapticFeedback.lightImpact();
       SfxService.instance.place();
     }
-    if (!_resolving && !_game.hasMove) _gameOver();
+    if (!_game.hasMove) _gameOver();
   }
 
   void _gameOver() {
@@ -534,18 +535,23 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                   _dragIdx != null && _tray[_dragIdx!] != null
                       ? _palette[_tray[_dragIdx!]!.color]
                       : null,
-                  _clearPreview),
+                  _clearPreview,
+                  _fxClock,
+                  _boardFx),
             ))),
             Positioned.fill(
                 child: IgnorePointer(
                     child: RepaintBoundary(
                         child: CustomPaint(
-              painter: _BurstPainter(_burst, _burstCells),
+              painter: BlockBoardFxPainter(
+                  _fxClock, _boardFx, _grid, _palette, _preview),
             )))),
             if (_celebration != null)
               Positioned.fill(
                   child: BlockCelebration(
-                      key: ValueKey(_celebrationId), data: _celebration!)),
+                      key: ValueKey(_celebrationId),
+                      data: _celebration!,
+                      compact: true)),
           ]),
         ));
   }
@@ -958,7 +964,11 @@ class _GridPainter extends CustomPainter {
   final Set<int> preview;
   final Color? previewColor;
   final Set<int> clearCells; // bırakınca silinecek hücreler (parlama)
-  _GridPainter(this.grid, this.preview, this.previewColor, this.clearCells);
+  final Animation<double> clock;
+  final BlockBoardFx fx;
+  _GridPainter(this.grid, this.preview, this.previewColor, this.clearCells,
+      this.clock, this.fx)
+      : super(repaint: clock);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -984,39 +994,29 @@ class _GridPainter extends CustomPainter {
           canvas.drawRRect(rect, empty);
           continue;
         }
-        canvas.drawRRect(
-          rect,
-          Paint()
-            ..shader = LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.lerp(col, Colors.white, 0.25)!.withValues(alpha: alpha),
-                col.withValues(alpha: alpha),
-              ],
-            ).createShader(rect.outerRect),
-        );
-        canvas.drawRRect(
-          rect,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1
-            ..color = Colors.white.withValues(alpha: 0.18 * alpha),
-        );
+        canvas.drawRRect(rect, empty);
+        canvas.save();
+        if (grid[r][c] != null) {
+          fx
+              .impactAt(r * _n + c, clock.value)
+              ?.transform(canvas, cell, clock.value);
+        }
+        paintBlockCell(canvas, rect, col, alpha: alpha);
+        canvas.restore();
       }
     }
 
     // ── Silme önizlemesi: bırakınca tam dolacak satır/sütunlar parlasın ──
     if (clearCells.isNotEmpty) {
       final glow = Paint()
-        ..color = const Color(0xFFFFE26A)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+        ..color = const Color(0xFFFFE26A).withValues(alpha: .18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
       final lit = Paint()
-        ..color = const Color(0xFFFFF4C2).withValues(alpha: 0.82);
+        ..color = const Color(0xFFFFF4C2).withValues(alpha: 0.18);
       final edge = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = const Color(0xFFFFF7D6);
+        ..strokeWidth = 1
+        ..color = const Color(0xFFFFF7D6).withValues(alpha: .55);
       for (final key in clearCells) {
         final r = key ~/ _n, c = key % _n;
         final rect = RRect.fromRectAndRadius(
@@ -1033,38 +1033,4 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridPainter old) => true;
-}
-
-/// Burst uses the compositor tick only while a line clears; no idle ticker.
-class _BurstPainter extends CustomPainter {
-  final Animation<double> animation;
-  final Map<int, int> cells;
-  _BurstPainter(this.animation, this.cells) : super(repaint: animation);
-  @override
-  void paint(Canvas canvas, Size size) {
-    final t = animation.value;
-    final cell = size.width / 8;
-    for (final entry in cells.entries) {
-      final center =
-          Offset((entry.key % 8 + .5) * cell, (entry.key ~/ 8 + .5) * cell);
-      final color = _palette[entry.value];
-      final side = cell * (1 - t) * .94;
-      canvas.drawRRect(
-          RRect.fromRectAndRadius(
-              Rect.fromCenter(center: center, width: side, height: side),
-              const Radius.circular(4)),
-          Paint()
-            ..color =
-                Color.lerp(Colors.white, color, t)!.withValues(alpha: 1 - t));
-      for (var i = 0; i < 4; i++) {
-        final angle = i * pi / 2 + entry.key * .7;
-        final pos = center + Offset(cos(angle), sin(angle)) * cell * t * 1.3;
-        canvas.drawCircle(pos, (1 - t) * 2.5,
-            Paint()..color = color.withValues(alpha: 1 - t));
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_BurstPainter old) => old.cells != cells;
 }

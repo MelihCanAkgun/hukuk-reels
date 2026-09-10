@@ -194,8 +194,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard> {
                   minLines: 2,
                   maxLines: 4,
                   decoration: const InputDecoration(
-                      hintText: '',
-                      border: OutlineInputBorder())),
+                      hintText: '', border: OutlineInputBorder())),
               if (_data['otherCanReceive'] != true)
                 const Text(
                     'Mesaj göndermek için diğer oyuncunun bildirimleri açması gerekiyor.'),
