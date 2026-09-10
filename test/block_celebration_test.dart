@@ -1,9 +1,61 @@
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hukuk_reels/features/game/block_celebration.dart';
 import 'package:hukuk_reels/features/game/block_board_fx.dart';
 
 void main() {
+  setUpAll(() async {
+    final loader = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter.ttf'));
+    await loader.load();
+  });
+  testWidgets(
+      'SSS keeps the entire long score pill inside its compositing bounds',
+      (tester) async {
+    final boundaryKey = GlobalKey();
+    await tester.pumpWidget(MaterialApp(
+        home: Center(
+            child: RepaintBoundary(
+      key: boundaryKey,
+      child: SizedBox(
+          width: 280,
+          height: 280,
+          child: BlockCelebration(
+            compact: true,
+            data: BlockCelebrationData.forClear(
+                combo: 666, lines: 4, points: 999999, allClear: false),
+          )),
+    ))));
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.runAsync(() async {
+      final boundary = boundaryKey.currentContext!.findRenderObject()
+          as RenderRepaintBoundary;
+      final image = await boundary.toImage();
+      final rgba =
+          (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+      var widest = 0;
+      for (var y = 0; y < image.height; y++) {
+        var width = 0;
+        for (var x = 0; x < image.width; x++) {
+          if (rgba.getUint8((y * image.width + x) * 4 + 3) > 180) width++;
+        }
+        if (width > widest) widest = width;
+      }
+      expect(widest, greaterThan(190),
+          reason: 'The score pill must extend beyond the narrow SSS title');
+      const preview = String.fromEnvironment('FX_PREVIEW_PATH');
+      if (preview.isNotEmpty) {
+        final png = await image.toByteData(format: ui.ImageByteFormat.png);
+        await File(preview).writeAsBytes(png!.buffer.asUint8List());
+      }
+      image.dispose();
+    });
+    await tester.pumpWidget(const SizedBox());
+  });
   test('board FX snapshot, intensity budget and retirement stay visual only',
       () {
     final cells = {for (var i = 0; i < 8; i++) i: 0};
@@ -22,7 +74,7 @@ void main() {
     expect(fx.isEmpty, isTrue);
     for (var i = 0; i < 12; i++) {
       fx.add(i * 10.0, {0}, {for (var k = 0; k < 64; k++) k: 0}, 4);
-      expect(fx.particleCount, lessThanOrEqualTo(160));
+      expect(fx.particleCount, lessThanOrEqualTo(96));
     }
     fx.retire(fx.end);
     expect(fx.isEmpty, isTrue);

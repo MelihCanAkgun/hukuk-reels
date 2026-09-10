@@ -45,6 +45,7 @@ class _BlockCelebrationState extends State<BlockCelebration>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   bool _finished = false;
+  _CelebrationPainter? _painter;
   @override
   void initState() {
     super.initState();
@@ -61,21 +62,33 @@ class _BlockCelebrationState extends State<BlockCelebration>
   @override
   void dispose() {
     _controller.dispose();
+    _painter?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_finished) return const SizedBox.shrink();
+    if (_finished) {
+      _painter?.dispose();
+      _painter = null;
+      return const SizedBox.shrink();
+    }
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (_painter == null ||
+        _painter!.data != widget.data ||
+        _painter!.compact != widget.compact ||
+        _painter!.reducedMotion != reduced) {
+      _painter?.dispose();
+      _painter = _CelebrationPainter(_controller, widget.data,
+          reducedMotion: reduced, compact: widget.compact);
+    }
     return IgnorePointer(
         child: Semantics(
       label:
           '${widget.data.title}, kombo ${widget.data.combo}, ${widget.data.points} puan',
       child: RepaintBoundary(
           child: CustomPaint(
-        painter: _CelebrationPainter(_controller, widget.data,
-            reducedMotion: MediaQuery.disableAnimationsOf(context),
-            compact: widget.compact),
+        painter: _painter,
         child: const SizedBox.expand(),
       )),
     ));
@@ -87,6 +100,7 @@ class _CelebrationPainter extends CustomPainter {
   final BlockCelebrationData data;
   final bool reducedMotion, compact;
   late final TextPainter _outline, _title, _detail;
+  late final Rect _badgeBounds;
   _CelebrationPainter(this.animation, this.data,
       {required this.reducedMotion, required this.compact})
       : super(repaint: reducedMotion ? null : animation) {
@@ -127,7 +141,18 @@ class _CelebrationPainter extends CustomPainter {
             height: 1,
             fontWeight: FontWeight.w800,
             color: Colors.white));
+    // SSS is narrower than its score pill: include BOTH in the compositing bounds.
+    final width = max(_title.width + 24, _detail.width + 40);
+    _badgeBounds = Rect.fromLTRB(-width / 2, -12, width / 2,
+        _title.height + max(50, _detail.height + 26));
   }
+
+  void dispose() {
+    _outline.dispose();
+    _title.dispose();
+    _detail.dispose();
+  }
+
   TextPainter _text(String text, TextStyle style) => TextPainter(
         text: TextSpan(text: text, style: style),
         textDirection: TextDirection.ltr,
@@ -179,21 +204,26 @@ class _CelebrationPainter extends CustomPainter {
     final entrance = reducedMotion
         ? 1.0
         : Curves.easeOutBack.transform((t / .22).clamp(0.0, 1.0));
-    final scale = (.65 + entrance * .35) *
-        min(1.0, size.width * .82 / max(_title.width, _detail.width));
+    final fit = min(
+            1.0,
+            min(size.width * .9 / _badgeBounds.width,
+                size.height * .7 / _badgeBounds.height)) /
+        1.05;
+    final scale = (.65 + entrance * .35) * fit;
+    final y = (center.dy - (reducedMotion ? 0 : t * 14)).clamp(
+        4 - _badgeBounds.top * scale,
+        size.height - 4 - _badgeBounds.bottom * scale);
     canvas.save();
-    canvas.translate(center.dx, center.dy - (reducedMotion ? 0 : t * 14));
+    canvas.translate(center.dx, y);
     canvas.scale(scale);
-    // A bounded layer fades only the badge, never the board or whole screen.
-    final bounds = Rect.fromLTWH(
-        -_title.width / 2 - 22, -12, _title.width + 44, _title.height + 66);
+    // Fade the full badge, including long combo scores, within the board edges.
     canvas.saveLayer(
-        bounds, Paint()..color = Colors.white.withValues(alpha: alpha));
+        _badgeBounds, Paint()..color = Colors.white.withValues(alpha: alpha));
     final origin = Offset(-_title.width / 2, 0);
     _outline.paint(canvas, origin + const Offset(0, 4));
     _title.paint(canvas, origin);
     if (!reducedMotion && !compact && t > .18 && t < .6) {
-      final textRect = origin & _title.size;
+      final textRect = (origin & _title.size).inflate(8);
       final sweep = (t - .18) / .42;
       final x = textRect.left - 60 + (_title.width + 120) * sweep;
       canvas.saveLayer(textRect, Paint());

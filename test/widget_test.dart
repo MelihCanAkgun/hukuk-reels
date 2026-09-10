@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hukuk_reels/main.dart';
@@ -73,6 +74,18 @@ void main() {
     expect(saved.score, 311);
     expect(saved.combo, 1);
     expect(saved.grid.every((r) => r.every((c) => c == null)), isTrue);
+    final staticBoard = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('block-static-grid')));
+    final effects = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('block-board-fx')));
+    final basePicture = (staticBoard.debugLayer! as OffsetLayer).firstChild;
+    final fxPicture = (effects.debugLayer! as OffsetLayer).firstChild;
+    await tester.pump(const Duration(milliseconds: 40));
+    expect(
+        (staticBoard.debugLayer! as OffsetLayer).firstChild, same(basePicture),
+        reason: 'FX ticks must reuse the static grid picture');
+    expect((effects.debugLayer! as OffsetLayer).firstChild,
+        isNot(same(fxPicture)));
     // A clear wave must not lock the next piece or obscure its drag feedback.
     final next = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('block-tray-1'))));
