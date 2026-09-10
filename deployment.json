@@ -1,10 +1,10 @@
 {
-  "source_commit": "63493493b4d098e74bfcb37ec944f60a8d881efc",
+  "source_commit": "ea6ac4c045c9a890d2cee283fa4ad9ad573e4e8c",
   "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
   "checks": {
-    "flutter_tests": 26,
-    "social_tests": 8,
-    "analysis": "passed"
+    "block_blast_related_tests": 26,
+    "analysis": "passed",
+    "user_text_changes": "preserved"
   },
-  "change": "Only player one may send manual notifications"
+  "change": "Restrained staggered clears, placement impact and strong-clear shockwave"
 }
