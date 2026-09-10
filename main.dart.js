@@ -88388,45 +88388,42 @@ if(p.c==null){s=1
 break}p.R(new A.amt(p,o,a))
 case 1:return A.q(q,r)}})
 return A.r($async$qq,r)},
-L(a){var s,r,q,p,o,n,m,l,k=this,j=null,i="best",h="subscribed",g="otherCanReceive",f=J.d(k.r.h(0,"connected"),!0),e=J.d(k.r.h(0,"configured"),!0),d=t.kc.a(k.r.h(0,"players"))
-if(d==null)d=[]
-s=J.bl(d)
-r=s.gH(d)===2&&J.d(J.cd(s.h(d,0),i),J.cd(s.h(d,1),i))
+L(a){var s,r,q,p,o,n,m,l,k,j=this,i=null,h="best",g="subscribed",f="otherCanReceive",e=J.d(j.r.h(0,"connected"),!0),d=J.d(j.r.h(0,"configured"),!0),c=t.kc.a(j.r.h(0,"players"))
+if(c==null)c=[]
+s=J.bl(c)
+r=s.gH(c)===2&&J.d(J.cd(s.h(c,0),h),J.cd(s.h(c,1),h))
 q=t.p
 p=A.b([B.Ka,B.cr,B.a2F,B.bq,B.a2Q,B.Bl],q)
-o=k.r
+o=j.r
 if(o.ga3(o))p.push(B.Fs)
-else if(!e)p.push(A.aj(J.d(k.r.h(0,"native"),!0)?"\u0130ki ki\u015filik s\u0131ralama ve bildirimler \u015fu anda ana ekrana y\xfcklenen web uygulamas\u0131nda kullan\u0131labilir.":"\u0130ki ki\u015filik servis haz\u0131rlan\u0131yor. Oyunlar\u0131n\u0131 oynamaya devam edebilirsin.",j,j,j,j,j,j))
-if(e&&!f){o=A.aAk(j,k.d,B.KH,!0,24,1,j,!1)
-n=A.aAk(!1,k.e,B.KG,!1,j,1,j,!0)
-B.b.P(p,A.b([o,B.cr,n,B.cr,B.a2I,B.db,new A.zx(!1,k.x?j:new A.amv(k),j,j,j,j,B.k,j,!1,j,!0,j,B.a2u,j)],q))}if(f){q=A.b([],q)
-for(m=0;m<s.gH(d);++m){o=J.d(J.cd(s.h(d,m),"id"),k.r.h(0,"me"))?B.G2:B.GK
-n=A.aj(r?"=":""+(m+1),j,j,j,B.Yo,j,j)
-l=A.l(J.cd(s.h(d,m),"name"))
-l=A.aj(l+(J.d(J.cd(s.h(d,m),"id"),k.r.h(0,"me"))?" \xb7 Sen":""),j,j,j,B.h6,j,j)
-q.push(new A.JV(o,A.azM(n,j,A.aj(J.d(J.cd(s.h(d,m),"active"),1)?"En y\xfcksek skor":"Hen\xfcz kat\u0131lmad\u0131",j,j,j,j,j,j),l,A.aj(A.l(J.cd(s.h(d,m),i)),j,j,j,B.a_L,j,j)),j))}if(J.d(k.r.h(0,"pending"),!0))q.push(B.Sc)
-s=k.x?j:k.gakp()
-q.push(new A.Dh(!0,s,j,j,j,j,B.k,j,!1,j,!0,j,new A.XV(B.a2a,B.K7,j,j,j),j))
-q.push(B.oR)
-q.push(B.a1Y)
-q.push(B.bq)
-q.push(B.a2b)
-q.push(B.cr)
-s=k.x?j:new A.amw(k)
-o=A.dD(J.d(k.r.h(0,h),!0)?B.JH:B.JK,j,j,j)
-q.push(A.azp(o,A.aj(J.d(k.r.h(0,h),!0)?"Bildirimleri kapat":"Bildirimleri a\xe7",j,j,j,j,j,j),s))
-q.push(B.oR)
-q.push(B.a1S)
-q.push(B.cr)
-q.push(A.aAk(j,k.f,B.KI,!0,180,4,2,!1))
-if(!J.d(k.r.h(0,g),!0))q.push(B.a22)
-q.push(A.azp(B.Kg,B.a2l,k.x||!J.d(k.r.h(0,g),!0)?j:new A.amx(k)))
-q.push(B.db)
-q.push(A.aAj(B.a2j,k.x?j:new A.amy(k),j))
-B.b.P(p,q)}if(k.x)p.push(B.Le)
-s=k.w
-if(s!=null)p.push(new A.bD(B.IG,A.bR(j,A.aj(s,j,j,j,j,j,j),!1,j,j,!1,j,j,j,j,j,j,j,j,j,!0,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j,j),j))
-return A.lF(new A.y_(B.a2r,B.od,new A.VF(j,j,1/0,56),j),B.od,A.lE(!0,A.eR(new A.f9(B.DV,A.azN(p,B.kE),j),j,j),B.aD,!0))}}
+else if(!d)p.push(A.aj(J.d(j.r.h(0,"native"),!0)?"\u0130ki ki\u015filik s\u0131ralama ve bildirimler \u015fu anda ana ekrana y\xfcklenen web uygulamas\u0131nda kullan\u0131labilir.":"\u0130ki ki\u015filik servis haz\u0131rlan\u0131yor. Oyunlar\u0131n\u0131 oynamaya devam edebilirsin.",i,i,i,i,i,i))
+if(d&&!e){o=A.aAk(i,j.d,B.KH,!0,24,1,i,!1)
+n=A.aAk(!1,j.e,B.KG,!1,i,1,i,!0)
+B.b.P(p,A.b([o,B.cr,n,B.cr,B.a2I,B.db,new A.zx(!1,j.x?i:new A.amv(j),i,i,i,i,B.k,i,!1,i,!0,i,B.a2u,i)],q))}if(e){o=A.b([],q)
+for(m=0;m<s.gH(c);++m){n=J.d(J.cd(s.h(c,m),"id"),j.r.h(0,"me"))?B.G2:B.GK
+l=A.aj(r?"=":""+(m+1),i,i,i,B.Yo,i,i)
+k=A.l(J.cd(s.h(c,m),"name"))
+k=A.aj(k+(J.d(J.cd(s.h(c,m),"id"),j.r.h(0,"me"))?" \xb7 Sen":""),i,i,i,B.h6,i,i)
+o.push(new A.JV(n,A.azM(l,i,A.aj(J.d(J.cd(s.h(c,m),"active"),1)?"En y\xfcksek skor":"Hen\xfcz kat\u0131lmad\u0131",i,i,i,i,i,i),k,A.aj(A.l(J.cd(s.h(c,m),h)),i,i,i,B.a_L,i,i)),i))}if(J.d(j.r.h(0,"pending"),!0))o.push(B.Sc)
+s=j.x?i:j.gakp()
+o.push(new A.Dh(!0,s,i,i,i,i,B.k,i,!1,i,!0,i,new A.XV(B.a2a,B.K7,i,i,i),i))
+o.push(B.oR)
+o.push(B.a1Y)
+o.push(B.bq)
+o.push(B.a2b)
+o.push(B.cr)
+s=j.x?i:new A.amw(j)
+n=A.dD(J.d(j.r.h(0,g),!0)?B.JH:B.JK,i,i,i)
+o.push(A.azp(n,A.aj(J.d(j.r.h(0,g),!0)?"Bildirimleri kapat":"Bildirimleri a\xe7",i,i,i,i,i,i),s))
+if(J.d(j.r.h(0,"me"),1)){s=A.b([B.oR,B.a1S,B.cr,A.aAk(i,j.f,B.KI,!0,180,4,2,!1)],q)
+if(!J.d(j.r.h(0,f),!0))s.push(B.a22)
+s.push(A.azp(B.Kg,B.a2l,j.x||!J.d(j.r.h(0,f),!0)?i:new A.amx(j)))
+B.b.P(o,s)}o.push(B.db)
+o.push(A.aAj(B.a2j,j.x?i:new A.amy(j),i))
+B.b.P(p,o)}if(j.x)p.push(B.Le)
+s=j.w
+if(s!=null)p.push(new A.bD(B.IG,A.bR(i,A.aj(s,i,i,i,i,i,i),!1,i,i,!1,i,i,i,i,i,i,i,i,i,!0,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i,i),i))
+return A.lF(new A.y_(B.a2r,B.od,new A.VF(i,i,1/0,56),i),B.od,A.lE(!0,A.eR(new A.f9(B.DV,A.azN(p,B.kE),i),i,i),B.aD,!0))}}
 A.amz.prototype={
 $1(a){var s=this.a
 if(!s.x&&$.V.id$===B.bi)s.qW()},
