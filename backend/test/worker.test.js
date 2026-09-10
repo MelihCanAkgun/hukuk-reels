@@ -93,4 +93,6 @@ test('player two cannot send manual notifications or spoof admin identity', asyn
   }
   assert.equal(db.prepare('SELECT COUNT(*) n FROM notifications').get().n,0);
   assert.equal(db.prepare('SELECT last_message FROM players WHERE id=2').get().last_message,0);
+  db.prepare('UPDATE players SET active=0 WHERE id=2').run();
+  assert.equal((await call('/message',{message:'Test'},1)).status,403);
 });
