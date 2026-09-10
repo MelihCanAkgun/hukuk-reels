@@ -31,3 +31,25 @@ self.addEventListener('fetch', (event) => {
     return fetch(request);
   })());
 });
+
+// Web Push is handled by the existing offline worker, including when the app is closed.
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data?.json() || {}; } catch (_) {}
+  event.waitUntil(self.registration.showNotification(data.title || 'Block Blast', {
+    body: data.body || 'Yeni bir bildirimin var.',
+    icon: new URL('icons/Icon-192.png', self.registration.scope).href,
+    tag: data.tag || 'block-blast',
+    data: {url: self.registration.scope},
+  }));
+});
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
+    for (const client of windows) {
+      if (client.url.startsWith(self.registration.scope) && 'focus' in client) return client.focus();
+    }
+    return self.clients.openWindow(self.registration.scope);
+  })());
+});

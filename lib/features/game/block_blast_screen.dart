@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'block_blast_engine.dart';
 import 'block_celebration.dart';
+import 'block_leaderboard.dart';
+import '../../core/services/social_bridge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -84,6 +86,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   @override
   void initState() {
     super.initState();
+    unawaited(socialCall('init', {'url': socialApiUrl}).then((_) =>
+        socialCall('score', {'score': ProgressService.instance.blockHigh})));
     SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
     WidgetsBinding.instance.addObserver(this);
     _burst = AnimationController(
@@ -127,6 +131,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   void _save() {
+    unawaited(socialCall('score', {'score': _score}));
     unawaited(ProgressService.instance.saveBlockGame(_game.toJson()));
     final run = _run;
     unawaited(ProgressService.instance.submitBlockScore(_score).then((record) {
@@ -452,6 +457,16 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
               fontWeight: FontWeight.w800,
             ),
           )),
+          IconButton(
+            tooltip: 'İkimizin sıralaması',
+            icon:
+                const Icon(Icons.leaderboard_rounded, color: Color(0xFFFFD76A)),
+            onPressed: () {
+              _cancelDrag();
+              Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => const BlockLeaderboard()));
+            },
+          ),
           const MusicButton(),
           const SizedBox(width: 8),
           _circleBtn(Icons.refresh_rounded, _reset),
