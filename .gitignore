@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Two-player service: local credentials and build cache
+backend/node_modules/
+backend/.wrangler/
+backend/.dev.vars
+backend/.secrets/

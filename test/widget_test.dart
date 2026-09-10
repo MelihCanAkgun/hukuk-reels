@@ -27,6 +27,21 @@ void main() {
   });
 
   testWidgets(
+      'leaderboard opens and closes without interrupting the saved game',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: BlockBlastScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('İkimizin sıralaması'));
+    await tester.pumpAndSettle();
+    expect(find.text('Rekor sende mi?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('block-board')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
       'drag clears a line, commits save before animation and restores it',
       (tester) async {
     final game = BlockBlastEngine()
