@@ -39,6 +39,7 @@ export async function route(request, env, ctx) {
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) fail('Oyuncu kodunu kontrol et.', 401);
   const player = await env.DB.prepare('SELECT * FROM players WHERE token_hash = ?').bind(await tokenHash(token)).first();
   if (!player) fail('Oyuncu kodunu kontrol et.', 401);
+  if (path === '/message' && player.id !== 1) fail('Bildirim gönderme yetkisi yalnızca Oyuncu 1’e aittir.', 403);
   if (path === '/board' && request.method === 'GET') return json(await board(env, player.id));
   if (request.method !== 'POST') fail('Bulunamadı.', 404);
   const data = await body(request);
@@ -71,7 +72,6 @@ export async function route(request, env, ctx) {
     return json({ok: true});
   }
   if (path === '/message') {
-    if (player.id !== 1) fail('Bildirim gönderme yetkisi yalnızca Oyuncu 1’e aittir.', 403);
     const message = typeof data.message === 'string' ? data.message.trim() : '';
     if (!message || message.length > 180) fail('1–180 karakterlik bir mesaj yaz.');
     const target = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
