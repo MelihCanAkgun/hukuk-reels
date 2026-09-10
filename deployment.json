@@ -1,10 +1,10 @@
 {
-  "source_commit": "64ad0f7c8a61a3de5cf97ece6af5e97641df0239",
+  "source_commit": "63493493b4d098e74bfcb37ec944f60a8d881efc",
   "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
   "checks": {
     "flutter_tests": 26,
-    "social_tests": 7,
+    "social_tests": 8,
     "analysis": "passed"
   },
-  "change": "Private two-player leaderboard and Web Push notifications"
+  "change": "Only player one may send manual notifications"
 }
