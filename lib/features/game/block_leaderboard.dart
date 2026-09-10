@@ -79,6 +79,33 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
     });
   }
 
+  String? get _deliveryNotice {
+    final event = _data['lastNotification'];
+    if (event is! Map) return null;
+    final status = event['delivery_status'];
+    if (status == 'accepted') {
+      return 'Son bildirim cihazın bildirim servisine iletildi. Telefonda görünmesi izinlere ve Odak ayarlarına bağlı.';
+    }
+    if (status == 'partial') {
+      return 'Son bildirim bazı cihazlara iletildi; diğerleri yeniden denenecek.';
+    }
+    if (status == 'no_device' || status == 'http_404' || status == 'http_410') {
+      return 'Son bildirim iletilemedi: alıcının bildirimleri yeniden açması gerekiyor.';
+    }
+    final created = event['created'];
+    final expired = created is num &&
+        DateTime.now().millisecondsSinceEpoch ~/ 1000 - created >= 3600;
+    if (expired || (event['attempts'] as num? ?? 0) >= 4) {
+      return 'Son bildirimin gönderimi tamamlanamadı. Yeni bir bildirim gönderebilirsin.';
+    }
+    if (status == 'timeout' ||
+        status == 'send_error' ||
+        (status is String && status.startsWith('http_'))) {
+      return 'Bildirim servisine iletilemedi; sunucu yeniden deneyecek.';
+    }
+    return 'Son bildirim gönderim sırasında; henüz teslim onayı yok.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final connected = _data['connected'] == true;
@@ -216,6 +243,10 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                   : _data['otherCanReceive'] == true
                       ? 'Alıcı: ${_data['otherRegisteredDevices'] ?? 1} bildirim cihazı kayıtlı.'
                       : 'Alıcı: kayıtlı bildirim cihazı yok.'),
+              if (_deliveryNotice != null) ...[
+                const SizedBox(height: 8),
+                Text(_deliveryNotice!),
+              ],
               TextButton.icon(
                   onPressed: _busy ? null : _refresh,
                   icon: const Icon(Icons.sync),

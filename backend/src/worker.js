@@ -29,7 +29,9 @@ async function body(request) {
 async function board(env, playerId) {
   const {results} = await env.DB.prepare('SELECT id, name, best, active FROM players ORDER BY best DESC, id').all();
   const other = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscriptions WHERE player_id != ?').bind(playerId).first();
-  return {players: results, me: playerId, otherCanReceive: other.count > 0,
+  const latest = playerId === 1 ? await env.DB.prepare(
+    'SELECT sent, attempts, created, delivery_status FROM notifications WHERE player_id = 2 ORDER BY id DESC LIMIT 1').first() : null;
+  return {lastNotification: latest, players: results, me: playerId, otherCanReceive: other.count > 0,
     otherRegisteredDevices: other.count, publicKey: env.VAPID_PUBLIC_KEY};
 }
 
@@ -102,28 +104,45 @@ export async function deliver(env, send = sendPush) {
   for (const event of results) {
     const {results: subscriptions} = await env.DB.prepare('SELECT * FROM subscriptions WHERE player_id = ?').bind(event.player_id).all();
     let retry = false;
+    let accepted = false;
+    let deliveryStatus = 'no_device';
     for (const entry of subscriptions) {
       try {
         const status = await send(JSON.parse(entry.subscription), {
           title: event.title, body: event.body, tag: `event-${event.id}`, url: env.APP_URL,
         }, env);
+        if (status >= 200 && status < 300) {
+          accepted = true;
+          deliveryStatus = 'accepted';
+        } else {
+          deliveryStatus = `http_${status}`;
+          console.warn('push_rejected', {eventId: event.id, status});
+        }
         if (status === 404 || status === 410) {
           await env.DB.prepare('DELETE FROM subscriptions WHERE endpoint = ?').bind(entry.endpoint).run();
         } else if (status >= 300) retry = true;
-      } catch { retry = true; }
+      } catch (error) {
+        retry = true;
+        deliveryStatus = error.name === 'TimeoutError' ? 'timeout' : 'send_error';
+        // Never log payloads, endpoint URLs or keys.
+        console.warn('push_failed', {eventId: event.id, type: error.name});
+      }
     }
-    if (!retry) await env.DB.prepare('UPDATE notifications SET sent = 1 WHERE id = ?').bind(event.id).run();
+    await env.DB.prepare('UPDATE notifications SET sent = ?, delivery_status = ? WHERE id = ?')
+      .bind(!retry ? 1 : 0, accepted ? (retry ? 'partial' : 'accepted') : deliveryStatus, event.id).run();
   }
   await env.DB.prepare('DELETE FROM notifications WHERE created < ?').bind(now-86400*7).run();
 }
-async function sendPush(subscription, payload, env) {
+export async function sendPush(subscription, payload, env, transport = fetch) {
   const details = webpush.generateRequestDetails(subscription, JSON.stringify(payload), {
     TTL: 3600,
     vapidDetails: {subject: env.VAPID_SUBJECT, publicKey: env.VAPID_PUBLIC_KEY, privateKey: env.VAPID_PRIVATE_KEY},
   });
-  const response = await fetch(details.endpoint, {
+  const response = await transport(details.endpoint, {
     method: details.method, headers: details.headers, body: details.body,
-    redirect: 'error', signal: AbortSignal.timeout(10000),
+    // Workers reject redirect:'error' before making any request. Manual mode
+    // prevents forwarding VAPID credentials; 3xx remains a delivery failure.
+    redirect: 'manual', signal: AbortSignal.timeout(10000),
   });
   await response.body?.cancel();
   return response.status;

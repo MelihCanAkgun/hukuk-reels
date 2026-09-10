@@ -81,6 +81,7 @@ test('expired subscriptions are deleted; transient failure remains queued',async
   const item=db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 1').get();
   assert.equal(item.sent,0);
   assert.equal(item.attempts,1);
+  assert.equal(item.delivery_status,'http_503');
   let calls=0;
   await deliver(env,async()=>{calls++;return 201;});
   assert.equal(calls,0, 'active lease must not be delivered twice');
@@ -106,3 +107,14 @@ test('board reports actual recipient registrations instead of inferred permissio
   assert.equal(board.otherCanReceive,true);
   assert.equal((await call('/board',undefined,1)).data.otherRegisteredDevices,0);
 });
+
+ test('admin sees gateway acceptance separately from enqueue and expired devices',async()=>{
+  const {db,env,call}=await setup();
+  db.prepare("INSERT INTO subscriptions VALUES('device',2,'{}')").run();
+  db.prepare("INSERT INTO notifications(player_id,title,body) VALUES(2,'Test','Test')").run();
+  await deliver(env,async()=>201);
+  const info=(await call('/board')).data.lastNotification;
+  assert.equal(info.delivery_status,'accepted');
+  assert.equal(info.sent,1);
+  assert.equal((await call('/board',undefined,1)).data.lastNotification,null);
+ });

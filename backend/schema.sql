@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS notifications (
  created INTEGER NOT NULL DEFAULT (unixepoch()),
  attempted INTEGER NOT NULL DEFAULT 0,
  attempts INTEGER NOT NULL DEFAULT 0,
+ delivery_status TEXT NOT NULL DEFAULT 'pending',
  sent INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS pending_notifications ON notifications(sent, created);

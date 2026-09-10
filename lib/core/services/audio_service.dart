@@ -145,9 +145,9 @@ class AudioService {
 
   Future<void> setVolume(double v) async {
     final vol = v.clamp(0.0, 1.0);
-    await _player.setVolume(vol);
     // iOS'ta element.volume işlemez; GainNode üzerinden gerçekten uygula.
     bridge.musicSetVolume(vol);
+    await _player.setVolume(vol);
   }
 
   // ── Uygulama yaşam döngüsü ──

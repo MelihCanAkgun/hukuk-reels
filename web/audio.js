@@ -66,19 +66,31 @@
       var ctx = _audioCtx();
       if (!ctx) return;
       _resumeCtx();
-      document.querySelectorAll('audio').forEach(function (el) {
-        if (_wiredEls.has(el)) return;
-        try {
-          var src = ctx.createMediaElementSource(el);
-          src.connect(_musicGain);
-          _wiredEls.add(el);
-        } catch (e) {}
-      });
       _musicGain.gain.value = _musicVolume;
     }
 
 
-// just_audio may create a new element when the track changes.
-document.addEventListener('play', function (event) {
-  if (event.target && event.target.tagName === 'AUDIO') musicSetVolume(_musicVolume);
-}, true);
+// just_audio creates detached audio elements: document queries and bubbling
+// play events cannot see them. Intercept only audio playback on iOS and keep
+// the native play promise/receiver intact; video and desktop are unaffected.
+function _wireMusicElement(el) {
+  if (!_isIOS || el.tagName !== 'AUDIO' || _wiredEls.has(el)) return;
+  var ctx = _audioCtx();
+  if (!ctx) return;
+  try {
+    var source = ctx.createMediaElementSource(el);
+    source.connect(_musicGain);
+    _wiredEls.add(el);
+    _musicGain.gain.value = _musicVolume;
+  } catch (error) {
+    console.warn('[Audio] Ses kontrolü bağlanamadı:', error.name);
+  }
+}
+if (_isIOS && window.HTMLMediaElement) {
+  var _nativeMediaPlay = window.HTMLMediaElement.prototype.play;
+  window.HTMLMediaElement.prototype.play = function () {
+    _wireMusicElement(this);
+    _resumeCtx();
+    return _nativeMediaPlay.apply(this, arguments);
+  };
+}
