@@ -1,9 +1,9 @@
 {
-  "source_commit": "ec84dc4a7cc3790855ad2bc90199b2658dd5eb9b",
+  "source_commit": "2f9a6f7d1bcfc02fb915d174d65299e6584d2f92",
   "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
   "checks": {
-    "flutter_tests": 22,
+    "flutter_tests": 25,
     "analysis": "passed"
   },
-  "change": "Immediate lifted blocks with 1.8x touch travel"
+  "change": "Faster touch dragging and tiered combo celebrations"
 }
