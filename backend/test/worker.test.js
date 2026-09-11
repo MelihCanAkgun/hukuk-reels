@@ -118,3 +118,39 @@ test('board reports actual recipient registrations instead of inferred permissio
   assert.equal(info.sent,1);
   assert.equal((await call('/board',undefined,1)).data.lastNotification,null);
  });
+
+test('test player can auth and use battle but never writes to leaderboard or DB', async()=>{
+  const {db,env,call}=await setup();
+  const testToken = 'test-player-battle-mode-hukuk-reels-mqcan01';
+  const testCall = async(path, data) => {
+    const pending=[];
+    const response = await worker.fetch(new Request('https://worker.example'+path, {
+      method: data === undefined ? 'GET':'POST',
+      headers:{Origin:'https://app.example', Authorization:'Bearer '+testToken},
+      ...(data === undefined ? {} : {body:JSON.stringify(data)}),
+    }), env, {waitUntil(p){pending.push(p);}});
+    await Promise.all(pending);
+    return {status:response.status, data:await response.json()};
+  };
+  // Auth works — board returns me:0, test player not in player list
+  const board = await testCall('/board');
+  assert.equal(board.status, 200);
+  assert.equal(board.data.me, 0);
+  assert.ok(!board.data.players.some(p => p.id === 0), 'test player must not appear in leaderboard');
+  // Score endpoint is a no-op
+  const score = await testCall('/score', {score: 999999});
+  assert.equal(score.status, 200);
+  assert.ok(!db.prepare('SELECT * FROM players WHERE id=0').get(), 'test player must not exist in DB');
+  const best = db.prepare('SELECT best FROM players WHERE id=1').get().best;
+  assert.equal(best, 0, 'real player scores must be unaffected');
+  // Profile is a no-op
+  assert.equal((await testCall('/profile', {name:'Hacker'})).status, 200);
+  assert.ok(!db.prepare("SELECT * FROM players WHERE name='Hacker'").get());
+  // Subscribe/unsubscribe are no-ops
+  assert.equal((await testCall('/subscribe', {endpoint:'fake'})).status, 200);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM subscriptions WHERE player_id=0').get().n, 0);
+  assert.equal((await testCall('/unsubscribe', {endpoint:'fake'})).status, 200);
+  // Message denied
+  assert.equal((await testCall('/message', {message:'Test'})).status, 403);
+});
+
