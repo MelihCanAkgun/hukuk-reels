@@ -27,7 +27,7 @@ test('push request is valid in Workers and never follows redirects', async()=>{
         });
       return Response.json({status,...requestInfo});
     }};
-  `},bundle:true,format:'esm',platform:'node',external:['node:*'],write:false,
+  `},bundle:true,keepNames:true,format:'esm',platform:'node',external:['node:*'],write:false,
     banner:{js:"import {createRequire} from 'node:module'; const require=createRequire('/');"}});
   const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:bundled.outputFiles[0].text,
     compatibilityDate:'2026-09-10',compatibilityFlags:['nodejs_compat']}));
