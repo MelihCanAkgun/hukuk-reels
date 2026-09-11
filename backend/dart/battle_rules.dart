@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'dart:js_interop';
-import '../../lib/features/game/block_battle_core.dart';
+import 'package:hukuk_reels/features/game/block_battle_core.dart';
 
 @JS('globalThis.blockBattleRules')
 external set _rules(JSFunction fn);

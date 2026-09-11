@@ -27,3 +27,47 @@ Only browser push hosts are accepted as subscription endpoints; requests are aut
 - Flutter: `python3 tools/build_web.py --base-href /hukuk-reels/` from repository root. SOCIAL_API_URL can be overridden with `--dart-define=SOCIAL_API_URL=https://...`; default is the live API.
 - The generated existing service worker includes push handlers. Do not install a competing service worker or use plain Flutter build for production.
 - Client stores a pending maximum locally before sending and retries on reconnect/resume/every 30 seconds while visible. The board refreshes every 20 seconds while open. Local records survive server outages.
+
+## 1v1 Battle
+
+Open Block Blast → **1v1 Battle**. Use the existing private player identity. Create a six-character room, share its code manually, join on the other device and tap **Hazırım** on both. Battle is available in the published web/Home Screen app; native runners currently show an explanatory message instead of a nonworking socket control.
+
+- Each match is one **SQLite Durable Object**, binding `BATTLES`, class `BattleRoom`. The `battle-v1` migration uses `new_sqlite_classes`, compatible with Cloudflare Free. No paid service or D1/player-table migration is introduced.
+- `lib/features/game/block_blast_engine.dart` is the single placement/scoring/line-clear engine. `block_battle_core.dart` adds match rules. `tools/build_battle.py` compiles these exact Dart sources into `backend/generated/battle_rules.js`; do not hand-edit generated output. The SHA manifest and native/JS full-match parity test detect stale compilation.
+- **Keep `keep_names: true`.** esbuild renaming Dart-generated constructors breaks runtime type checks. Wrangler's existing deploy script automatically runs the Dart build via `build.command`.
+- Each player draws the same deterministic set at the same set index; the generator ignores board, score, timing and native Random implementations. Board-out discards the remaining pieces and advances only that player's set index. Score, damage and crossed thresholds survive a reset; combo/miss state resets.
+- Score-threshold damage resolves first. If it ends the match, no later board-out runs. Monotonic per-player move IDs reject gaps and make retries no-ops. IDs and authoritative snapshots persist before broadcast, including after process eviction.
+- HTTP room operations use the existing Bearer identity. WebSockets use a 60-second single-use ticket; the invite code is never put in a URL. A replacement socket invalidates the old session without creating another player.
+- Only completed placements, ready/resign and occasional reconnect travel over the socket. Five-second auto ping/pong uses hibernation without per-frame traffic. A close starts a 15-second grace period. A silent network is detected after 10 seconds without heartbeat, then gets the same grace. Neither side can place while a player is disconnected.
+- Results include winner, final score/lives, board-out count, damage and duration. They remain in the match snapshot for 10 minutes, ready for future statistics integration. Battle never uploads to the single-player leaderboard. Unstarted rooms expire after an hour; active games have no artificial time limit.
+- Browser refresh restores the saved room automatically. Unacknowledged moves survive refresh and retry with the same ID. A second tab for the same player replaces the first; the old tab stops reconnecting.
+
+### Battle validation and deployment
+
+From repository root (Flutter/Dart SDK and the existing backend Node dependencies required):
+
+```sh
+python3 tools/build_battle.py
+flutter analyze
+flutter test test/block_battle_core_test.dart test/block_battle_widget_test.dart test/block_blast_engine_test.dart test/block_celebration_test.dart test/widget_test.dart
+node --test backend/test/*.test.js test/web_runtime_test.cjs
+```
+
+The network test uses two actual local workerd WebSockets and fake identities. No real push message is sent. For optional small-screen rendering: `BATTLE_PREVIEW_PATH=/tmp/block-battle.png flutter test test/block_battle_widget_test.dart --plain-name 'Battle keeps shared board and opponent preview usable at Size(320.0, 568.0)'`.
+
+Deploy backend with the existing command; the Durable Object migration is applied automatically by Wrangler:
+
+```sh
+cd backend
+npm run deploy
+```
+
+No Cloudflare dashboard setting or new secret is required. Existing VAPID secrets and D1 are preserved. If the provider rejects a Free-plan binding, stop and report that rejection; never upgrade the plan automatically.
+
+Then build the frontend from repository root:
+
+```sh
+python3 tools/build_web.py --base-href /hukuk-reels/
+```
+
+Publish `build/web/` using the existing `gh-pages` checkout/rsync/commit/push flow, preserving `.github/workflows/pages.yml` and `.nojekyll`. Do not publish backend files or `.secrets`. The workflow deploys the branch to GitHub Pages. Verify the remote branch's build-file hashes and live `deployment.json`, `main.dart.js`, `battle.js`, `social.js`, and `flutter_service_worker.js`. See `CODEX_CONTINUATION.md` for the actual phase checks and latest deployment.

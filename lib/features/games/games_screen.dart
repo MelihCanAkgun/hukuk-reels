@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/services/battle_bridge.dart';
+import '../game/block_battle_lobby.dart';
 
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
@@ -21,6 +23,19 @@ class GamesScreen extends StatefulWidget {
 
 class _GamesScreenState extends State<GamesScreen> {
   final _progress = ProgressService.instance;
+
+  @override
+  void initState() {
+    super.initState();
+    // A refresh returns directly to the saved room, within its reconnect window.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final saved = await battleCall('inspect');
+      if (mounted && saved['room'] != null) {
+        Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const BlockBattleLobby()));
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

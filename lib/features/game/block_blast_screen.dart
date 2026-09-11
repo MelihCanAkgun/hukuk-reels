@@ -4,6 +4,9 @@ import 'block_blast_engine.dart';
 import 'block_celebration.dart';
 import 'block_board_fx.dart';
 import 'block_leaderboard.dart';
+import 'block_battle_lobby.dart';
+import 'block_battle_session.dart';
+import 'block_battle_widgets.dart';
 import '../../core/services/social_bridge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -19,7 +22,8 @@ import '../reels/widgets/music_button.dart';
 /// Block Blast benzeri bulmaca: 8×8 ızgaraya 3 parçayı sürükleyip yerleştir;
 /// dolan satır/sütunlar patlar. Hiçbir parça sığmazsa oyun biter.
 class BlockBlastScreen extends StatefulWidget {
-  const BlockBlastScreen({super.key});
+  final BlockBattleSession? battle;
+  const BlockBlastScreen({super.key, this.battle});
 
   @override
   State<BlockBlastScreen> createState() => _BlockBlastScreenState();
@@ -41,6 +45,12 @@ const List<Color> _palette = [
 class _BlockBlastScreenState extends State<BlockBlastScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _rng = Random();
+  BlockBattleSession? get _battle => widget.battle;
+  Timer? _battleTimer, _battleNoticeTimer;
+  bool _predicted = false;
+  int _battleMove = -1, _battleOut = -1, _battleEventRevision = -1;
+  String _battleFeedback = '';
+
   final _gridKey = GlobalKey();
   final _stackKey = GlobalKey();
 
@@ -87,14 +97,26 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   @override
   void initState() {
     super.initState();
-    unawaited(socialCall('init', {'url': socialApiUrl}).then((_) =>
-        socialCall('score', {'score': ProgressService.instance.blockHigh})));
+    if (_battle == null) {
+      unawaited(socialCall('init', {'url': socialApiUrl}).then((_) =>
+          socialCall('score', {'score': ProgressService.instance.blockHigh})));
+    }
     SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
     WidgetsBinding.instance.addObserver(this);
     _fxClock = AnimationController.unbounded(vsync: this)
       ..addListener(() {
         if (_boardFx.retire(_fxClock.value) && mounted) setState(() {});
       });
+    if (_battle != null) {
+      _game = _battle!.engine()!;
+      _battleMove = _battle!.mine!['lastMove'];
+      _battleOut = _battle!.mine!['boardOuts'];
+      _battle!.addListener(_battleChanged);
+      _battleTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
+        if (mounted && _battle!.status == 'countdown') setState(() {});
+      });
+      return;
+    }
     _game = BlockBlastEngine.restore(ProgressService.instance.loadBlockGame(),
             random: _rng) ??
         BlockBlastEngine(random: _rng);
@@ -118,6 +140,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _reviveTimer?.cancel();
+    _battleTimer?.cancel();
+    _battleNoticeTimer?.cancel();
+    _battle?.removeListener(_battleChanged);
     _fxClock.dispose();
     _dragPosition.dispose();
     super.dispose();
@@ -134,6 +159,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   void _save() {
+    if (_battle != null) return;
     unawaited(socialCall('score', {'score': _score}));
     unawaited(ProgressService.instance.saveBlockGame(_game.toJson()));
     final run = _run;
@@ -143,6 +169,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   void _reset() {
+    if (_battle != null) return;
     _run++;
     _reviveTimer?.cancel();
     _fxClock.stop();
@@ -168,7 +195,11 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   // ── Sürükleme ──
   void _startDrag(int i, PointerDownEvent event) {
-    if (_dragIdx != null || _over || _askContinue || _reviveQ != null) {
+    if ((_battle != null && !_battle!.canPlay) ||
+        _dragIdx != null ||
+        _over ||
+        _askContinue ||
+        _reviveQ != null) {
       return;
     }
     _dragPointer = event.pointer;
@@ -254,8 +285,13 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   void _place(BlockPiece p, int tr, int tc, int idx) {
+    if (_battle != null && !_battle!.canPlay) return;
     final move = _game.place(idx, tr, tc);
     if (move == null) return;
+    if (_battle != null) {
+      _predicted = true;
+      _battle!.place(idx, tr, tc);
+    }
     _feedback = move.allClear
         ? 'TERTEMİZ! +${move.points}'
         : move.lines > 0
@@ -292,7 +328,70 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       HapticFeedback.lightImpact();
       SfxService.instance.place();
     }
-    if (!_game.hasMove) _gameOver();
+    if (_battle == null && !_game.hasMove) _gameOver();
+  }
+
+  void _battleChanged() {
+    if (!mounted || _battle?.mine == null) return;
+    final session = _battle!;
+    final mine = session.mine!;
+    final reset = _battleOut != mine['boardOuts'];
+    if (!session.pending &&
+        (_predicted || _battleMove != mine['lastMove'] || reset)) {
+      _game = session.engine()!;
+      _predicted = false;
+      _battleMove = mine['lastMove'];
+      _battleOut = mine['boardOuts'];
+      _cancelDrag();
+      if (reset) {
+        _fxClock.stop();
+        _boardFx.reset();
+        _celebration = null;
+      }
+    }
+    final revision = session.state!['revision'] as int;
+    if (session.events.isNotEmpty && revision != _battleEventRevision) {
+      _battleEventRevision = revision;
+      for (final event in session.events) {
+        if (event['type'] == 'BOARD_RESET' && event['player'] == session.me) {
+          _battleFeedback = 'HAMLE KALMADI · −1 CAN · Tahta yenilendi';
+        } else if (event['type'] == 'DAMAGE') {
+          _battleFeedback = event['player'] == session.me
+              ? '−${event['amount']} CAN · Rakip 1000 puan eşiğini geçti'
+              : 'RAKİP −${event['amount']} CAN';
+        }
+      }
+      _battleNoticeTimer?.cancel();
+      _battleNoticeTimer = Timer(const Duration(milliseconds: 2000), () {
+        if (mounted) setState(() => _battleFeedback = '');
+      });
+    }
+    if (!session.canPlay && !session.pending) _cancelDrag();
+    setState(() {});
+  }
+
+  Future<void> _exitBattle() async {
+    final session = _battle!;
+    if (session.status != 'finished') {
+      final leave = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+                title: const Text('Maçtan ayrıl?'),
+                content: const Text('Ayrılırsan bu maçı kaybedersin.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Devam et')),
+                  FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Ayrıl')),
+                ],
+              ));
+      if (leave != true || !mounted) return;
+      if (session.connected) await session.action('resign');
+    }
+    await session.action('leave');
+    if (mounted) Navigator.of(context).pop();
   }
 
   void _gameOver() {
@@ -367,75 +466,89 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   @override
   Widget build(BuildContext context) {
     final best = ProgressService.instance.blockHigh;
-    return Scaffold(
-      backgroundColor: const Color(0xFF182B50),
-      body: Container(
-        decoration: const BoxDecoration(
-            gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF294879), Color(0xFF172849)],
-        )),
-        child: SafeArea(
-          child: Stack(
-            key: _stackKey,
-            children: [
-              Column(
+    return PopScope(
+        canPop: _battle == null,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop && _battle != null) unawaited(_exitBattle());
+        },
+        child: Scaffold(
+          backgroundColor: const Color(0xFF182B50),
+          body: Container(
+            decoration: const BoxDecoration(
+                gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF294879), Color(0xFF172849)],
+            )),
+            child: SafeArea(
+              child: Stack(
+                key: _stackKey,
                 children: [
-                  _topBar(best),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, c) {
-                        final gridSize = min(min(c.maxWidth - 28, 440),
-                                max(80, (c.maxHeight - 134) / 1.37))
-                            .toDouble();
-                        _cell = gridSize / _n;
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            _scoreText(),
-                            _gridWidget(gridSize),
-                            _trayWidget(),
-                          ],
-                        );
-                      },
-                    ),
+                  Column(
+                    children: [
+                      _topBar(best),
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, c) {
+                            final gridSize = min(min(c.maxWidth - 28, 440),
+                                    max(80, (c.maxHeight - 134) / 1.37))
+                                .toDouble();
+                            _cell = gridSize / _n;
+                            return Column(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                _battle == null
+                                    ? _scoreText()
+                                    : BattleHud(
+                                        session: _battle!,
+                                        palette: _palette,
+                                        feedback: _battleFeedback),
+                                _gridWidget(gridSize),
+                                _trayWidget(),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
                   ),
+
+                  // Sürüklenen parça (parmağın üstünde, tıklamayı engellemez)
+                  if (_dragIdx != null && _tray[_dragIdx!] != null)
+                    ValueListenableBuilder<Offset>(
+                      valueListenable: _dragPosition,
+                      child: IgnorePointer(
+                          child: RepaintBoundary(
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.72, end: 1.0),
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 80),
+                          curve: Curves.easeOutCubic,
+                          child: _pieceGrid(_tray[_dragIdx!]!, _cell),
+                          builder: (context, scale, child) => Transform.scale(
+                              key: const ValueKey('block-drag-feedback'),
+                              scale: scale,
+                              alignment: Alignment.bottomCenter,
+                              child: child),
+                        ),
+                      )),
+                      builder: (context, position, child) => Positioned(
+                          left: position.dx, top: position.dy, child: child!),
+                    ),
+
+                  if (_askContinue) _continueOverlay(),
+                  if (_reviveQ != null) _quizOverlay(),
+                  if (_over) _overOverlay(best),
+                  if (_battle != null && _battle!.status == 'finished')
+                    BattleResult(
+                        session: _battle!,
+                        onClose: () => unawaited(_exitBattle())),
                 ],
               ),
-
-              // Sürüklenen parça (parmağın üstünde, tıklamayı engellemez)
-              if (_dragIdx != null && _tray[_dragIdx!] != null)
-                ValueListenableBuilder<Offset>(
-                  valueListenable: _dragPosition,
-                  child: IgnorePointer(
-                      child: RepaintBoundary(
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.72, end: 1.0),
-                      duration: MediaQuery.disableAnimationsOf(context)
-                          ? Duration.zero
-                          : const Duration(milliseconds: 80),
-                      curve: Curves.easeOutCubic,
-                      child: _pieceGrid(_tray[_dragIdx!]!, _cell),
-                      builder: (context, scale, child) => Transform.scale(
-                          key: const ValueKey('block-drag-feedback'),
-                          scale: scale,
-                          alignment: Alignment.bottomCenter,
-                          child: child),
-                    ),
-                  )),
-                  builder: (context, position, child) => Positioned(
-                      left: position.dx, top: position.dy, child: child!),
-                ),
-
-              if (_askContinue) _continueOverlay(),
-              if (_reviveQ != null) _quizOverlay(),
-              if (_over) _overOverlay(best),
-            ],
+            ),
           ),
-        ),
-      ),
-    );
+        ));
   }
 
   Widget _topBar(int best) {
@@ -443,35 +556,41 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       padding: const EdgeInsets.fromLTRB(8, 4, 14, 4),
       child: Row(
         children: [
-          _circleBtn(
-              Icons.arrow_back_rounded, () => Navigator.of(context).maybePop()),
+          _circleBtn(Icons.arrow_back_rounded, () {
+            if (_battle != null) {
+              unawaited(_exitBattle());
+            } else {
+              Navigator.of(context).maybePop();
+            }
+          }),
           const SizedBox(width: 6),
           const Text('🧩', style: TextStyle(fontSize: 18)),
           const SizedBox(width: 6),
-          const Expanded(
+          Expanded(
               child: Text(
-            'Block Blast',
+            _battle == null ? 'Block Blast' : '1v1 · ${_battle!.room}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
+            style: const TextStyle(
               color: AppTheme.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.w800,
             ),
           )),
-          IconButton(
-            tooltip: 'İkimizin sıralaması',
-            icon:
-                const Icon(Icons.leaderboard_rounded, color: Color(0xFFFFD76A)),
-            onPressed: () {
-              _cancelDrag();
-              Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => const BlockLeaderboard()));
-            },
-          ),
+          if (_battle == null)
+            IconButton(
+              tooltip: 'İkimizin sıralaması',
+              icon: const Icon(Icons.leaderboard_rounded,
+                  color: Color(0xFFFFD76A)),
+              onPressed: () {
+                _cancelDrag();
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => const BlockLeaderboard()));
+              },
+            ),
           const MusicButton(),
           const SizedBox(width: 8),
-          _circleBtn(Icons.refresh_rounded, _reset),
+          if (_battle == null) _circleBtn(Icons.refresh_rounded, _reset),
           const SizedBox(width: 8),
         ],
       ),
@@ -484,9 +603,21 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
             fit: BoxFit.scaleDown,
             child:
                 Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text('🏆 ${ProgressService.instance.blockHigh}',
-                  style: const TextStyle(
-                      color: Color(0xFFFFD36A), fontWeight: FontWeight.w700)),
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Text('🏆 ${ProgressService.instance.blockHigh}',
+                    style: const TextStyle(
+                        color: Color(0xFFFFD36A), fontWeight: FontWeight.w700)),
+                const SizedBox(width: 16),
+                TextButton.icon(
+                  onPressed: () {
+                    _cancelDrag();
+                    Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => const BlockBattleLobby()));
+                  },
+                  icon: const Icon(Icons.sports_mma_rounded, size: 16),
+                  label: const Text('1v1 Battle'),
+                ),
+              ]),
               TweenAnimationBuilder<double>(
                 tween: Tween(end: _score.toDouble()),
                 duration: MediaQuery.disableAnimationsOf(context)
@@ -551,6 +682,21 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                           painter: BlockBoardFxPainter(
                               _fxClock, _boardFx, _grid, _palette, _preview),
                         )))),
+            if (_battle != null && _battle!.status == 'countdown')
+              Positioned.fill(
+                  child: IgnorePointer(
+                      child: ColoredBox(
+                color: const Color(0xCC101F3B),
+                child: Center(
+                    child: Text(
+                  '${max(1, (((_battle!.state!['startAt'] as int) - _battle!.now) / 1000).ceil())}',
+                  key: const ValueKey('battle-countdown'),
+                  style: const TextStyle(
+                      fontSize: 72,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFFFD36A)),
+                )),
+              ))),
             if (_celebration != null)
               Positioned.fill(
                   child: BlockCelebration(

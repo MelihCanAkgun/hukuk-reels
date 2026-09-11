@@ -134,7 +134,7 @@ class BattleMatch {
       _end(expired.first.id, 'disconnect', expired.first.disconnectAt!);
       return;
     }
-    if (now >= createdAt + 60 * 60 * 1000) {
+    if (status == 'waiting' && now >= createdAt + 60 * 60 * 1000) {
       status = 'finished';
       reason = 'expired';
       endedAt = now;
@@ -176,8 +176,9 @@ class BattleMatch {
     if (!p.connected || players.any((p) => !p.connected)) {
       return {'error': 'Bağlantı bekleniyor.'};
     }
-    if (moveId != p.lastMove + 1)
+    if (moveId != p.lastMove + 1) {
       return {'error': 'Hamle sırası güncel değil.'};
+    }
     final move = p.game.place(slot, row, col);
     if (move == null) return {'error': 'Geçersiz yerleştirme.'};
     p.lastMove = moveId;
