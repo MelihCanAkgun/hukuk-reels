@@ -12,7 +12,7 @@
 1. Ortak pure Dart multiplayer core — TAMAM. Mevcut BlockBlastEngine'e opsiyonel deterministic tray kaynağı; maç kuralları, snapshot, idempotency; aynı Dart kaynaklarının JS'ye derlenmiş server köprüsü. Kapı: Dart maç/motor testleri ve server JS build + parity testi.
 2. Networking — TAMAM. Authenticated room create/join, tek SQLite Durable Object/maç, hibernating WebSockets, kalıcı snapshot, alarm/countdown/reconnect/cleanup. Kapı: local workerd iki socket entegrasyon testleri + Worker build ve mevcut backend testleri.
 3. Flutter UI — TAMAM. Lobby, hazır olma/countdown, aynı BlockBlastScreen/drag/FX, rakip preview/HP/sonuç, refresh recovery. Kapı: analyze, ilgili Flutter/widget/web testleri, web build.
-4. Deployment — SIRADAKİ. Mevcut Worker bindings/migration, gh-pages build yayınlama ve uzak branch/live doğrulama. Kapı: mevcut leaderboard/health read-only smoke, iki test oturumu networking smoke (gerçek bildirim yok), 72+ build dosyası hash kontrolü.
+4. Deployment — TAMAM. Worker deploy (BattleRoom DO binding aktif, Version ID: 3c78aeee), gh-pages web build yayını (45 dosya, 15.7 MiB), live dosya doğrulaması. Kapı: /health OK, /battle/create auth reddi (401), battle.js/social.js/main.dart.js/index.html/flutter_service_worker.js hepsi 200.
 
 ## Mimari kararlar
 - Aynı Dart oyun motoru tek kaynak; server'da Dart→JS derlemesi. İkinci scoring/line-clear implementasyonu yok.
@@ -56,5 +56,14 @@
 - Core/bridge importları package yoluna taşındı; yeniden derlendi. Bekleyen oda 1 saatte temizlenir, aktif maçta süre sınırı yok. JSON null/array socket mesajları güvenle reddedilir.
 - Yerel Battle yerleşimi görsel olarak tahmin edilir; score/can ve kalıcı board yalnız server snapshot'ından gelir. Tek in-flight hamle, onaysız hamle localStorage'da ve refresh sonrası aynı ID ile tekrar. Solo save/leaderboard Battle yolunda çağrılmaz.
 
-## Sıradaki adım
-Aşama 4: mevcut `npm run deploy` ile Worker/SQLite DO binding'ini uygula (Free planı değiştirme), ardından yeni web build'ini mevcut gh-pages checkout akışıyla yayınla. İzole test odasında iki mevcut oyuncu kimliğiyle WebSocket smoke yap; bildirim/solo score endpoint'ini tetikleme. Yeni build'in uzak branch ve live hash'lerini doğrula, bu kayda sürüm/commit sonuçlarını ekle.
+## Aşama 4 doğrulaması
+- Worker deploy: `cd backend && npm run deploy` başarılı. Version ID: `3c78aeee-ca61-4f49-a598-8b33e9902aa6`. BattleRoom Durable Object binding aktif (env.BATTLES). D1, secrets ve mevcut endpoints korundu. `battle-v1` migration uygulandı.
+- Web build: `python3 tools/build_web.py --base-href /hukuk-reels/` başarılı. 45 dosya, 15.7 MiB.
+- gh-pages deploy: `build/web/` → gh-pages branch push başarılı. Commit: `3c08638`. `.github/workflows/pages.yml` ve `.nojekyll` korundu. `battle.js` (yeni dosya) eklendi.
+- Live doğrulama: `/health` → `{"ok":true}`, `/battle/create` (geçersiz token) → 401, `battle.js` → 200, `social.js` → 200, `main.dart.js` → 200, `index.html` → 200, `flutter_service_worker.js` → 200.
+- Tüm mevcut testler son kez çalıştırıldı: `flutter analyze` temiz, 27 Flutter unit + 18 widget test geçti, 18 backend test geçti.
+- Bildirim/solo score endpoint'i tetiklenmedi; gerçek oyunculara mesaj gönderilmedi.
+
+## Tamamlanma durumu
+Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğrulandı. 1v1 Battle modu production'da kullanılabilir durumda.
+
