@@ -2,13 +2,45 @@
   "name": "hukuk-games-social",
   "main": "src/worker.js",
   "compatibility_date": "2026-09-10",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
   "vars": {
     "APP_ORIGIN": "https://melihcanakgun.github.io",
     "APP_URL": "https://melihcanakgun.github.io/hukuk-reels/",
     "VAPID_SUBJECT": "https://melihcanakgun.github.io/hukuk-reels/"
   },
-  "d1_databases": [{"binding":"DB","database_name":"hukuk-games-social","database_id":"5600497b-ea0e-40b5-a15a-bd7124769f67"}],
-  "triggers": {"crons":["*/5 * * * *"]}
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hukuk-games-social",
+      "database_id": "5600497b-ea0e-40b5-a15a-bd7124769f67"
+    }
+  ],
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "BATTLES",
+        "class_name": "BattleRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "battle-v1",
+      "new_sqlite_classes": [
+        "BattleRoom"
+      ]
+    }
+  ],
+  "build": {
+    "command": "python3 ../tools/build_battle.py"
+  },
+  "keep_names": true
 }

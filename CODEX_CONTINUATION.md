@@ -10,8 +10,8 @@
 ## Aşamalar / kontrol kapıları
 0. İnceleme — TAMAM. İlgili motor, ekran, sosyal bridge, Worker ve deploy okundu. Başlangıç doğrulaması önceki turda aynı kaynak commit için temiz analyze, 27 Flutter + 14 web/backend kontrolü ve başarılı web build/deploy.
 1. Ortak pure Dart multiplayer core — TAMAM. Mevcut BlockBlastEngine'e opsiyonel deterministic tray kaynağı; maç kuralları, snapshot, idempotency; aynı Dart kaynaklarının JS'ye derlenmiş server köprüsü. Kapı: Dart maç/motor testleri ve server JS build + parity testi.
-2. Networking — SIRADAKİ. Authenticated room create/join, tek SQLite Durable Object/maç, hibernating WebSockets, kalıcı snapshot, alarm/countdown/reconnect/cleanup. Kapı: local workerd iki socket entegrasyon testleri + Worker build ve mevcut backend testleri.
-3. Flutter UI — BEKLİYOR. Lobby, hazır olma/countdown, aynı BlockBlastScreen/drag/FX, rakip preview/HP/sonuç, refresh recovery. Kapı: analyze, ilgili Flutter/widget/web testleri, web build.
+2. Networking — TAMAM. Authenticated room create/join, tek SQLite Durable Object/maç, hibernating WebSockets, kalıcı snapshot, alarm/countdown/reconnect/cleanup. Kapı: local workerd iki socket entegrasyon testleri + Worker build ve mevcut backend testleri.
+3. Flutter UI — SIRADAKİ. Lobby, hazır olma/countdown, aynı BlockBlastScreen/drag/FX, rakip preview/HP/sonuç, refresh recovery. Kapı: analyze, ilgili Flutter/widget/web testleri, web build.
 4. Deployment — BEKLİYOR. Mevcut Worker bindings/migration, gh-pages build yayınlama ve uzak branch/live doğrulama. Kapı: mevcut leaderboard/health read-only smoke, iki test oturumu networking smoke (gerçek bildirim yok), 72+ build dosyası hash kontrolü.
 
 ## Mimari kararlar
@@ -33,5 +33,16 @@
 - Değişen: `lib/features/game/block_blast_engine.dart` (opsiyonel tray factory + restore sırasında gereksiz random refill olmadan empty constructor).
 - Henüz production binding / UI değişmedi; mevcut uygulama çalışır durumda.
 
+## Aşama 2 doğrulaması
+- `node --test backend/test/*.test.js`: 15/15 geçti; gerçek workerd üzerinde 2 socket, 3 sn countdown, auth/ticket replay reddi, sahte skor/can yok sayma, duplicate move, reconnect aynı kimlik, 15 sn timeout ve game-over sonrası ret.
+- `wrangler deploy --dry-run --outdir /private/tmp/hukuk-battle-worker`: başarılı, 423 KB (gzip 87 KB).
+- İlk network kontrolü başarısızdı: esbuild, Dart runtime'ın ihtiyaç duyduğu minified constructor adlarını değiştirdi. `keep_names: true` ve test bundle `keepNames:true` zorunlu; düzeltilip tüm testler geçti. Bu ayarı kaldırma.
+- Eklenen: `backend/src/battle-room.js`, `backend/test/battle-network.test.js`.
+- Değişen: `backend/src/worker.js`, `backend/wrangler.jsonc`, `backend/test/push-runtime.test.js`.
+- Binding: `BATTLES -> BattleRoom`; Worker migration `battle-v1`, `new_sqlite_classes`. D1 migration yok. `wrangler build.command` ortak Dart modülünü otomatik derler.
+- Oda kodu 6 karakter. HTTP join mevcut oyuncu Bearer koduyla; socket URL yalnız 60 sn geçerli tek kullanımlık ticket taşır. Aynı oyuncunun yeni socket'i eskiyi değiştirir.
+- Hibernation ping/pong 5 sn client periyodu için tasarlandı. 10 sn sessizlikte kopma tespiti, sonrasında 15 sn reconnect hakkı. Gerçek close hemen 15 sn başlatır. Kopukken hamle kabul edilmez.
+- Maç state her hamlede storage commit sonrası yayınlanır. Sonuç 10 dakika tutulur; toplam oda ömrü en fazla 1 saat. Cleanup tek alarm; üretim henüz değiştirilmedi.
+
 ## Sıradaki adım
-Aşama 2: authenticated oda ve Durable Object networking, WebSocket hibernation/kalıcı state/alarmlar/entegrasyon testleri. Önceki Aşama 1 notu: opsiyonel tray factory, pure Dart battle state ve kritik senaryo testlerini uygula. Her aşama sonunda bu dosyaya gerçek komut/sonuçları ve değişen dosyaları yaz; geçmeyen kontrolü gizleme. Yeni aşamaya geçmeden mevcut kapıdan geç.
+Aşama 3: web transport + Dart session/lobby + mevcut BlockBlastScreen'e Battle parametresi; aynı drag/FX kullanımı, canlı rakip preview, HP ve sonuç. UI native olmayan PWA/web köprüsünü açıkça belirtmeli. Single-player save/score upload battle'da çağrılmamalı. Sonunda analyze + widget/web test + mevcut web build kapısı.

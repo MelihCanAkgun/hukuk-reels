@@ -1,4 +1,6 @@
 import webpush from 'web-push';
+import {validRoom, roomCode} from './battle-room.js';
+export {BattleRoom} from './battle-room.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
   status, headers: {'Content-Type': 'application/json', 'Cache-Control': 'no-store'},
@@ -38,6 +40,16 @@ async function board(env, playerId) {
 export async function route(request, env, ctx) {
   const path = new URL(request.url).pathname;
   if (path === '/health' && request.method === 'GET') return json({ok: true});
+  if (path.startsWith('/battle/socket/')) {
+    const room = path.split('/').at(-1);
+    if (!validRoom(room) || request.headers.get('Upgrade')?.toLowerCase() !== 'websocket' ||
+        request.headers.get('Origin') !== env.APP_ORIGIN) fail('Geçersiz bağlantı.',403);
+    const url = new URL(request.url);
+    const ticket = url.searchParams.get('ticket') || '';
+    if (ticket.length > 100) fail('Geçersiz bağlantı.',401);
+    return env.BATTLES.get(env.BATTLES.idFromName(room)).fetch(
+      new Request('https://room/socket?ticket='+encodeURIComponent(ticket),request));
+  }
   const token = request.headers.get('Authorization')?.replace(/^Bearer /, '') || '';
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) fail('Oyuncu kodunu kontrol et.', 401);
   const player = await env.DB.prepare('SELECT * FROM players WHERE token_hash = ?').bind(await tokenHash(token)).first();
@@ -53,6 +65,14 @@ export async function route(request, env, ctx) {
     return json(await board(env, player.id));
   }
   if (!player.active) fail('Önce oyuncu adını kaydet.');
+  if (path === '/battle/create' || path === '/battle/join') {
+    const room = path.endsWith('/create') ? roomCode() : String(data.room || '').toUpperCase();
+    if (!validRoom(room)) fail('6 karakterlik oda kodunu kontrol et.');
+    if (!env.BATTLES) fail('Battle servisi henüz etkin değil.',503);
+    return env.BATTLES.get(env.BATTLES.idFromName(room)).fetch(new Request(
+      'https://room/'+(path.endsWith('/create')?'create':'join'),
+      {method:'POST',body:JSON.stringify({room,id:player.id,name:player.name})}));
+  }
   if (path === '/score') {
     if (!Number.isSafeInteger(data.score) || data.score < 0 || data.score > 100000000) fail('Geçersiz skor.');
     // MAX and the SQL trigger run atomically: retries cannot lower scores or duplicate overtakes.
@@ -155,8 +175,12 @@ export default {
     if (request.method === 'OPTIONS') response = new Response(null, {status:204});
     else {
       try { response = await route(request, env, ctx); }
-      catch (error) { response = json({error:error.status ? error.message : 'Servise ulaşılamadı. Biraz sonra tekrar dene.'}, error.status || 500); }
+      catch (error) {
+        if (!error.status) console.error('worker_failed', {type:error.name, stack:error.stack?.split('\n').slice(1,4)});
+        response = json({error:error.status ? error.message : 'Servise ulaşılamadı. Biraz sonra tekrar dene.'}, error.status || 500); }
     }
+    if (response.status === 101) return response;
+    response = new Response(response.body, response);
     response.headers.set('Access-Control-Allow-Origin', env.APP_ORIGIN);
     response.headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
