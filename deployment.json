@@ -1,7 +1,0 @@
-{
-  "source_commit": "e857f27c9cfeb2297a0ed3855eb130d918b9925e",
-  "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
-  "built_at": "2026-09-11T18:48:23.191160+00:00",
-  "checks": "flutter analyze clean; 19 Flutter battle tests; 5 multiplayer tests; release web build passed",
-  "change": "Visual-only pixel hearts, damage feedback and critical life pulse; existing backend and personal copy preserved"
-}
