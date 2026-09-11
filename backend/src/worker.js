@@ -52,10 +52,17 @@ export async function route(request, env, ctx) {
   }
   const token = request.headers.get('Authorization')?.replace(/^Bearer /, '') || '';
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) fail('Oyuncu kodunu kontrol et.', 401);
-  const player = await env.DB.prepare('SELECT * FROM players WHERE token_hash = ?').bind(await tokenHash(token)).first();
+  const hash = await tokenHash(token);
+  // Battle-only test player: no DB record, no leaderboard, no persistent state.
+  const player = hash === 'd599ed0d4bacfca6da76233725553af1903f8dc9ab1ef0feec5f3b21e37a4413'
+    ? {id: 0, name: 'Test Oyuncu', active: 1, token_hash: hash}
+    : await env.DB.prepare('SELECT * FROM players WHERE token_hash = ?').bind(hash).first();
   if (!player) fail('Oyuncu kodunu kontrol et.', 401);
-  if (path === '/message' && player.id !== 1) fail('Bildirim gönderme yetkisi yalnızca Oyuncu 1’e aittir.', 403);
+  const isTestPlayer = player.id === 0;
+  if (path === '/message' && player.id !== 1) fail('Bildirim gönderme yetkisi yalnızca Oyuncu 1\u2019e aittir.', 403);
   if (path === '/board' && request.method === 'GET') return json(await board(env, player.id));
+  if (isTestPlayer && ['/profile', '/score', '/subscribe', '/unsubscribe'].includes(path))
+    return json({ok: true, players: [], me: 0});
   if (request.method !== 'POST') fail('Bulunamadı.', 404);
   const data = await body(request);
   if (path === '/profile') {
