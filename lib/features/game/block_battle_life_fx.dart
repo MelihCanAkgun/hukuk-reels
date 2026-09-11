@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import '../../core/services/sfx_service.dart';
 import 'block_battle_session.dart';
@@ -50,10 +51,14 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
   }
 
   void _syncPulse() {
-    final critical =
-        _lives == 1 && widget.session?.status == 'playing' && !_reduced;
-    if (critical && !_pulse.isAnimating) _pulse.repeat(reverse: true);
-    if (!critical) _pulse.reset();
+    final lives = widget.session?.mine?['lives'] as int? ?? _lives;
+    final finished = widget.session?.status == 'finished';
+    final critical = lives == 1 && !finished && !_reduced;
+    if (critical && !_pulse.isAnimating) {
+      _pulse.repeat(reverse: true);
+    } else if (!critical && _pulse.isAnimating) {
+      _pulse.reset();
+    }
   }
 
   void _observe() {
@@ -65,6 +70,7 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
     }
     _lives = next;
     _syncPulse();
+    if (mounted) setState(() {});
   }
 
   @override
@@ -76,78 +82,139 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(
-        animation: Listenable.merge([_hit, _pulse]),
-        child: widget.child,
-        builder: (context, child) {
-          final hit = _hit.isAnimating ? 1 - _hit.value : 0.0;
-          final shake = math.sin(_hit.value * math.pi * 8) * hit * 2;
-          final pulseEased = Curves.easeInOut.transform(_pulse.value);
-          final pulseOpacity =
-              _pulse.isAnimating ? 0.03 + pulseEased * 0.12 : 0.0;
-          final edgeOpacity = math.min(0.22, hit * .10 + pulseOpacity);
-          return Stack(fit: StackFit.expand, children: [
-            Transform.translate(
-                offset: Offset(shake, 0),
-                transformHitTests: false,
-                child: child),
-            Positioned.fill(
+  Widget build(BuildContext context) {
+    final currentLives = widget.session?.mine?['lives'] as int? ?? _lives;
+    if (currentLives != _lives) {
+      _lives = currentLives;
+      _syncPulse();
+    }
+    return AnimatedBuilder(
+      animation: Listenable.merge([_hit, _pulse]),
+      child: widget.child,
+      builder: (context, child) {
+        final hit = _hit.isAnimating ? 1 - _hit.value : 0.0;
+        final shake = math.sin(_hit.value * math.pi * 8) * hit * 2;
+        final pulseEased = Curves.easeInOut.transform(_pulse.value);
+        final pulseOpacity =
+            _pulse.isAnimating ? 0.04 + pulseEased * 0.12 : 0.0;
+        final edgeOpacity = math.min(0.24, hit * .10 + pulseOpacity);
+        return Stack(fit: StackFit.expand, children: [
+          Transform.translate(
+              offset: Offset(shake, 0),
+              transformHitTests: false,
+              child: child),
+          Positioned.fill(
+              child: IgnorePointer(
+                  child: RepaintBoundary(
+                      child: CustomPaint(
+            painter: _LifeEdgePainter(edgeOpacity),
+          )))),
+          if (hit > 0)
+            Positioned(
+                top: 126 - _hit.value * 18,
+                left: 0,
+                right: 0,
                 child: IgnorePointer(
-                    child: RepaintBoundary(
-                        child: CustomPaint(
-              painter: _LifeEdgePainter(edgeOpacity),
-            )))),
-            if (hit > 0)
-              Positioned(
-                  top: 126 - _hit.value * 18,
-                  left: 0,
-                  right: 0,
-                  child: IgnorePointer(
-                      child: Opacity(
-                          opacity: math.min(1, hit * 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('−$_lost',
-                                  key: const ValueKey('battle-life-loss'),
-                                  style: const TextStyle(
-                                      color: Color(0xFFFF8B85),
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.w900)),
-                              const SizedBox(width: 5),
-                              const CustomPaint(
-                                  size: Size(22, 20),
-                                  painter: PixelHeartPainter(active: true)),
-                            ],
-                          )))),
-          ]);
-        },
-      );
+                    child: Opacity(
+                        opacity: math.min(1, hit * 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('−$_lost',
+                                key: const ValueKey('battle-life-loss'),
+                                style: const TextStyle(
+                                    color: Color(0xFFFF8B85),
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900)),
+                            const SizedBox(width: 5),
+                            const CustomPaint(
+                                size: Size(22, 20),
+                                painter: PixelHeartPainter(active: true)),
+                          ],
+                        )))),
+        ]);
+      },
+    );
+  }
 }
 
 class _LifeEdgePainter extends CustomPainter {
   final double opacity;
   _LifeEdgePainter(this.opacity);
+
   @override
   void paint(Canvas canvas, Size size) {
     if (opacity <= 0) return;
-    canvas.save();
-    canvas.scale(size.width, size.height);
-    const unitRect = Rect.fromLTWH(0, 0, 1, 1);
-    final paint = Paint()
-      ..shader = RadialGradient(
-        center: const Alignment(0, 0),
-        radius: 0.72,
-        colors: [
-          Colors.transparent,
-          Colors.transparent,
-          const Color(0xFFFF2535).withValues(alpha: opacity * 0.45),
-          const Color(0xFFFF1624).withValues(alpha: opacity),
-        ],
-        stops: const [0.0, 0.58, 0.84, 1.0],
-      ).createShader(unitRect);
-    canvas.drawRect(unitRect, paint);
-    canvas.restore();
+
+    final w = size.width;
+    final h = size.height;
+    final edgeX = math.min(w * 0.18, 52.0);
+    final edgeY = math.min(h * 0.14, 68.0);
+    final edgeColor = const Color(0xFFFF202E).withValues(alpha: opacity);
+    const transparent = Color(0x00FF202E);
+
+    // Sol kenar glow
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, edgeX, h),
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset.zero,
+          Offset(edgeX, 0),
+          [edgeColor, transparent],
+        ),
+    );
+
+    // Sağ kenar glow
+    canvas.drawRect(
+      Rect.fromLTWH(w - edgeX, 0, edgeX, h),
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(w, 0),
+          Offset(w - edgeX, 0),
+          [edgeColor, transparent],
+        ),
+    );
+
+    // Üst kenar glow
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, edgeY),
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset.zero,
+          Offset(0, edgeY),
+          [edgeColor, transparent],
+        ),
+    );
+
+    // Alt kenar glow
+    canvas.drawRect(
+      Rect.fromLTWH(0, h - edgeY, w, edgeY),
+      Paint()
+        ..shader = ui.Gradient.linear(
+          Offset(0, h),
+          Offset(0, h - edgeY),
+          [edgeColor, transparent],
+        ),
+    );
+
+    // 4 köşe yumuşatması
+    final cornerR = math.max(edgeX, edgeY) * 1.4;
+    void drawCorner(Offset center) {
+      canvas.drawRect(
+        Rect.fromCircle(center: center, radius: cornerR),
+        Paint()
+          ..shader = ui.Gradient.radial(
+            center,
+            cornerR,
+            [edgeColor.withValues(alpha: opacity * 0.85), transparent],
+          ),
+      );
+    }
+
+    drawCorner(Offset.zero);
+    drawCorner(Offset(w, 0));
+    drawCorner(Offset(0, h));
+    drawCorner(Offset(w, h));
   }
 
   @override
