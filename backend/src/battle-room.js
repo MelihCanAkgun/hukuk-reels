@@ -47,7 +47,8 @@ export class BattleRoom {
   async schedule() {
     if (!this.match) return;
     const m = this.match;
-    const times = [m.status === 'finished' ? m.endedAt + 600000 : m.createdAt + 3600000];
+    const times = m.status === 'finished' ? [m.endedAt + 600000]
+      : m.status === 'waiting' ? [m.createdAt + 3600000] : [];
     if (m.status !== 'finished') {
       if (m.status === 'countdown') times.push(m.startAt);
       for (const p of m.players) if (p.disconnectAt) times.push(p.disconnectAt);
@@ -58,7 +59,7 @@ export class BattleRoom {
         }
       }
     }
-    await this.ctx.storage.setAlarm(Math.max(Date.now() + 50, Math.min(...times)));
+    await this.ctx.storage.setAlarm(Math.max(Date.now() + 50, Math.min(...(times.length ? times : [Date.now()+15000]))));
   }
   async fetch(request) {
     return this.ctx.blockConcurrencyWhile(async () => {
@@ -118,6 +119,9 @@ export class BattleRoom {
       ws.serializeAttachment(a);
       let data;
       try { data=JSON.parse(message); } catch { this.send(ws,{type:'ERROR',error:'Geçersiz mesaj.'});return; }
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        this.send(ws,{type:'ERROR',error:'Geçersiz mesaj.'});return;
+      }
       let result;
       if (data.type === 'PLAYER_READY') result=this.apply('ready',{id:a.id},now);
       else if (data.type === 'RESIGN') result=this.apply('resign',{id:a.id},now);

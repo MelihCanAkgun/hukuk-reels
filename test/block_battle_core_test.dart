@@ -164,6 +164,11 @@ void main() {
     m.advance(7000);
     expect(m.status, 'playing');
   });
+  test('active matches have no artificial time limit', () {
+    final m = playing();
+    m.advance(3600001);
+    expect(m.status, 'playing');
+  });
   test('persist/restore preserves deterministic future tray and move ack', () {
     final m = playing();
     final p = m.player(1);

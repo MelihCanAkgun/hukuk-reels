@@ -68,6 +68,7 @@ test('real sockets: auth, shared start, authoritative moves, duplicate/reconnect
     const started=await b.until(e=>e.state?.status==='playing');
     assert.equal(started.state.startAt,countdown.state.startAt);
     a.send({type:'PLACE_PIECE',moveId:1,slot:0,row:0,col:0,id:2,score:999999,lives:99});
+    a.send({type:'PLACE_PIECE',moveId:1,slot:0,row:0,col:0});
     const first=await a.until(e=>e.state?.players[0].lastMove===1);
     assert.ok(first.state.players[0].game.score<20);
     assert.equal(first.state.players[1].game.score,0);

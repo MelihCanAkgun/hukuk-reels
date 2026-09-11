@@ -1,5 +1,6 @@
 import 'dart:convert';
-import '../../lib/features/game/block_battle_core.dart';
+import 'dart:io';
+import 'package:hukuk_reels/features/game/block_battle_core.dart';
 
 void main() {
   final m = BattleMatch('ABC234', 987654321, 0);
@@ -36,5 +37,5 @@ void main() {
     m.place(id, p.lastMove + 1, slot, r, c, 3001 + i);
     record(command);
   }
-  print(jsonEncode(steps));
+  stdout.writeln(jsonEncode(steps));
 }
