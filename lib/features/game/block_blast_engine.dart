@@ -246,13 +246,18 @@ class BlockBlastEngine {
   static const size = 8;
   static const comboGrace = 3;
   final Random random;
+  final List<BlockPiece?> Function()? nextTray;
   List<List<int?>> grid = List.generate(size, (_) => List.filled(size, null));
   List<BlockPiece?> tray = [null, null, null];
   int score = 0, combo = 0, misses = 0;
   bool reviveUsed = false;
-  BlockBlastEngine({Random? random}) : random = random ?? Random() {
+  BlockBlastEngine({Random? random, this.nextTray})
+      : random = random ?? Random() {
     refill();
   }
+
+  BlockBlastEngine.empty({Random? random, this.nextTray})
+      : random = random ?? Random();
 
   bool fits(BlockPiece p, int r, int c, [List<List<int?>>? board]) {
     final b = board ?? grid;
@@ -343,6 +348,10 @@ class BlockBlastEngine {
   /// lines after each step. Shuffle its pieces so order remains a puzzle.
   /// Independent "fits now" checks cannot ensure a whole tray is solvable.
   void refill() {
+    if (nextTray != null) {
+      tray = nextTray!();
+      return;
+    }
     final scratch = _copy(grid);
     final pieces = <BlockPiece>[];
     for (var slot = 0; slot < 3; slot++) {
@@ -398,7 +407,7 @@ class BlockBlastEngine {
         'reviveUsed': reviveUsed,
       };
   static BlockBlastEngine? restore(Map<String, dynamic>? data,
-      {Random? random}) {
+      {Random? random, List<BlockPiece?> Function()? nextTray}) {
     if (data == null) return null;
     try {
       if (data['version'] != 1) return null;
@@ -438,7 +447,7 @@ class BlockBlastEngine {
       }
       final (rows, cols) = _lines(b);
       if (rows.isNotEmpty || cols.isNotEmpty) return null;
-      return BlockBlastEngine(random: random)
+      return BlockBlastEngine.empty(random: random, nextTray: nextTray)
         ..grid = b
         ..tray = t
         ..score = score
