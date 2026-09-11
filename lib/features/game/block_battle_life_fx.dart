@@ -18,7 +18,7 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
   late final _hit = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 480));
   late final _pulse = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 1100));
+      vsync: this, duration: const Duration(milliseconds: 1000));
   int? _lives;
   int _lost = 0;
   bool _reduced = false;
@@ -82,6 +82,10 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
         builder: (context, child) {
           final hit = _hit.isAnimating ? 1 - _hit.value : 0.0;
           final shake = math.sin(_hit.value * math.pi * 8) * hit * 2;
+          final pulseEased = Curves.easeInOut.transform(_pulse.value);
+          final pulseOpacity =
+              _pulse.isAnimating ? 0.03 + pulseEased * 0.12 : 0.0;
+          final edgeOpacity = math.min(0.22, hit * .10 + pulseOpacity);
           return Stack(fit: StackFit.expand, children: [
             Transform.translate(
                 offset: Offset(shake, 0),
@@ -91,8 +95,7 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
                 child: IgnorePointer(
                     child: RepaintBoundary(
                         child: CustomPaint(
-              painter: _LifeEdgePainter(hit * .10 +
-                  (_pulse.isAnimating ? .018 + _pulse.value * .025 : 0)),
+              painter: _LifeEdgePainter(edgeOpacity),
             )))),
             if (hit > 0)
               Positioned(
@@ -128,17 +131,23 @@ class _LifeEdgePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (opacity <= 0) return;
-    final rect = Offset.zero & size;
-    canvas.drawRect(
-        rect,
-        Paint()
-          ..shader = RadialGradient(
-            colors: [
-              Colors.transparent,
-              const Color(0xFFFF3038).withValues(alpha: opacity)
-            ],
-            stops: const [.65, 1],
-          ).createShader(rect));
+    canvas.save();
+    canvas.scale(size.width, size.height);
+    const unitRect = Rect.fromLTWH(0, 0, 1, 1);
+    final paint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0, 0),
+        radius: 0.72,
+        colors: [
+          Colors.transparent,
+          Colors.transparent,
+          const Color(0xFFFF2535).withValues(alpha: opacity * 0.45),
+          const Color(0xFFFF1624).withValues(alpha: opacity),
+        ],
+        stops: const [0.0, 0.58, 0.84, 1.0],
+      ).createShader(unitRect);
+    canvas.drawRect(unitRect, paint);
+    canvas.restore();
   }
 
   @override
