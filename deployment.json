@@ -1,7 +1,0 @@
-{
-  "source_commit": "aef392d8c6d1c3b6a205d6980d22dee793dbe9a1",
-  "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
-  "built_at": "2026-09-10T22:33:28.478251+00:00",
-  "checks": "flutter analyze clean; 27 Flutter tests; 14 web/backend checks including workerd push request; live test accepted",
-  "change": "Fix iOS detached audio volume routing and Workers Web Push redirect mode; show delivery status; preserve game effects and personal copy"
-}

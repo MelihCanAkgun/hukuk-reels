@@ -17,7 +17,7 @@
       cache: 'no-store', signal: AbortSignal.timeout(12000),
     });
     const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Bağlantı kurulamadı.');
+    if (!response.ok) throw Object.assign(new Error(result.error || 'Bağlantı kurulamadı.'), {status:response.status});
     return result;
   }
   async function flush() {
@@ -66,6 +66,9 @@
       return state(false);
     }
     if (action === 'state') return state();
+    if (action === 'battleCreate' || action === 'battleJoin') {
+      return {...await api(action === 'battleCreate' ? '/battle/create' : '/battle/join', data), url:config.url};
+    }
     if (action === 'join') {
       const token = data.token.trim();
       if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error('Sana ait oyuncu kodunu eksiksiz yapıştır.');
@@ -127,7 +130,7 @@
     throw new Error('İşlem bulunamadı.');
   }
   window.hukukSocialCall = (action, raw) => call(action, JSON.parse(raw)).then(
-    data=>JSON.stringify(data), e=>JSON.stringify({error:e.message || 'Bağlantı kurulamadı.'}));
+    data=>JSON.stringify(data), e=>JSON.stringify({error:e.message || 'Bağlantı kurulamadı.', status:e.status}));
   window.addEventListener('online', () => void flush());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) void flush(); });
   setInterval(flush, 30000);
