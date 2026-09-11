@@ -130,5 +130,7 @@ class SfxService {
   void clear() => _play('clear');
   void combo([int chain = 1]) =>
       _play('combo', rate: 1 + (chain - 1).clamp(0, 8) * 0.04);
+  // Reuse the short placement impact at a lower pitch; honors the SFX volume.
+  void damage() => _play('place', rate: 0.65);
   void gameOver() => _play('over');
 }

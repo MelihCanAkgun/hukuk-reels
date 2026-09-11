@@ -13,6 +13,7 @@ import 'package:hukuk_reels/features/game/block_blast_engine.dart';
 import 'package:hukuk_reels/features/game/block_battle_core.dart';
 import 'package:hukuk_reels/features/game/block_battle_session.dart';
 import 'package:hukuk_reels/features/game/block_blast_screen.dart';
+import 'package:hukuk_reels/features/game/block_battle_life_fx.dart';
 
 BattleMatch match() {
   final now = DateTime.now().millisecondsSinceEpoch;
@@ -65,6 +66,63 @@ void main() {
     await (FontLoader('Inter')
           ..addFont(rootBundle.load('assets/fonts/Inter.ttf')))
         .load();
+  });
+  testWidgets('Life FX observe snapshots without actions or state mutation',
+      (tester) async {
+    final calls = <String>[];
+    final m = match();
+    final session = BlockBattleSession(
+        listen: false,
+        transport: (a, d) async {
+          calls.add(a);
+          return {};
+        })
+      ..receive(frame(m));
+    await tester
+        .pumpWidget(MaterialApp(home: BlockBlastScreen(battle: session)));
+    await tester.pumpAndSettle();
+    expect(find.byType(BattleHearts), findsNWidgets(2));
+    m.player(1).lives = 4;
+    session.receive(frame(m));
+    final snapshot = jsonEncode(session.state);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(find.byKey(const ValueKey('battle-life-loss')), findsOneWidget);
+    expect(find.text('−1'), findsOneWidget);
+    expect(session.canPlay, isTrue);
+    expect(jsonEncode(session.state), snapshot);
+    // Duplicate snapshots cannot replay the hit.
+    session.receive(frame(m));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byKey(const ValueKey('battle-life-loss')), findsNothing);
+    m.player(1).lives = 1;
+    session.receive(frame(m));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 550));
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    m.player(1).lives = 2;
+    session.receive(frame(m));
+    await tester.pumpAndSettle();
+    expect(tester.binding.transientCallbackCount, 0);
+    m.player(1).lives = 0;
+    session.receive(frame(m));
+    await tester.pumpAndSettle();
+    expect(tester.binding.transientCallbackCount, 0);
+    expect(calls, isEmpty);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  testWidgets('Reduced motion keeps pixel lives static and disposes cleanly',
+      (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+        home: MediaQuery(
+            data: MediaQueryData(disableAnimations: true),
+            child: Center(child: BattleHearts(lives: 1, critical: true)))));
+    await tester.pumpAndSettle();
+    expect(tester.binding.transientCallbackCount, 0);
+    await tester.pumpWidget(const SizedBox());
+    expect(tester.takeException(), isNull);
   });
   for (final size in [
     const Size(320, 568),

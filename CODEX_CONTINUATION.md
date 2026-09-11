@@ -67,3 +67,11 @@
 ## Tamamlanma durumu
 Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğrulandı. 1v1 Battle modu production'da kullanılabilir durumda.
 
+
+## Battle görsel/işitsel can geri bildirimi — 2026-09-11
+- UI aşaması TAMAM: Canvas pixel-mask kalpler (siyah dış hat/kırmızı dolgu/gri kayıp can), 480 ms kırılma/pop ve 4 küçük kare parçacık; authoritative can azalınca −N kalp, en fazla 2 px kısa sarsıntı ve mevcut placement sesinin düşük tonlu varyantı. SFX ses seviyesi korunur.
+- Kritik 1-can: %8 kalp nabzı ve çok düşük opaklıkta kenar kızıllığı. Can 0 veya >1 olduğunda / maç bitince kapanır. Reduced Motion animasyonları kapatır. Efektler IgnorePointer ve ayrı repaint alanları kullanır; biten controller'lar durur/dispose edilir.
+- Backend, core, session, skor/can/milestone, WebSocket ve oyun kuralları DEĞİŞMEDİ. Observer yalnız gelen can farkını okur; hiçbir action üretmez. Kullanıcı yazıları korundu.
+- Değişen kaynaklar: `lib/features/game/block_battle_life_fx.dart` (yeni), `block_battle_widgets.dart`, `block_blast_screen.dart`, `lib/core/services/sfx_service.dart`; `test/block_battle_widget_test.dart` ve bu kayıt.
+- Doğrulama TAMAM: flutter analyze temiz (tek braces biçem uyarısı düzeltilip tekrarlandı); 19 Flutter battle core/widget testi, 5 multiplayer client/network/parity testi geçti. State mutasyonu ve action üretmeme, duplicate snapshot, kritik kapanışı, reduced motion ve drag testi geçti. Tek release web build başarılı: 45 offline dosya / 15.7 MiB. Mevcut service-worker deprecation uyarısı build'i engellemiyor.
+- Sıradaki aşama: hazır build'i mevcut gh-pages akışıyla yayınlamak, branch ve canlı build hash'lerini doğrulamak. Worker yeniden deploy edilmeyecek.

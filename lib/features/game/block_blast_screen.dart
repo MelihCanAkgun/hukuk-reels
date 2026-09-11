@@ -7,6 +7,7 @@ import 'block_leaderboard.dart';
 import 'block_battle_lobby.dart';
 import 'block_battle_session.dart';
 import 'block_battle_widgets.dart';
+import 'block_battle_life_fx.dart';
 import '../../core/services/social_bridge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -481,71 +482,78 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
               colors: [Color(0xFF294879), Color(0xFF172849)],
             )),
             child: SafeArea(
-              child: Stack(
-                key: _stackKey,
-                children: [
-                  Column(
+              child: BattleLifeFeedback(
+                  session: _battle,
+                  child: Stack(
+                    key: _stackKey,
                     children: [
-                      _topBar(best),
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, c) {
-                            final gridSize = min(min(c.maxWidth - 28, 440),
-                                    max(80, (c.maxHeight - 134) / 1.37))
-                                .toDouble();
-                            _cell = gridSize / _n;
-                            return Column(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                _battle == null
-                                    ? _scoreText()
-                                    : BattleHud(
-                                        session: _battle!,
-                                        palette: _palette,
-                                        feedback: _battleFeedback),
-                                _gridWidget(gridSize),
-                                _trayWidget(),
-                              ],
-                            );
-                          },
-                        ),
+                      Column(
+                        children: [
+                          _topBar(best),
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, c) {
+                                final gridSize = min(min(c.maxWidth - 28, 440),
+                                        max(80, (c.maxHeight - 134) / 1.37))
+                                    .toDouble();
+                                _cell = gridSize / _n;
+                                return Column(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceEvenly,
+                                  children: [
+                                    _battle == null
+                                        ? _scoreText()
+                                        : BattleHud(
+                                            session: _battle!,
+                                            palette: _palette,
+                                            feedback: _battleFeedback),
+                                    _gridWidget(gridSize),
+                                    _trayWidget(),
+                                  ],
+                                );
+                              },
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
 
-                  // Sürüklenen parça (parmağın üstünde, tıklamayı engellemez)
-                  if (_dragIdx != null && _tray[_dragIdx!] != null)
-                    ValueListenableBuilder<Offset>(
-                      valueListenable: _dragPosition,
-                      child: IgnorePointer(
-                          child: RepaintBoundary(
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.72, end: 1.0),
-                          duration: MediaQuery.disableAnimationsOf(context)
-                              ? Duration.zero
-                              : const Duration(milliseconds: 80),
-                          curve: Curves.easeOutCubic,
-                          child: _pieceGrid(_tray[_dragIdx!]!, _cell),
-                          builder: (context, scale, child) => Transform.scale(
-                              key: const ValueKey('block-drag-feedback'),
-                              scale: scale,
-                              alignment: Alignment.bottomCenter,
-                              child: child),
+                      // Sürüklenen parça (parmağın üstünde, tıklamayı engellemez)
+                      if (_dragIdx != null && _tray[_dragIdx!] != null)
+                        ValueListenableBuilder<Offset>(
+                          valueListenable: _dragPosition,
+                          child: IgnorePointer(
+                              child: RepaintBoundary(
+                            child: TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0.72, end: 1.0),
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 80),
+                              curve: Curves.easeOutCubic,
+                              child: _pieceGrid(_tray[_dragIdx!]!, _cell),
+                              builder: (context, scale, child) =>
+                                  Transform.scale(
+                                      key:
+                                          const ValueKey('block-drag-feedback'),
+                                      scale: scale,
+                                      alignment: Alignment.bottomCenter,
+                                      child: child),
+                            ),
+                          )),
+                          builder: (context, position, child) => Positioned(
+                              left: position.dx,
+                              top: position.dy,
+                              child: child!),
                         ),
-                      )),
-                      builder: (context, position, child) => Positioned(
-                          left: position.dx, top: position.dy, child: child!),
-                    ),
 
-                  if (_askContinue) _continueOverlay(),
-                  if (_reviveQ != null) _quizOverlay(),
-                  if (_over) _overOverlay(best),
-                  if (_battle != null && _battle!.status == 'finished')
-                    BattleResult(
-                        session: _battle!,
-                        onClose: () => unawaited(_exitBattle())),
-                ],
-              ),
+                      if (_askContinue) _continueOverlay(),
+                      if (_reviveQ != null) _quizOverlay(),
+                      if (_over) _overOverlay(best),
+                      if (_battle != null && _battle!.status == 'finished')
+                        BattleResult(
+                            session: _battle!,
+                            onClose: () => unawaited(_exitBattle())),
+                    ],
+                  )),
             ),
           ),
         ));

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'block_battle_session.dart';
+import 'block_battle_life_fx.dart';
 
 class BattleHud extends StatelessWidget {
   final BlockBattleSession session;
@@ -77,20 +78,9 @@ class BattleHud extends StatelessWidget {
                 fontSize: 25,
                 fontWeight: FontWeight.w900,
                 color: Colors.white)),
-        Semantics(
-            label: '${p?['lives'] ?? 5} can',
-            child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                    5,
-                    (i) => Icon(
-                        i < (p?['lives'] ?? 5)
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        size: 14,
-                        color: i < (p?['lives'] ?? 5)
-                            ? const Color(0xFFFF759B)
-                            : Colors.white24)))),
+        BattleHearts(
+            lives: p?['lives'] ?? 5,
+            critical: p?['lives'] == 1 && session.status == 'playing'),
       ]);
 }
 
