@@ -1,6 +1,0 @@
-{
-  "source_commit": "ebb32d456a02c835189d4948a7b10fa64ddf4d30",
-  "built_at": "2026-09-12T10:53:36.551694+00:00",
-  "checks": "44 Flutter, 21 backend tests passed; analyze clean; release build passed; 3000 simulation players",
-  "change": "600 cumulative damage and bounded shared tray flexibility"
-}
