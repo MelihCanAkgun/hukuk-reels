@@ -9,7 +9,7 @@
   let stopped=true, connected=false, generation=0, error=null, lastPong=0, attempts=0;
   const persist=()=>{
     try {
-      if(room && state?.status!=='finished') localStorage.setItem(key,JSON.stringify({room,me,pending}));
+      if(room) localStorage.setItem(key,JSON.stringify({room,me,pending:state?.status==='finished'?null:pending}));
       else localStorage.removeItem(key);
     } catch {}
   };
@@ -21,7 +21,7 @@
   };
   const cancelTimers=()=>{clearTimeout(retry);clearInterval(heartbeat);retry=null;heartbeat=null;};
   function reconnect() {
-    if(stopped || connecting || retry || state?.status==='finished') return;
+    if(stopped || connecting || retry) return;
     connected=false;emit({type:'CONNECTION'});
     retry=setTimeout(()=>{retry=null;void open(false);},Math.min(2500,350*2**attempts++));
   }
@@ -96,7 +96,7 @@
   window.hukukBattleCall=async(action,json)=>{
     const data=JSON.parse(json||'{}');
     try {
-      if(action==='inspect')return JSON.stringify({room:state?.status==='finished'?null:room});
+      if(action==='inspect')return JSON.stringify({room});
       if(action==='resume') {
         if(!room)return JSON.stringify({});
         await open();
