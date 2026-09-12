@@ -103,3 +103,9 @@ Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğr
 - Dosyalar: block_battle_core.dart, block_battle_lobby.dart, block_battle_widgets.dart, block_blast_screen.dart, block_battle_core_test.dart, yeni backend/test/battle-damage.test.js, generated battle_rules.js/sources.json, simulation report, backend README ve bu kayıt.
 - Sıradaki adım: son analyze/Flutter test/web build kapısı tamamlanınca mevcut gh-pages ve Worker akışıyla deploy; canlı dosyaları doğrula. Yeni migration/binding yok.
 - Son kapı TAMAM: iki braces lint uyarısı düzeltildi; analyze temiz, 44 Flutter testi, 21 backend testi ve yeniden derleme sonrası 3 damage/parity kontrolü geçti. Release web build başarılı (45 offline dosya / 15.7 MiB). Deploy aşamasına geçiliyor.
+- YAYIN VE CANLI DOĞRULAMA TAMAM:
+  * Backend Worker `npm run deploy` ile production'a çıktı (Version ID: `15cad33a-22dd-4b6c-8a2c-a0ec434dede8`, derlenmiş JS 103,906 karakter).
+  * Web sürümü `python3 tools/build_web.py --base-href /hukuk-reels/` ile derlendi ve `gh-pages` dalına başarıyla yayınlandı (Commit: `e7c6a4f`).
+  * `main` dalı commit'i uzak depoya push edildi (`ebb32d4`).
+  * Canlı Production 1v1 Smoke Testi: Production Worker üzerinde izole odada iki gerçek WebSocket bağlantısı açıldı. `version: 2`, `damageStep: 600`, paylaşılan özdeş başlangıç tepsileri (`tray`), yetkili skor hesaplama, duplicate hamle koruması, disconnect / reconnect durum kurtarması ve maç tamamlama akışı canlıda başarıyla doğrulandı.
+
