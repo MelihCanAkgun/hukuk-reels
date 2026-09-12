@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'block_blast_engine.dart';
 
 /// Battle rules shared by Flutter and the Dart-compiled Worker module.
@@ -13,8 +14,112 @@ List<BlockPiece?> battleTray(int seed, int setIndex) {
   });
 }
 
+/// Stable integer RNG shared by native Dart and the compiled Worker. No hashCode
+/// or platform Random implementation participates in piece generation.
+class BattleRandom implements Random {
+  int _state;
+  BattleRandom(int seed, int index)
+      : _state = (seed + (index % 2147483646) * 104729) % 2147483646 + 1;
+  int _next() => _state = _state * 48271 % 2147483647;
+  @override
+  int nextInt(int max) => _next() % max;
+  @override
+  double nextDouble() => (_next() - 1) / 2147483646;
+  @override
+  bool nextBool() => nextInt(2) == 0;
+}
+
+/// A bounded existence check, not an automatic move or a guaranteed rescue.
+/// Search includes piece order and line clears; checking fits individually is
+/// insufficient because the first placement can block the remaining two.
+bool battleTrayPlayable(BlockBlastEngine board, List<BlockPiece> pieces) {
+  var remainingNodes = 96;
+  bool search(List<List<int?>> grid, List<BlockPiece?> tray) {
+    if (tray.every((p) => p == null)) return true;
+    if (remainingNodes-- <= 0) return false;
+    final probe = BlockBlastEngine.empty(nextTray: () => [null, null, null])
+      ..grid = grid
+      ..tray = tray;
+    for (var slot = 0; slot < tray.length; slot++) {
+      final piece = tray[slot];
+      if (piece == null) continue;
+      for (final (r, c) in probe.placements(piece)) {
+        if (remainingNodes <= 0) return false;
+        final next = BlockBlastEngine.empty(nextTray: () => [null, null, null])
+          ..grid = [
+            for (final row in grid) [...row]
+          ]
+          ..tray = [...tray];
+        next.place(slot, r, c);
+        if (search(next.grid, next.tray)) return true;
+      }
+    }
+    return false;
+  }
+
+  return search(board.grid, [...pieces]);
+}
+
+/// Bounded shared fairness, not per-player rescue. Candidates reuse solo's
+/// constructive placement, line clearing and weights on copies of both boards.
+/// The selected set is committed once per index by BattleMatch below.
+List<BlockPiece?> fairBattleTray(
+    int seed, int index, List<BlockBlastEngine> boards) {
+  final rng = BattleRandom(seed, index);
+  // Canonical order makes swapping player identities irrelevant.
+  final ordered = [...boards]..sort((a, b) {
+      final fillA = a.grid.expand((r) => r).where((v) => v != null).length;
+      final fillB = b.grid.expand((r) => r).where((v) => v != null).length;
+      if (fillA != fillB) return fillB.compareTo(fillA);
+      return a.grid
+          .expand((r) => r)
+          .map((v) => v == null ? '0' : '1')
+          .join()
+          .compareTo(
+              b.grid.expand((r) => r).map((v) => v == null ? '0' : '1').join());
+    });
+  final score = ordered.isEmpty
+      ? 0
+      : ordered.fold<int>(0, (sum, b) => sum + b.score) ~/ ordered.length;
+  List<BlockPiece?>? best;
+  var bestQuality = -10000;
+  for (var attempt = 0; attempt < 12; attempt++) {
+    final source = ordered.isEmpty ? null : ordered[attempt % ordered.length];
+    final scratch = BlockBlastEngine.empty(random: rng)..score = score;
+    if (source != null) {
+      scratch.grid = [
+        for (final row in source.grid) [...row]
+      ];
+    }
+    scratch.refill();
+    final pieces = scratch.tray.whereType<BlockPiece>().toList();
+    // Never solve a ruined board by handing out a tray of single-cell rescues.
+    if (pieces.length != 3 ||
+        pieces.where((p) => p.cells.length == 1).length > 1) {
+      continue;
+    }
+    final large = pieces.where((p) => p.cells.length >= 5).length;
+    final playable = ordered.where((b) => pieces.any(b.canPlace)).length;
+    final solvable = ordered
+        .where((b) => battleTrayPlayable(
+            b, [...b.tray.whereType<BlockPiece>(), ...pieces]))
+        .length;
+    final quality = playable * 100 + solvable * 30 - (large == 3 ? 20 : 0);
+    if (quality > bestQuality) {
+      best = [...pieces];
+      bestQuality = quality;
+    }
+    if (solvable == ordered.length && large < 3) return [...pieces];
+  }
+  if (best != null) return best;
+  // No valid constructive candidate: use solo's empty-board distribution.
+  // It deliberately provides no guarantee for a genuinely blocked board.
+  return BlockBlastEngine(random: rng).tray;
+}
+
 class BattlePlayer {
   final int id, seed;
+  List<BlockPiece?> Function(int)? sharedTray;
   final String name;
   late BlockBlastEngine game;
   int nextSet = 0, lives = 5, boardOuts = 0, thresholds = 0, damage = 0;
@@ -25,7 +130,8 @@ class BattlePlayer {
   BattlePlayer(this.id, this.name, this.seed, {bool initialize = true}) {
     if (initialize) game = BlockBlastEngine(nextTray: _nextTray);
   }
-  List<BlockPiece?> _nextTray() => battleTray(seed, nextSet++);
+  List<BlockPiece?> _nextTray() =>
+      (sharedTray ?? ((i) => battleTray(seed, i)))(nextSet++);
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -62,6 +168,22 @@ class BattleMatch {
   final String roomId;
   final int seed, createdAt;
   final List<BattlePlayer> players = [];
+  int generatorVersion = 2;
+  final Map<int, List<BlockPiece?>> _sets = {};
+
+  List<BlockPiece?> _sharedTray(int index) {
+    if (generatorVersion == 1) return battleTray(seed, index);
+    final pieces = _sets.putIfAbsent(index,
+        () => fairBattleTray(seed, index, players.map((p) => p.game).toList()));
+    // Keep only sets that a slower player can still need. A late second join
+    // must retain set zero, so pruning starts only with both players present.
+    if (players.length == 2) {
+      final consumed = players.map((p) => p.nextSet).reduce(min);
+      _sets.removeWhere((key, _) => key < consumed);
+    }
+    return [...pieces]; // Each player consumes its own tray, never the cache.
+  }
+
   String status = 'waiting';
   int revision = 0;
   int? startAt, endedAt, winner;
@@ -77,7 +199,11 @@ class BattleMatch {
     if (status != 'waiting' || players.length >= 2) {
       throw StateError('Oda dolu veya maç başlamış.');
     }
-    players.add(BattlePlayer(id, name, seed));
+    final p = BattlePlayer(id, name, seed, initialize: false)
+      ..sharedTray = _sharedTray;
+    p.game = BlockBlastEngine.empty(nextTray: p._nextTray);
+    players.add(p);
+    p.game.refill();
     revision++;
   }
 
@@ -224,7 +350,14 @@ class BattleMatch {
   }
 
   Map<String, dynamic> toJson() => {
-        'version': 1,
+        'version': generatorVersion,
+        if (generatorVersion == 2)
+          'sets': {
+            for (final e in _sets.entries)
+              '${e.key}': [
+                for (final p in e.value) p == null ? null : [p.shape, p.color]
+              ]
+          },
         'roomId': roomId,
         'seed': seed,
         'createdAt': createdAt,
@@ -237,16 +370,25 @@ class BattleMatch {
         'players': players.map((p) => p.toJson()).toList(),
       };
   factory BattleMatch.restore(Map<String, dynamic> data) {
-    if (data['version'] != 1) throw const FormatException('Battle version');
+    if (data['version'] != 1 && data['version'] != 2) {
+      throw const FormatException('Battle version');
+    }
     final m = BattleMatch(data['roomId'], data['seed'], data['createdAt'])
+      ..generatorVersion = data['version']
       ..status = data['status']
       ..revision = data['revision']
       ..startAt = data['startAt']
       ..endedAt = data['endedAt']
       ..winner = data['winner']
       ..reason = data['reason'];
+    for (final e in (data['sets'] as Map? ?? {}).entries) {
+      m._sets[int.parse(e.key)] = [
+        for (final p in e.value) p == null ? null : BlockPiece(p[0], p[1])
+      ];
+    }
     for (final p in data['players']) {
-      m.players.add(BattlePlayer.restore(Map<String, dynamic>.from(p), m.seed));
+      m.players.add(BattlePlayer.restore(Map<String, dynamic>.from(p), m.seed)
+        ..sharedTray = m._sharedTray);
     }
     return m;
   }
