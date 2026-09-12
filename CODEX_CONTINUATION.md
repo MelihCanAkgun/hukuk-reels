@@ -109,3 +109,17 @@ Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğr
   * `main` dalı commit'i uzak depoya push edildi (`ebb32d4`).
   * Canlı Production 1v1 Smoke Testi: Production Worker üzerinde izole odada iki gerçek WebSocket bağlantısı açıldı. `version: 2`, `damageStep: 600`, paylaşılan özdeş başlangıç tepsileri (`tray`), yetkili skor hesaplama, duplicate hamle koruması, disconnect / reconnect durum kurtarması ve maç tamamlama akışı canlıda başarıyla doğrulandı.
 
+## 500 damage eşiği, Attack Bar ve Rematch (Tekrar Oyna) Sistemi — 2026-09-12
+- Hasar eşiği 600 puandan 500 puana düşürüldü: Her 500 toplam score = rakibe -1 HP (5 can, 500, 1000, 1500, 2000, 2500 eşikleri). Cumulative threshold ve duplicate koruması korundu. Eski snapshot'lar thresholds=score ~/ 500 olarak rebase edilir; sürpriz geriye dönük hasar oluşmaz.
+- Attack Progress Bar eklendi: Her iki oyuncu için bir sonraki 500 eşiğine olan ilerleme (`score % 500`, 'ATTACK current / 500' formatında) ve altında progress bar gösterilir. Maç bittiğinde veya rakibin canı 0 olduğunda gizlenir. HUD dar ekranlarda (320px) taşmayacak şekilde 112px yükseklikte optimize edildi.
+- Rematch (Tekrar Oyna) Sistemi eklendi:
+  * BattleResult ekranında "Tekrar Oyna" butonu. Karşılıklı rıza gerektirir (bir taraf tıklayınca "Rakip bekleniyor…", diğer taraf "Rakip tekrar oynamak istiyor!" görür ve butonu "Kabul Et ve Tekrar Oyna" olur).
+  * İki taraf da onayladığında maç yeni seed ile `round` artırılarak (round: 2...) temizlenir: tahtalar sıfırlanır, 5 can, 0 skor, 0 hasar, 0 eşik, tepsi önbelleği temizlenir, 3 saniye geri sayım başlar.
+  * Eski round hamleleri `round != match.round` kontrolüyle reddedilir.
+  * Server (Durable Object), web client (`battle.js`) ve Flutter (`block_battle_session.dart`) tümü round doğrulaması ve rematch mesajlaşmasıyla donatıldı.
+- Yapılan kontroller:
+  * Dart-JS derlemesi: `python3 tools/build_battle.py` ile güncel server bundle oluşturuldu.
+  * `flutter analyze --no-pub`: temiz (0 issue).
+  * `flutter test`: 66/66 test geçti.
+  * `node --test backend/test/*.test.js`: 22/22 test geçti (gerçek WebSocket'ler, parity, rematch, 500 damage).
+  * Web release build: `python3 tools/build_web.py --base-href /hukuk-reels/` başarılı (45 dosya, 15.7 MiB).

@@ -142,7 +142,7 @@ class BattlePlayer {
   late BlockBlastEngine game;
   int nextSet = 0, lives = 5, boardOuts = 0, thresholds = 0, damage = 0;
   int lastMove = 0;
-  bool ready = false, connected = false;
+  bool ready = false, connected = false, rematch = false;
   int? disconnectAt;
 
   BattlePlayer(this.id, this.name, this.seed, {bool initialize = true}) {
@@ -163,6 +163,7 @@ class BattlePlayer {
         'lastMove': lastMove,
         'ready': ready,
         'connected': connected,
+        'rematch': rematch,
         'disconnectAt': disconnectAt,
       };
   factory BattlePlayer.restore(Map<String, dynamic> data, int seed) {
@@ -175,6 +176,7 @@ class BattlePlayer {
       ..lastMove = data['lastMove']
       ..ready = data['ready']
       ..connected = data['connected']
+      ..rematch = data['rematch'] ?? false
       ..disconnectAt = data['disconnectAt'];
     p.game = BlockBlastEngine.restore(Map<String, dynamic>.from(data['game']),
         nextTray: p._nextTray)!;
@@ -184,9 +186,11 @@ class BattlePlayer {
 
 class BattleMatch {
   final String roomId;
-  final int seed, createdAt;
+  int seed;
+  final int createdAt;
   final List<BattlePlayer> players = [];
   int generatorVersion = 2;
+  int round = 1;
   final Map<int, List<BlockPiece?>> _sets = {};
 
   List<BlockPiece?> _sharedTray(int index) {
@@ -236,10 +240,13 @@ class BattleMatch {
 
   void disconnect(int id, int now) {
     advance(now);
-    if (finished) return;
     final p = player(id);
-    if (!p.connected) return;
     p.connected = false;
+    p.rematch = false;
+    if (finished) {
+      revision++;
+      return;
+    }
     p.disconnectAt = now + 15000;
     if (status == 'countdown') {
       status = 'waiting';
@@ -311,10 +318,14 @@ class BattleMatch {
   /// Monotonic per-player move identifiers survive reconnect/refresh. A replay
   /// is a no-op, and a gap cannot skip an unacknowledged move.
   Map<String, dynamic> place(
-      int id, int moveId, int slot, int row, int col, int now) {
+      int id, int moveId, int slot, int row, int col, int now,
+      {int? round}) {
     events = [];
     advance(now);
     final p = player(id);
+    if (round != null && round != this.round) {
+      return {'error': 'Eski round hamlesi.'};
+    }
     if (moveId <= p.lastMove && moveId > 0) return {'duplicate': true};
     if (status != 'playing') return {'error': 'Maç şu anda oynanabilir değil.'};
     if (!p.connected || players.any((p) => !p.connected)) {
@@ -327,8 +338,8 @@ class BattleMatch {
     if (move == null) return {'error': 'Geçersiz yerleştirme.'};
     p.lastMove = moveId;
     final other = players.firstWhere((p) => p.id != id);
-    final crossed = p.game.score ~/ 600 - p.thresholds;
-    p.thresholds = p.game.score ~/ 600;
+    final crossed = p.game.score ~/ 500 - p.thresholds;
+    p.thresholds = p.game.score ~/ 500;
     if (crossed > 0) {
       final dealt = crossed.clamp(0, other.lives);
       p.damage += dealt;
@@ -367,9 +378,47 @@ class BattleMatch {
     };
   }
 
+  void rematch(int id, int now, {int? newSeed}) {
+    advance(now);
+    if (!finished) return;
+    final p = player(id);
+    if (!p.connected) return;
+    p.rematch = true;
+    revision++;
+    if (players.length == 2 && players.every((p) => p.rematch && p.connected)) {
+      _startRematch(newSeed, now);
+    }
+  }
+
+  void _startRematch(int? newSeed, int now) {
+    round++;
+    seed = newSeed ?? ((seed * 48271 + now) % 2147483646 + 1);
+    _sets.clear();
+    status = 'countdown';
+    startAt = now + 3000;
+    endedAt = null;
+    winner = null;
+    reason = null;
+    events = [{'type': 'REMATCH_STARTED', 'round': round}];
+    for (final p in players) {
+      p.game = BlockBlastEngine.empty(nextTray: p._nextTray);
+      p.nextSet = 0;
+      p.lives = 5;
+      p.boardOuts = 0;
+      p.thresholds = 0;
+      p.damage = 0;
+      p.lastMove = 0;
+      p.ready = true;
+      p.rematch = false;
+      p.game.refill();
+    }
+    revision++;
+  }
+
   Map<String, dynamic> toJson() => {
         'version': generatorVersion,
-        'damageStep': 600,
+        'damageStep': 500,
+        'round': round,
         if (generatorVersion == 2)
           'sets': {
             for (final e in _sets.entries)
@@ -394,6 +443,7 @@ class BattleMatch {
     }
     final m = BattleMatch(data['roomId'], data['seed'], data['createdAt'])
       ..generatorVersion = data['version']
+      ..round = data['round'] ?? 1
       ..status = data['status']
       ..revision = data['revision']
       ..startAt = data['startAt']
@@ -409,10 +459,10 @@ class BattleMatch {
       final restored =
           BattlePlayer.restore(Map<String, dynamic>.from(p), m.seed)
             ..sharedTray = m._sharedTray;
-      // Old snapshots used 1000-point thresholds. Rebase without retroactive
+      // Old snapshots used 1000 or 600-point thresholds. Rebase without retroactive
       // damage; only future crossings of the new cumulative threshold apply.
-      if (data['damageStep'] != 600) {
-        restored.thresholds = restored.game.score ~/ 600;
+      if (data['damageStep'] != 500) {
+        restored.thresholds = restored.game.score ~/ 500;
       }
       m.players.add(restored);
     }

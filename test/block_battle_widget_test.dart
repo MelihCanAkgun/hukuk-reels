@@ -205,7 +205,7 @@ void main() {
     await gesture.up();
     await tester.pump();
     expect(requests, [
-      {'slot': 0, 'row': 0, 'col': 0}
+      {'slot': 0, 'row': 0, 'col': 0, 'round': 1}
     ]);
     expect(session.pending, true);
     m.place(1, 1, 0, 0, 0, DateTime.now().millisecondsSinceEpoch);
@@ -232,6 +232,78 @@ void main() {
     expect(find.text('Kazanan: Oyuncu 2'), findsOneWidget);
     expect(find.textContaining('Rakibe verilen skor hasarı'), findsNWidgets(2));
     expect(find.text('Lobiye dön'), findsOneWidget);
+    expect(find.text('Tekrar Oyna'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  testWidgets('Battle HUD displays attack progress bar for both players',
+      (tester) async {
+    final m = match();
+    m.player(1).game.score = 250;
+    m.player(2).game.score = 375;
+    final session =
+        BlockBattleSession(listen: false, transport: (a, d) async => {})
+          ..receive(frame(m));
+    await tester
+        .pumpWidget(MaterialApp(home: BlockBlastScreen(battle: session)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('battle-mine-attack')), findsOneWidget);
+    expect(find.text('ATTACK 250 / 500'), findsOneWidget);
+    expect(find.byKey(const ValueKey('battle-other-attack')), findsOneWidget);
+    expect(find.text('375 / 500'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  testWidgets('BattleResult renders rematch states and triggers rematch action',
+      (tester) async {
+    final calls = <String>[];
+    final m = match();
+    m.resign(2, DateTime.now().millisecondsSinceEpoch);
+    final session = BlockBattleSession(
+        listen: false,
+        transport: (action, data) async {
+          calls.add(action);
+          return {'ok': true};
+        })
+      ..receive(frame(m));
+
+    await tester
+        .pumpWidget(MaterialApp(home: BlockBlastScreen(battle: session)));
+    await tester.pumpAndSettle();
+
+    // Initial state: "Tekrar Oyna"
+    final rematchBtn = find.byKey(const ValueKey('battle-rematch-button'));
+    expect(rematchBtn, findsOneWidget);
+    expect(find.text('Tekrar Oyna'), findsOneWidget);
+
+    // Tap rematch
+    await tester.tap(rematchBtn);
+    await tester.pumpAndSettle();
+    expect(calls, ['rematch']);
+
+    // Opponent requested rematch state
+    m.player(2).rematch = true;
+    m.player(1).rematch = false;
+    session.receive(frame(m));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('battle-opponent-rematch-notice')), findsOneWidget);
+    expect(find.text('Rakip tekrar oynamak istiyor!'), findsOneWidget);
+    expect(find.text('Kabul Et ve Tekrar Oyna'), findsOneWidget);
+
+    // Waiting state (self requested rematch)
+    m.player(1).rematch = true;
+    m.player(2).rematch = false;
+    session.receive(frame(m));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const ValueKey('battle-rematch-waiting-button')), findsOneWidget);
+    expect(find.text('Rakip bekleniyor…'), findsOneWidget);
+
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     session.dispose();

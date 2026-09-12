@@ -126,12 +126,12 @@ void main() {
     expect(jsonEncode(session.state), before);
     session.dispose();
   });
-  for (final value in [599, 1199]) {
+  for (final value in [499, 999]) {
     test('$value crossing applies exactly one NEW damage threshold', () {
       final m = playing();
       final p = m.player(1);
       single(p, value);
-      p.thresholds = value ~/ 600;
+      p.thresholds = value ~/ 500;
       expect(m.place(1, 1, 0, 0, 0, 3001)['ok'], true);
       expect(p.game.score, value + 1);
       expect(m.player(2).lives, 4);
@@ -141,12 +141,12 @@ void main() {
       expect(jsonEncode(m.toJson()), before);
     });
   }
-  for (final target in [599, 600, 1199, 1200, 1800, 2400, 3000]) {
+  for (final target in [499, 500, 999, 1000, 1500, 2000, 2500]) {
     test(
-        'cumulative 600 thresholds at $target points, including restore and replay',
+        'cumulative 500 thresholds at $target points, including restore and replay',
         () {
       var m = playing();
-      final prior = (target - 1) ~/ 600;
+      final prior = (target - 1) ~/ 500;
       single(m.player(1), target - 1);
       m.player(1).thresholds = prior;
       m.player(1).damage = prior;
@@ -154,14 +154,14 @@ void main() {
       m = BattleMatch.restore(jsonDecode(jsonEncode(m.toJson())));
       m.place(1, 1, 0, 0, 0, 3001);
       expect(m.player(1).game.score, target);
-      expect(m.player(1).damage, target ~/ 600);
-      expect(m.player(2).lives, 5 - target ~/ 600);
+      expect(m.player(1).damage, target ~/ 500);
+      expect(m.player(2).lives, 5 - target ~/ 500);
       final snapshot = jsonEncode(m.toJson());
       m.place(1, 1, 0, 0, 0, 3002);
       expect(jsonEncode(m.toJson()), snapshot);
     });
   }
-  for (final start in [590, 1150]) {
+  for (final start in [490, 950]) {
     test('legal large jump from $start crosses only new thresholds', () {
       final m = playing();
       final p = m.player(1);
@@ -169,11 +169,11 @@ void main() {
       single(p, start);
       p.game.grid[0] = [null, 0, 0, 0, 0, 0, 0, 0];
       p.game.grid[7][7] = 0;
-      p.game.combo = start == 590 ? 13 : 69;
-      p.thresholds = start ~/ 600;
+      p.game.combo = start == 490 ? 13 : 69;
+      p.thresholds = start ~/ 500;
       m.place(1, 1, 0, 0, 0, 3001);
-      expect(p.game.score, start == 590 ? 731 : 1851);
-      expect(p.damage, start == 590 ? 1 : 2);
+      expect(p.game.score, start == 490 ? 631 : 1651);
+      expect(p.damage, start == 490 ? 1 : 2);
     });
   }
   test('old damage snapshots rebase without surprise retroactive damage', () {
@@ -181,21 +181,21 @@ void main() {
     data['players'][0]['game']['score'] = 1750;
     data['players'][0]['thresholds'] = 1;
     final m = BattleMatch.restore(data);
-    expect(m.player(1).thresholds, 2);
+    expect(m.player(1).thresholds, 3);
     expect(m.player(2).lives, 5);
-    expect(m.toJson()['damageStep'], 600);
+    expect(m.toJson()['damageStep'], 500);
   });
   test('multiple thresholds crossed in one legal clear each damage once', () {
     final m = playing();
     final p = m.player(1);
-    single(p, 599);
+    single(p, 499);
     p.game.grid[0] = [null, 0, 0, 0, 0, 0, 0, 0];
     p.game.combo = 199;
     m.place(1, 1, 0, 0, 0, 3001);
-    expect(p.game.score, 2900);
-    expect(m.player(2).lives, 1);
-    expect(p.damage, 4);
-    expect(p.thresholds, 4);
+    expect(p.game.score, 2800);
+    expect(m.player(2).lives, 0);
+    expect(p.damage, 5);
+    expect(p.thresholds, 5);
   });
   test('board-out loses one life, preserves score/damage and draws next set',
       () {
@@ -236,13 +236,55 @@ void main() {
     final m = playing();
     final p = m.player(1);
     blocked(p);
-    p.game.score = 599;
+    p.game.score = 499;
     m.player(2).lives = 1;
     m.place(1, 1, 0, 0, 1, 3001);
     expect(m.winner, 1);
     expect(m.reason, 'score');
     expect(p.boardOuts, 0);
     expect(p.lives, 5);
+  });
+  test('rematch flow requires mutual consent, resets match and rejects old round moves', () {
+    final m = playing();
+    m.resign(1, 5000);
+    expect(m.status, 'finished');
+    expect(m.round, 1);
+
+    // Player 1 requests rematch
+    m.rematch(1, 6000);
+    expect(m.player(1).rematch, true);
+    expect(m.player(2).rematch, false);
+    expect(m.status, 'finished');
+
+    // Player 2 requests rematch with new seed
+    m.rematch(2, 7000, newSeed: 99999);
+    expect(m.status, 'countdown');
+    expect(m.round, 2);
+    expect(m.seed, 99999);
+    expect(m.winner, isNull);
+    expect(m.reason, isNull);
+
+    // Both players reset to 5 lives, 0 score, empty boards
+    for (final p in m.players) {
+      expect(p.lives, 5);
+      expect(p.damage, 0);
+      expect(p.thresholds, 0);
+      expect(p.boardOuts, 0);
+      expect(p.rematch, false);
+      expect(p.game.score, 0);
+    }
+
+    // Advance 3s countdown to playing
+    m.advance(10000);
+    expect(m.status, 'playing');
+
+    // Move with round 1 is rejected
+    final oldMove = m.place(1, 1, 0, 0, 0, 10001, round: 1);
+    expect(oldMove['error'], 'Eski round hamlesi.');
+
+    // Move with round 2 succeeds
+    final validMove = m.place(1, 1, 0, 0, 0, 10002, round: 2);
+    expect(validMove['ok'], true);
   });
   test('invalid, fabricated or out-of-order move cannot mutate rules', () {
     final m = playing();

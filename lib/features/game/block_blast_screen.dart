@@ -49,7 +49,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   BlockBattleSession? get _battle => widget.battle;
   Timer? _battleTimer, _battleNoticeTimer;
   bool _predicted = false;
-  int _battleMove = -1, _battleOut = -1, _battleEventRevision = -1;
+  int _battleMove = -1, _battleOut = -1, _battleEventRevision = -1, _battleRound = 1;
   String _battleFeedback = '';
 
   final _gridKey = GlobalKey();
@@ -112,6 +112,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       _game = _battle!.engine()!;
       _battleMove = _battle!.mine!['lastMove'];
       _battleOut = _battle!.mine!['boardOuts'];
+      _battleRound = _battle!.round;
       _battle!.addListener(_battleChanged);
       _battleTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
         if (mounted && _battle!.status == 'countdown') setState(() {});
@@ -337,17 +338,24 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     final session = _battle!;
     final mine = session.mine!;
     final reset = _battleOut != mine['boardOuts'];
+    final round = session.round;
+    final roundChanged = round != _battleRound;
     if (!session.pending &&
-        (_predicted || _battleMove != mine['lastMove'] || reset)) {
+        (_predicted || _battleMove != mine['lastMove'] || reset || roundChanged)) {
       _game = session.engine()!;
       _predicted = false;
       _battleMove = mine['lastMove'];
       _battleOut = mine['boardOuts'];
+      _battleRound = round;
       _cancelDrag();
-      if (reset) {
+      if (reset || roundChanged) {
         _fxClock.stop();
         _boardFx.reset();
         _celebration = null;
+        if (roundChanged) {
+          _feedback = '';
+          _battleFeedback = '';
+        }
       }
     }
     final revision = session.state!['revision'] as int;
@@ -358,8 +366,10 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           _battleFeedback = 'HAMLE KALMADI · −1 CAN · Tahta yenilendi';
         } else if (event['type'] == 'DAMAGE') {
           _battleFeedback = event['player'] == session.me
-              ? '−${event['amount']} CAN · Rakip 600 puan eşiğini geçti'
+              ? '−${event['amount']} CAN · Rakip 500 puan eşiğini geçti'
               : 'RAKİP −${event['amount']} CAN';
+        } else if (event['type'] == 'REMATCH_STARTED') {
+          _battleFeedback = 'YENİ ROUND BAŞLADI!';
         }
       }
       _battleNoticeTimer?.cancel();

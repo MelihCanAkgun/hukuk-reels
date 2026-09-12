@@ -30,7 +30,7 @@ test('only placements cross socket; unacked move persists and replays with same 
   const c=client();await c.call('create');const a=c.sockets[0];a.open();
   a.message({type:'STATE_UPDATE',state:c.state});
   await c.call('place',{slot:2,row:3,col:4,score:999999});
-  assert.deepEqual(JSON.parse(a.sent.at(-1)),{type:'PLACE_PIECE',moveId:1,slot:2,row:3,col:4});
+  assert.deepEqual(JSON.parse(a.sent.at(-1)),{type:'PLACE_PIECE',moveId:1,slot:2,row:3,col:4,round:1});
   assert.match((await c.call('place',{slot:0,row:0,col:0})).error,/Önceki/);
   a.close();await c.tick();const b=c.sockets[1];b.open();b.message({type:'STATE_UPDATE',state:c.state});
   assert.equal(JSON.parse(b.sent.at(-1)).moveId,1);

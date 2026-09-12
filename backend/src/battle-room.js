@@ -125,12 +125,15 @@ export class BattleRoom {
       let result;
       if (data.type === 'PLAYER_READY') result=this.apply('ready',{id:a.id},now);
       else if (data.type === 'RESIGN') result=this.apply('resign',{id:a.id},now);
-      else if (data.type === 'PLACE_PIECE') {
+      else if (data.type === 'REMATCH') {
+        const seed = crypto.getRandomValues(new Uint32Array(1))[0] % 2147483646 + 1;
+        result = this.apply('rematch', {id: a.id, seed}, now);
+      } else if (data.type === 'PLACE_PIECE') {
         if (!['moveId','slot','row','col'].every(k => Number.isSafeInteger(data[k])) ||
             data.moveId<1 || data.moveId>1000000) {
           this.send(ws,{type:'ERROR',error:'Geçersiz hamle.'}); return;
         }
-        result=this.apply('place',{id:a.id,moveId:data.moveId,slot:data.slot,row:data.row,col:data.col},now);
+        result=this.apply('place',{id:a.id,moveId:data.moveId,slot:data.slot,row:data.row,col:data.col,round:data.round},now);
       } else if (data.type === 'RECONNECT') result=this.apply('advance',{},now);
       else { this.send(ws,{type:'ERROR',error:'Bilinmeyen mesaj.'}); return; }
       await this.save();
