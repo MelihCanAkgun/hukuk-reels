@@ -1,7 +1,6 @@
 {
-  "source_commit": "85dcb647d45d37053e2d1167b75bbe281ec68d79",
-  "built_for": "https://melihcanakgun.github.io/hukuk-reels/",
-  "built_at": "2026-09-12T10:42:04.786902+00:00",
-  "checks": "analyze clean; 34 Flutter tests; 19 backend tests; 3000-player generator simulation passed; release web build",
-  "change": "Shared board-aware deterministic Battle generation; client waits for server refill; legacy matches preserved"
+  "source_commit": "ebb32d456a02c835189d4948a7b10fa64ddf4d30",
+  "built_at": "2026-09-12T10:53:36.551694+00:00",
+  "checks": "44 Flutter, 21 backend tests passed; analyze clean; release build passed; 3000 simulation players",
+  "change": "600 cumulative damage and bounded shared tray flexibility"
 }
