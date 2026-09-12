@@ -16,6 +16,37 @@ void main() {
     await ProgressService.instance.init();
   });
 
+  testWidgets('iPhone 14 Pro portrait and rotations hit the visible game tile',
+      (tester) async {
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    tester.view.physicalSize = const Size(1179, 2556);
+    await tester.pumpWidget(const HukukReelsApp());
+    for (final size in [
+      const Size(1179, 2556),
+      const Size(2556, 1179),
+      const Size(1179, 2556)
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tapAt(tester.getCenter(find.text('Block Blast')));
+      await tester.pumpAndSettle();
+      expect(find.byType(BlockBlastScreen), findsOneWidget);
+      expect(find.byType(FlappyCatScreen), findsNothing);
+      Navigator.of(tester.element(find.byType(BlockBlastScreen))).pop();
+      await tester.pumpAndSettle();
+      await tester.tapAt(tester.getCenter(find.text('Flappy Silly Cat')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(FlappyCatScreen), findsOneWidget);
+      Navigator.of(tester.element(find.byType(FlappyCatScreen))).pop();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('games are the entry point and questions remain reachable',
       (tester) async {
     await tester.pumpWidget(const HukukReelsApp());
