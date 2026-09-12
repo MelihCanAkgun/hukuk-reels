@@ -123,3 +123,12 @@ Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğr
   * `flutter test`: 66/66 test geçti.
   * `node --test backend/test/*.test.js`: 22/22 test geçti (gerçek WebSocket'ler, parity, rematch, 500 damage).
   * Web release build: `python3 tools/build_web.py --base-href /hukuk-reels/` başarılı (45 dosya, 15.7 MiB).
+
+## iPhone dikey dokunma / yanlış oyun seçimi — 2026-09-13
+- GamesScreen route eşleştirmeleri doğru bulundu. Flutter SDK full-page embedding, body'yi kendisi fixed yapıyor; iOS dimensions provider html.clientWidth/Height ölçüyor. Uygulamadaki ek fixed html + %100 ölçüler ve başlangıç viewport-fit=cover'ın engine tarafından kaldırılması, iki ayrı viewport/yerleşim yönetimi yaratıyordu.
+- web/index.html: html root üzerindeki fixed/width/height kaldırıldı; açılış viewport meta Flutter'ın ürettiği meta ile eşlendi. Loader normal akıştan çıkarılıp fixed inset:0/pointer-events:none yapıldı. Flutter'ın canvas ve hit-test boyutlarını tek başına yönetmesi sağlandı. SafeArea/game routing/state değiştirilmedi.
+- Ek portrait regresyonunda Flappy header sağa taşması görüldü; başlık Expanded + ellipsis ile sınırlanarak buton alanları korundu. Yazı içeriği aynı.
+- Test: iPhone14Pro 3× DPR, 393×852 → 852×393 → 393×852 boyutlarında görünen Block Blast/Flappy kartına dokunarak doğru route'u kontrol eden widget testi eklendi. 14 widget testi geçti; analyze temiz; web release build başarılı (45 offline dosya / 15.7 MiB).
+- Safari/WebKit browser testi: iPhone14Pro emülasyonu, 393×659 Safari ve 393×852 tam ekran ölçüleri; her birinde portrait→landscape→portrait. Accessibility açılmadan canvas'ın görünen kartlarına raw touchscreen koordinatlarıyla dokunuldu, Block/Flappy görüntüleri piksel bazında doğrulandı. İlk diagnostiklerde locator/route animation beklemeleri düzeltildi; Flappy semantics metni boş olduğundan gerçek görüntü kullanıldı. Fiziksel iPhone üzerinde doğrudan test yapılmadı.
+- Değişen dosyalar: web/index.html, lib/features/game/flappy_cat_screen.dart, test/widget_test.dart, bu kayıt. Backend/battle/puan/can/generator değişmedi.
+- Sıradaki adım: mevcut gh-pages ile bu build'i yayınla; canlı hash/branch doğrulaması yap.

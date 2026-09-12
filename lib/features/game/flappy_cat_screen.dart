@@ -339,15 +339,17 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
                           const SizedBox(width: 6),
                           const Text('🐱', style: TextStyle(fontSize: 18)),
                           const SizedBox(width: 6),
-                          const Text(
+                          const Expanded(
+                              child: Text(
                             'Flappy Silly Cat',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
                             ),
-                          ),
-                          const Spacer(),
+                          )),
                           MusicButton(onOpen: _pause),
                           const SizedBox(width: 8),
                           Container(
