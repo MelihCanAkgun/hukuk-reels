@@ -94,6 +94,56 @@
   },
   "shared": {
     "players": 1000,
+    "meanMovesToOutCapped": 129.009,
+    "medianMoves": 150,
+    "earlyOutAt12": 0,
+    "earlyOutAt24": 13,
+    "reachedCap": 687,
+    "deadOnRefill": 2,
+    "meanPieceCells": 3.9385796691170873,
+    "shapeCounts": [
+      840,
+      4399,
+      4296,
+      4464,
+      4337,
+      4021,
+      4094,
+      5212,
+      5158,
+      4027,
+      2193,
+      4440,
+      4440,
+      4355,
+      4484,
+      4065,
+      4071,
+      3850,
+      3943,
+      3980,
+      3967,
+      3897,
+      3820,
+      3924,
+      3986,
+      3865,
+      3929,
+      3788,
+      3820,
+      3734,
+      3495,
+      4351,
+      4161
+    ]
+  },
+  "comparison": {
+    "shapeTotalVariation": 0.03532131257914311,
+    "sharedToSoloCappedMean": 0.9867599816429553
+  },
+  "regressionChecks": "passed",
+  "previousShared": {
+    "players": 1000,
     "meanMovesToOutCapped": 118.675,
     "medianMoves": 150,
     "earlyOutAt12": 0,
@@ -137,10 +187,5 @@
       4160
     ]
   },
-  "comparison": {
-    "shapeTotalVariation": 0.022149478155919118,
-    "sharedToSoloCappedMean": 0.907717607465198
-  },
-  "regressionChecks": "passed",
   "command": "dart run tools/battle_generation_simulation.dart 500 150 --check"
 }

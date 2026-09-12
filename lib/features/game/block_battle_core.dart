@@ -33,7 +33,7 @@ class BattleRandom implements Random {
 /// Search includes piece order and line clears; checking fits individually is
 /// insufficient because the first placement can block the remaining two.
 bool battleTrayPlayable(BlockBlastEngine board, List<BlockPiece> pieces) {
-  var remainingNodes = 96;
+  var remainingNodes = 144;
   bool search(List<List<int?>> grid, List<BlockPiece?> tray) {
     if (tray.every((p) => p == null)) return true;
     if (remainingNodes-- <= 0) return false;
@@ -83,8 +83,9 @@ List<BlockPiece?> fairBattleTray(
       : ordered.fold<int>(0, (sum, b) => sum + b.score) ~/ ordered.length;
   List<BlockPiece?>? best;
   var bestQuality = -10000;
-  for (var attempt = 0; attempt < 12; attempt++) {
-    final source = ordered.isEmpty ? null : ordered[attempt % ordered.length];
+  for (var attempt = 0; attempt < 16; attempt++) {
+    final source =
+        ordered.isEmpty ? null : ordered[(attempt ~/ 2) % ordered.length];
     final scratch = BlockBlastEngine.empty(random: rng)..score = score;
     if (source != null) {
       scratch.grid = [
@@ -104,12 +105,29 @@ List<BlockPiece?> fairBattleTray(
         .where((b) => battleTrayPlayable(
             b, [...b.tray.whereType<BlockPiece>(), ...pieces]))
         .length;
-    final quality = playable * 100 + solvable * 30 - (large == 3 ? 20 : 0);
+    final choices = ordered.isEmpty
+        ? 3
+        : ordered.map((b) => pieces.where(b.canPlace).length).reduce(min);
+    final flexibility = ordered.isEmpty
+        ? 3
+        : ordered
+            .expand((b) => pieces.map((p) => min(b.placements(p).length, 3)))
+            .reduce(min);
+    final quality = playable * 100 +
+        solvable * 30 +
+        min(choices, 2) * 8 +
+        flexibility * 4 -
+        (large == 3 ? 20 : 0);
     if (quality > bestQuality) {
       best = [...pieces];
       bestQuality = quality;
     }
-    if (solvable == ordered.length && large < 3) return [...pieces];
+    if (solvable == ordered.length &&
+        choices >= 2 &&
+        flexibility >= 2 &&
+        large < 3) {
+      return [...pieces];
+    }
   }
   if (best != null) return best;
   // No valid constructive candidate: use solo's empty-board distribution.
@@ -309,8 +327,8 @@ class BattleMatch {
     if (move == null) return {'error': 'Geçersiz yerleştirme.'};
     p.lastMove = moveId;
     final other = players.firstWhere((p) => p.id != id);
-    final crossed = p.game.score ~/ 1000 - p.thresholds;
-    p.thresholds = p.game.score ~/ 1000;
+    final crossed = p.game.score ~/ 600 - p.thresholds;
+    p.thresholds = p.game.score ~/ 600;
     if (crossed > 0) {
       final dealt = crossed.clamp(0, other.lives);
       p.damage += dealt;
@@ -351,6 +369,7 @@ class BattleMatch {
 
   Map<String, dynamic> toJson() => {
         'version': generatorVersion,
+        'damageStep': 600,
         if (generatorVersion == 2)
           'sets': {
             for (final e in _sets.entries)
@@ -387,8 +406,15 @@ class BattleMatch {
       ];
     }
     for (final p in data['players']) {
-      m.players.add(BattlePlayer.restore(Map<String, dynamic>.from(p), m.seed)
-        ..sharedTray = m._sharedTray);
+      final restored =
+          BattlePlayer.restore(Map<String, dynamic>.from(p), m.seed)
+            ..sharedTray = m._sharedTray;
+      // Old snapshots used 1000-point thresholds. Rebase without retroactive
+      // damage; only future crossings of the new cumulative threshold apply.
+      if (data['damageStep'] != 600) {
+        restored.thresholds = restored.game.score ~/ 600;
+      }
+      m.players.add(restored);
     }
     return m;
   }
