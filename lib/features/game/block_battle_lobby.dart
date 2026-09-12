@@ -93,7 +93,7 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
                 style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             const Text(
-                'Her 600 toplam puanda rakibinden bir can al. Hamlen kalmazsa bir can kaybedersin; tahta yenilenir, puanın kalır.',
+                'Her 500 toplam puanda rakibinden bir can al. Hamlen kalmazsa bir can kaybedersin; tahta yenilenir, puanın kalır.',
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),
             if (!kIsWeb)

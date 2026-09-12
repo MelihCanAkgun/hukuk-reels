@@ -23,6 +23,7 @@ class BlockBattleSession extends ChangeNotifier {
   int get now => DateTime.now().millisecondsSinceEpoch + _offset;
   String get status => state?['status'] ?? 'waiting';
   String? get room => state?['roomId'];
+  int get round => state?['round'] as int? ?? 1;
   List<Map<String, dynamic>> get players =>
       (state?['players'] as List? ?? []).cast<Map<String, dynamic>>();
   Map<String, dynamic>? get mine =>
@@ -35,6 +36,8 @@ class BlockBattleSession extends ChangeNotifier {
       status == 'playing' &&
       players.length == 2 &&
       players.every((p) => p['connected'] == true);
+  bool get rematchRequested => mine?['rematch'] == true;
+  bool get opponentRematchRequested => opponent?['rematch'] == true;
 
   void receive(Map<String, dynamic> frame) {
     if (_disposed) return;
@@ -79,13 +82,15 @@ class BlockBattleSession extends ChangeNotifier {
     return result['error'] == null;
   }
 
+  Future<bool> requestRematch() => action('rematch');
+
   void place(int slot, int row, int col) {
     if (!canPlay) return;
     pending = true;
     // Only a completed placement crosses the bridge. The screen may predict its
     // visual impact but every persistent score/HP/board comes back from server.
     unawaited(
-        action('place', {'slot': slot, 'row': row, 'col': col}).then((ok) {
+        action('place', {'slot': slot, 'row': row, 'col': col, 'round': round}).then((ok) {
       if (!ok && !_disposed) {
         pending = false;
         notifyListeners();

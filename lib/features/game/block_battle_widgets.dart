@@ -16,7 +16,7 @@ class BattleHud extends StatelessWidget {
   Widget build(BuildContext context) {
     final mine = session.mine, other = session.opponent;
     String connection =
-        session.pending ? 'Hamle doğrulanıyor' : 'Her 600 puan = rakibe −1 can';
+        session.pending ? 'Hamle doğrulanıyor' : 'Her 500 puan = rakibe −1 can';
     if (!session.connected) {
       connection = 'Yeniden bağlanıyor…';
     } else if (session.players.any((p) => p['connected'] != true)) {
@@ -26,18 +26,18 @@ class BattleHud extends StatelessWidget {
     return SizedBox(
         height: 112,
         child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             child: FittedBox(
               fit: BoxFit.scaleDown,
               child: SizedBox(
-                  width: 310,
+                  width: 316,
                   child: Column(children: [
                     Row(children: [
-                      Expanded(child: _player(mine, 'SEN')),
+                      Expanded(child: _player(mine, other, 'SEN', isMine: true)),
                       if (other != null) ...[
                         SizedBox(
-                            width: 52,
-                            height: 52,
+                            width: 50,
+                            height: 50,
                             child: RepaintBoundary(
                                 child: CustomPaint(
                                     key:
@@ -48,11 +48,11 @@ class BattleHud extends StatelessWidget {
                                                 (r) => (r as List).cast<int?>())
                                             .toList(),
                                         palette)))),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                       ],
-                      Expanded(child: _player(other, 'RAKİP')),
+                      Expanded(child: _player(other, mine, 'RAKİP', isMine: false)),
                     ]),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     AnimatedSwitcher(
                         duration: MediaQuery.disableAnimationsOf(context)
                             ? Duration.zero
@@ -62,25 +62,73 @@ class BattleHud extends StatelessWidget {
                             maxLines: 2,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFFFFD36A)))),
+                                fontSize: 10.5, color: Color(0xFFFFD36A)))),
                   ])),
             )));
   }
 
-  Widget _player(Map<String, dynamic>? p, String label) => Column(children: [
-        Text(p?['name'] ?? label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 12, color: Colors.white70)),
-        Text('${p?['game']['score'] ?? 0}',
-            style: const TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.w900,
-                color: Colors.white)),
-        BattleHearts(
-            lives: p?['lives'] ?? 5,
-            critical: p?['lives'] == 1 && session.status == 'playing'),
-      ]);
+  Widget _player(
+      Map<String, dynamic>? p, Map<String, dynamic>? target, String label,
+      {required bool isMine}) {
+    final score = (p?['game']['score'] as int?) ?? 0;
+    final attackCurrent = score % 500;
+    final attackFactor = attackCurrent / 500.0;
+    final targetLives = (target?['lives'] as int?) ?? 5;
+    final showAttack = session.status != 'finished' && targetLives > 0;
+
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Text(p?['name'] ?? label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 11.5, color: Colors.white70)),
+      Text('$score',
+          style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              height: 1.05,
+              color: Colors.white)),
+      const SizedBox(height: 2),
+      BattleHearts(
+          lives: p?['lives'] ?? 5,
+          critical: p?['lives'] == 1 && session.status == 'playing'),
+      const SizedBox(height: 2),
+      if (showAttack) ...[
+        Text(
+          isMine ? 'ATTACK $attackCurrent / 500' : '$attackCurrent / 500',
+          key: ValueKey(isMine ? 'battle-mine-attack' : 'battle-other-attack'),
+          style: TextStyle(
+            fontSize: isMine ? 8.5 : 8,
+            fontWeight: FontWeight.w700,
+            color: isMine ? const Color(0xFFFFD36A) : Colors.white54,
+            letterSpacing: isMine ? 0.2 : 0,
+            height: 1.0,
+          ),
+        ),
+        const SizedBox(height: 2),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: Container(
+            height: isMine ? 4 : 3,
+            width: isMine ? 80 : 60,
+            color: Colors.white12,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: attackFactor,
+                child: Container(
+                  color: isMine
+                      ? const Color(0xFFFFD36A)
+                      : const Color(0xFFFF8B85),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ] else ...[
+        const SizedBox(height: 14),
+      ],
+    ]);
+  }
 }
 
 class BattlePreviewPainter extends CustomPainter {
@@ -180,7 +228,38 @@ class BattleResult extends StatelessWidget {
                           Text('Rakibe verilen skor hasarı: ${p['damage']}'),
                         ]))),
               const SizedBox(height: 16),
-              FilledButton(onPressed: onClose, child: const Text('Lobiye dön')),
+              if (session.opponentRematchRequested &&
+                  !session.rematchRequested) ...[
+                const Text('Rakip tekrar oynamak istiyor!',
+                    key: ValueKey('battle-opponent-rematch-notice'),
+                    style: TextStyle(
+                        color: Color(0xFFFFD36A),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13)),
+                const SizedBox(height: 8),
+              ],
+              if (session.rematchRequested) ...[
+                OutlinedButton.icon(
+                  key: const ValueKey('battle-rematch-waiting-button'),
+                  onPressed: null,
+                  icon: const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2)),
+                  label: const Text('Rakip bekleniyor…'),
+                ),
+              ] else ...[
+                FilledButton.icon(
+                  key: const ValueKey('battle-rematch-button'),
+                  onPressed: () => session.requestRematch(),
+                  icon: const Icon(Icons.replay_rounded, size: 18),
+                  label: Text(session.opponentRematchRequested
+                      ? 'Kabul Et ve Tekrar Oyna'
+                      : 'Tekrar Oyna'),
+                ),
+              ],
+              const SizedBox(height: 6),
+              TextButton(onPressed: onClose, child: const Text('Lobiye dön')),
             ])),
       )),
     ));

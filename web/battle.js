@@ -26,11 +26,16 @@
     retry=setTimeout(()=>{retry=null;void open(false);},Math.min(2500,350*2**attempts++));
   }
   function accept(frame) {
+    const oldRound = state?.round || 1;
     if(frame.state && (!state || frame.state.revision>=state.revision)) state=frame.state;
     if(frame.type==='ERROR') {error=frame.error;pending=null;}
     else error=null;
+    const newRound = state?.round || 1;
     const mine=state?.players.find(p=>p.id===me);
-    if(pending && (mine?.lastMove>=pending.moveId || state?.status==='finished')) pending=null;
+    if(pending && (newRound > oldRound || mine?.lastMove>=pending.moveId || state?.status==='finished')) {
+      pending=null;
+      if (newRound > oldRound) lastSent = 0;
+    }
     persist();emit(frame);
   }
   async function open(create=false) {
@@ -99,14 +104,14 @@
         cancelTimers();stopped=true;++generation;socket?.close();socket=null;state=null;pending=null;
         room=action==='join'?String(data.room).trim().toUpperCase():null;
         connecting=false;await open(action==='create');
-      } else if(action==='ready' || action==='place' || action==='resign') {
+      } else if(action==='ready' || action==='place' || action==='resign' || action==='rematch') {
         if(!connected || socket?.readyState!==WebSocket.OPEN)throw new Error('Bağlantı yeniden kuruluyor.');
-        let message={type:action==='ready'?'PLAYER_READY':'RESIGN'};
+        let message={type:action==='ready'?'PLAYER_READY':action==='rematch'?'REMATCH':'RESIGN'};
         if(action==='place') {
           if(pending)throw new Error('Önceki hamle doğrulanıyor.');
           const mine=state?.players.find(p=>p.id===me);
           if(state?.status!=='playing' || !state.players.every(p=>p.connected))throw new Error('Maç hazır değil.');
-          message={type:'PLACE_PIECE',moveId:mine.lastMove+1,slot:data.slot,row:data.row,col:data.col};
+          message={type:'PLACE_PIECE',moveId:mine.lastMove+1,slot:data.slot,row:data.row,col:data.col,round:state?.round||1};
           pending=message;lastSent=message.moveId;lastSentAt=Date.now();persist();
         }
         socket.send(JSON.stringify(message));emit({type:'PENDING'});

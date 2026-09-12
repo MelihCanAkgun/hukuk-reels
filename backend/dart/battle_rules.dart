@@ -27,9 +27,12 @@ void main() {
           m.advance(now);
         case 'resign':
           m.resign(data['id'], now);
+        case 'rematch':
+          m.rematch(data['id'], now, newSeed: data['seed'] as int?);
         case 'place':
           result = m.place(data['id'], data['moveId'], data['slot'],
-              data['row'], data['col'], now);
+              data['row'], data['col'], now,
+              round: data['round'] as int?);
       }
       return jsonEncode({'state': m.toJson(), 'events': m.events, ...?result})
           .toJS;
