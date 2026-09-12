@@ -358,7 +358,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           _battleFeedback = 'HAMLE KALMADI · −1 CAN · Tahta yenilendi';
         } else if (event['type'] == 'DAMAGE') {
           _battleFeedback = event['player'] == session.me
-              ? '−${event['amount']} CAN · Rakip 1000 puan eşiğini geçti'
+              ? '−${event['amount']} CAN · Rakip 600 puan eşiğini geçti'
               : 'RAKİP −${event['amount']} CAN';
         }
       }

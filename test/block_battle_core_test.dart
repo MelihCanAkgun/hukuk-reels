@@ -126,12 +126,12 @@ void main() {
     expect(jsonEncode(session.state), before);
     session.dispose();
   });
-  for (final value in [999, 1999]) {
+  for (final value in [599, 1199]) {
     test('$value crossing applies exactly one NEW damage threshold', () {
       final m = playing();
       final p = m.player(1);
       single(p, value);
-      p.thresholds = value ~/ 1000;
+      p.thresholds = value ~/ 600;
       expect(m.place(1, 1, 0, 0, 0, 3001)['ok'], true);
       expect(p.game.score, value + 1);
       expect(m.player(2).lives, 4);
@@ -141,31 +141,75 @@ void main() {
       expect(jsonEncode(m.toJson()), before);
     });
   }
+  for (final target in [599, 600, 1199, 1200, 1800, 2400, 3000]) {
+    test(
+        'cumulative 600 thresholds at $target points, including restore and replay',
+        () {
+      var m = playing();
+      final prior = (target - 1) ~/ 600;
+      single(m.player(1), target - 1);
+      m.player(1).thresholds = prior;
+      m.player(1).damage = prior;
+      m.player(2).lives = 5 - prior;
+      m = BattleMatch.restore(jsonDecode(jsonEncode(m.toJson())));
+      m.place(1, 1, 0, 0, 0, 3001);
+      expect(m.player(1).game.score, target);
+      expect(m.player(1).damage, target ~/ 600);
+      expect(m.player(2).lives, 5 - target ~/ 600);
+      final snapshot = jsonEncode(m.toJson());
+      m.place(1, 1, 0, 0, 0, 3002);
+      expect(jsonEncode(m.toJson()), snapshot);
+    });
+  }
+  for (final start in [590, 1150]) {
+    test('legal large jump from $start crosses only new thresholds', () {
+      final m = playing();
+      final p = m.player(1);
+      // Keep a second occupied cell so the clear does not add all-clear bonus.
+      single(p, start);
+      p.game.grid[0] = [null, 0, 0, 0, 0, 0, 0, 0];
+      p.game.grid[7][7] = 0;
+      p.game.combo = start == 590 ? 13 : 69;
+      p.thresholds = start ~/ 600;
+      m.place(1, 1, 0, 0, 0, 3001);
+      expect(p.game.score, start == 590 ? 731 : 1851);
+      expect(p.damage, start == 590 ? 1 : 2);
+    });
+  }
+  test('old damage snapshots rebase without surprise retroactive damage', () {
+    final data = playing().toJson()..remove('damageStep');
+    data['players'][0]['game']['score'] = 1750;
+    data['players'][0]['thresholds'] = 1;
+    final m = BattleMatch.restore(data);
+    expect(m.player(1).thresholds, 2);
+    expect(m.player(2).lives, 5);
+    expect(m.toJson()['damageStep'], 600);
+  });
   test('multiple thresholds crossed in one legal clear each damage once', () {
     final m = playing();
     final p = m.player(1);
-    single(p, 999);
+    single(p, 599);
     p.game.grid[0] = [null, 0, 0, 0, 0, 0, 0, 0];
     p.game.combo = 199;
     m.place(1, 1, 0, 0, 0, 3001);
-    expect(p.game.score, 3300);
-    expect(m.player(2).lives, 2);
-    expect(p.damage, 3);
-    expect(p.thresholds, 3);
+    expect(p.game.score, 2900);
+    expect(m.player(2).lives, 1);
+    expect(p.damage, 4);
+    expect(p.thresholds, 4);
   });
   test('board-out loses one life, preserves score/damage and draws next set',
       () {
     final m = playing();
     final p = m.player(1);
     blocked(p);
-    p.game.score = 2650;
+    p.game.score = 1450;
     p.thresholds = 2;
     p.damage = 2;
     final set = p.nextSet;
     m.place(1, 1, 0, 0, 1, 3001);
     expect(p.lives, 4);
     expect(p.boardOuts, 1);
-    expect(p.game.score, 2651);
+    expect(p.game.score, 1451);
     expect(p.damage, 2);
     expect(p.thresholds, 2);
     expect(p.game.grid.expand((r) => r).every((v) => v == null), true);
@@ -192,7 +236,7 @@ void main() {
     final m = playing();
     final p = m.player(1);
     blocked(p);
-    p.game.score = 999;
+    p.game.score = 599;
     m.player(2).lives = 1;
     m.place(1, 1, 0, 0, 1, 3001);
     expect(m.winner, 1);

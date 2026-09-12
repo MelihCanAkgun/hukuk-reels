@@ -15,9 +15,8 @@ class BattleHud extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mine = session.mine, other = session.opponent;
-    String connection = session.pending
-        ? 'Hamle doğrulanıyor'
-        : 'Her 1000 puan = rakibe −1 can';
+    String connection =
+        session.pending ? 'Hamle doğrulanıyor' : 'Her 600 puan = rakibe −1 can';
     if (!session.connected) {
       connection = 'Yeniden bağlanıyor…';
     } else if (session.players.any((p) => p['connected'] != true)) {
