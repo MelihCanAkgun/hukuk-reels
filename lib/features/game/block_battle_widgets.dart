@@ -15,14 +15,33 @@ class BattleHud extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mine = session.mine, other = session.opponent;
-    String connection =
-        session.pending ? 'Hamle doğrulanıyor' : 'Her 500 puan = rakibe −1 can';
-    if (!session.connected) {
+    final myGame = mine?['game'] as Map?;
+    final combo = (myGame?['combo'] as int?) ?? 0;
+    final misses = (myGame?['misses'] as int?) ?? 0;
+    final comboBonus = (myGame?['comboBonus'] as int?) ?? 0;
+    final resetIn = (3 - misses).clamp(1, 3);
+
+    String connection = '';
+    if (session.pending) {
+      connection = 'Hamle doğrulanıyor';
+    } else if (!session.connected) {
       connection = 'Yeniden bağlanıyor…';
     } else if (session.players.any((p) => p['connected'] != true)) {
       connection = 'Rakibin bağlantısı bekleniyor · 15 sn';
+    } else if (session.error != null) {
+      connection = session.error!;
+    } else if (combo > 0) {
+      final bonus = comboBonus > 0 ? comboBonus : 10 * combo;
+      connection = 'COMBO x$combo  ·  +$bonus COMBO  ·  RESET: $resetIn';
     }
-    if (session.error != null) connection = session.error!;
+
+    final displayText = feedback.isNotEmpty ? feedback : connection;
+    final displayKey = feedback.isNotEmpty
+        ? ValueKey('feedback-$feedback')
+        : combo > 0
+            ? ValueKey('combo-$combo-$resetIn')
+            : ValueKey('connection-$connection');
+
     return SizedBox(
         height: 112,
         child: Padding(
@@ -57,12 +76,14 @@ class BattleHud extends StatelessWidget {
                         duration: MediaQuery.disableAnimationsOf(context)
                             ? Duration.zero
                             : const Duration(milliseconds: 180),
-                        child: Text(feedback.isNotEmpty ? feedback : connection,
-                            key: ValueKey(feedback),
+                        child: Text(displayText,
+                            key: displayKey,
                             maxLines: 2,
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                                fontSize: 10.5, color: Color(0xFFFFD36A)))),
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFFFD36A)))),
                   ])),
             )));
   }
@@ -257,6 +278,16 @@ class BattleResult extends StatelessWidget {
                       ? 'Kabul Et ve Tekrar Oyna'
                       : 'Tekrar Oyna'),
                 ),
+              ],
+              if (session.error != null) ...[
+                const SizedBox(height: 8),
+                Text(session.error!,
+                    key: const ValueKey('battle-result-error'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: Color(0xFFFF8B85),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12)),
               ],
               const SizedBox(height: 6),
               TextButton(onPressed: onClose, child: const Text('Lobiye dön')),

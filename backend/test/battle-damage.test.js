@@ -79,3 +79,59 @@ test('compiled server handles rematch flow: single request waits, mutual request
   const oldMove=rules({state:req2.state,action:'place',id:1,moveId:1,slot:0,row:0,col:0,now:3008,round:1});
   assert.equal(oldMove.error,'Eski round hamlesi.');
 });
+test('compiled server waiting disconnect keeps room alive for 1h and allows reconnect; playing disconnect forfeits in 15s', () => {
+  let res = rules({roomId:'WAIT99', seed:123, action:'join', id:1, name:'P1', now:0});
+  res = rules({state:res.state, action:'connect', id:1, now:0});
+  assert.equal(res.state.status, 'waiting');
+
+  // Player 1 disconnects in lobby
+  res = rules({state:res.state, action:'disconnect', id:1, now:1000});
+  assert.equal(res.state.players[0].connected, false);
+  assert.equal(res.state.players[0].disconnectAt, null);
+
+  // 16s advance must NOT end match
+  res = rules({state:res.state, action:'advance', now:17000});
+  assert.equal(res.state.status, 'waiting');
+
+  // Player 1 reconnects
+  res = rules({state:res.state, action:'connect', id:1, now:18000});
+  assert.equal(res.state.players[0].connected, true);
+  assert.equal(res.state.status, 'waiting');
+
+  // After 1 hour, room expires
+  res = rules({state:res.state, action:'advance', now:3600000});
+  assert.equal(res.state.status, 'finished');
+  assert.equal(res.state.reason, 'expired');
+
+  // Active playing match forfeits after 15s disconnect
+  const active = match();
+  assert.equal(active.status, 'playing');
+  let disc = rules({state:active, action:'disconnect', id:1, now:4000});
+  assert.equal(disc.state.players[0].disconnectAt, 19000);
+  let mid = rules({state:disc.state, action:'advance', now:18999});
+  assert.equal(mid.state.status, 'playing');
+  let forfeited = rules({state:disc.state, action:'advance', now:19000});
+  assert.equal(forfeited.state.status, 'finished');
+  assert.equal(forfeited.state.reason, 'disconnect');
+  assert.equal(forfeited.state.winner, 2);
+});
+test('compiled server tracks combo and comboBonus according to singleplayer rules', () => {
+  const state = match();
+  const p = state.players[0];
+  p.game.grid[0] = [null, 0, 0, 0, 0, 0, 0, 0];
+  p.game.tray = [[0, 0], [0, 1], [0, 2]];
+  assert.equal(p.game.combo, 0);
+
+  // Clear row 0 -> combo becomes 1, comboBonus = 10 * 1^2 * 1 = 10
+  const m1 = rules({state, action:'place', id:1, moveId:1, slot:0, row:0, col:0, now:3001});
+  assert.equal(m1.state.players[0].game.combo, 1);
+  assert.equal(m1.state.players[0].game.comboBonus, 10);
+  assert.equal(m1.state.players[0].game.misses, 0);
+
+  // Miss 1 -> combo stays 1, misses becomes 1, comboBonus stays 10
+  m1.state.players[0].game.tray = [[0, 0], [0, 1], null];
+  const m2 = rules({state:m1.state, action:'place', id:1, moveId:2, slot:0, row:2, col:2, now:3002});
+  assert.equal(m2.state.players[0].game.combo, 1);
+  assert.equal(m2.state.players[0].game.comboBonus, 10);
+  assert.equal(m2.state.players[0].game.misses, 1);
+});

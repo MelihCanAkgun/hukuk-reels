@@ -14,6 +14,7 @@ import 'package:hukuk_reels/features/game/block_battle_core.dart';
 import 'package:hukuk_reels/features/game/block_battle_session.dart';
 import 'package:hukuk_reels/features/game/block_blast_screen.dart';
 import 'package:hukuk_reels/features/game/block_battle_life_fx.dart';
+import 'package:hukuk_reels/features/game/block_battle_widgets.dart';
 
 BattleMatch match() {
   final now = DateTime.now().millisecondsSinceEpoch;
@@ -304,6 +305,61 @@ void main() {
     expect(find.byKey(const ValueKey('battle-rematch-waiting-button')), findsOneWidget);
     expect(find.text('Rakip bekleniyor…'), findsOneWidget);
 
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  testWidgets('Battle HUD displays combo status and omits old 500pt notice',
+      (tester) async {
+    final m = match();
+    // Initially combo = 0
+    final session =
+        BlockBattleSession(listen: false, transport: (a, d) async => {})
+          ..receive(frame(m));
+    await tester
+        .pumpWidget(MaterialApp(home: BlockBlastScreen(battle: session)));
+    await tester.pumpAndSettle();
+
+    // Old 500pt notice is gone
+    expect(find.textContaining('Her 500 puan = rakibe'), findsNothing);
+    // When combo is 0, no combo banner
+    expect(find.textContaining('COMBO x'), findsNothing);
+
+    // Now player has combo 4, misses 1 (reset in 2), comboBonus 120
+    m.player(1).game.combo = 4;
+    m.player(1).game.misses = 1;
+    m.player(1).game.comboBonus = 120;
+    session.receive(frame(m));
+    await tester.pumpAndSettle();
+
+    expect(find.text('COMBO x4  ·  +120 COMBO  ·  RESET: 2'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  testWidgets('BattleResult renders error message if session error occurs',
+      (tester) async {
+    final m = match();
+    m.resign(2, DateTime.now().millisecondsSinceEpoch);
+    final session = BlockBattleSession(
+        listen: false, transport: (a, d) async => {'ok': true})
+      ..receive(frame(m));
+    await tester
+        .pumpWidget(MaterialApp(home: BlockBlastScreen(battle: session)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('battle-result-error')), findsNothing);
+
+    // Session receives error frame
+    session.receive({...frame(m), 'error': 'Bağlantı yeniden kuruluyor.'});
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('battle-result-error')), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(BattleResult),
+            matching: find.text('Bağlantı yeniden kuruluyor.')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     session.dispose();

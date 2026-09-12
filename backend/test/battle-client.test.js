@@ -53,3 +53,36 @@ test('expired/invalid room stops retry; transient join failure keeps retry avail
   c.fail(null);await c.call('create');c.sockets[0].open();c.fail({error:'Offline'});
   c.sockets[0].close();await c.tick();assert.equal(c.timers.size,1);
 });
+test('finished state reconnects on disconnect, persists room for refresh, and allows rematch request',async()=>{
+  const c=client();await c.call('create');const a=c.sockets[0];a.open();
+  c.state.status='finished';c.state.winner=2;c.state.round=1;
+  a.message({type:'STATE_UPDATE',state:c.state});
+
+  // Room must persist in storage for refresh/inspect during finished state
+  assert.equal((await c.call('inspect')).room,'ABC234');
+  assert.ok(c.storage.has('hukuk_battle_v1'));
+
+  // Socket drops on finish/rematch screen
+  a.close();
+  assert.equal(c.sockets.length,1);
+
+  // Reconnect timer must fire and open second socket
+  await c.tick();
+  assert.equal(c.sockets.length,2);
+  const b=c.sockets[1];b.open();b.message({type:'STATE_UPDATE',state:c.state});
+
+  // Player taps Rematch -> sends REMATCH message over new socket
+  const res=await c.call('rematch');
+  assert.equal(res.error,null);
+  assert.equal(res.ok,true);
+  assert.deepEqual(JSON.parse(b.sent.at(-1)),{type:'REMATCH'});
+
+  // Opponent also rematches -> round 2 arrives
+  c.state.status='countdown';c.state.round=2;
+  b.message({type:'STATE_UPDATE',state:c.state});
+  assert.equal(JSON.parse(c.storage.get('hukuk_battle_v1')).room,'ABC234');
+
+  // Explicit leave cleans up storage
+  await c.call('leave');
+  assert.equal(c.storage.size,0);
+});

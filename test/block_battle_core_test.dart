@@ -352,4 +352,94 @@ void main() {
       expect(p.game.toJson(), restored.player(1).game.toJson());
     }
   });
+  test(
+      'waiting disconnect does not forfeit match, player can reconnect and 1h expiration works',
+      () {
+    final m = BattleMatch('WAIT01', 12345, 0);
+    m.join(1, 'Player 1', 0);
+    m.connect(1, 0);
+    expect(m.status, 'waiting');
+
+    // Player 1 disconnects in lobby
+    m.disconnect(1, 1000);
+    expect(m.player(1).connected, false);
+    expect(m.player(1).disconnectAt, isNull);
+    expect(m.status, 'waiting');
+
+    // 16+ seconds pass: advance must NOT end match
+    m.advance(20000);
+    expect(m.status, 'waiting');
+    expect(m.finished, false);
+    expect(m.reason, isNull);
+
+    // Player 1 reconnects successfully
+    m.connect(1, 21000);
+    expect(m.player(1).connected, true);
+    expect(m.status, 'waiting');
+
+    // Disconnect again and let 1 hour pass (60 * 60 * 1000)
+    m.disconnect(1, 22000);
+    m.advance(60 * 60 * 1000 + 22000);
+    expect(m.status, 'finished');
+    expect(m.reason, 'expired');
+  });
+  test(
+      'battle combo tracks singleplayer engine rules: increase, bonus, reset countdown',
+      () {
+    final m = playing();
+    final p = m.player(1);
+
+    // Setup board with row 0 almost full (7 filled, 1 empty at col 0)
+    p.game.grid[0] = [null, 0, 0, 0, 0, 0, 0, 0];
+    p.game.tray = [
+      const BlockPiece(0, 0),
+      const BlockPiece(0, 1),
+      const BlockPiece(0, 2)
+    ];
+    expect(p.game.combo, 0);
+    expect(p.game.comboBonus, 0);
+
+    // Place single cell at (0, 0) -> clears row 0 -> lines = 1
+    final res1 = m.place(1, 1, 0, 0, 0, 3001);
+    expect(res1['ok'], true);
+    expect(p.game.combo, 1);
+    expect(p.game.misses, 0);
+    // Formula: 10 * 1^2 * 1 = 10
+    expect(p.game.comboBonus, 10);
+
+    // Place piece without line clear (miss 1) -> combo preserved, misses = 1
+    p.game.tray = [const BlockPiece(0, 0), const BlockPiece(0, 1), null];
+    final res2 = m.place(1, 2, 0, 2, 2, 3002);
+    expect(res2['ok'], true);
+    expect(p.game.combo, 1);
+    expect(p.game.misses, 1);
+    expect(p.game.comboBonus, 10); // Preserved from last clear
+
+    // Another miss (miss 2) -> misses = 2
+    p.game.tray = [const BlockPiece(0, 0), null, null];
+    final res3 = m.place(1, 3, 0, 3, 3, 3003);
+    expect(res3['ok'], true);
+    expect(p.game.combo, 1);
+    expect(p.game.misses, 2);
+    expect(p.game.comboBonus, 10);
+
+    // Setup row 4 for clear on 4th move to continue combo
+    p.game.grid[4] = [null, 0, 0, 0, 0, 0, 0, 0];
+    p.game.tray = [const BlockPiece(0, 0), null, null];
+    final res4 = m.place(1, 4, 0, 4, 0, 3004);
+    expect(res4['ok'], true);
+    expect(p.game.combo, 2); // Increased to 2!
+    expect(p.game.misses, 0); // Reset misses!
+    // Formula: 10 * 1^2 * 2 = 20
+    expect(p.game.comboBonus, 20);
+
+    // Now 3 consecutive misses should reset combo to 0
+    for (var i = 1; i <= 3; i++) {
+      p.game.tray = [const BlockPiece(0, 0), null, null];
+      m.place(1, 4 + i, 0, 5, i, 3004 + i);
+    }
+    expect(p.game.combo, 0); // Reset!
+    expect(p.game.misses, 0);
+    expect(p.game.comboBonus, 0);
+  });
 }
