@@ -229,7 +229,7 @@ void main() {
     await tester
         .pumpWidget(MaterialApp(home: BlockBlastScreen(battle: session)));
     await tester.pumpAndSettle();
-    expect(find.text('DEFEAT'), findsOneWidget);
+    expect(find.text('MAĞLUBİYET'), findsOneWidget);
     expect(find.text('Kazanan: Oyuncu 2'), findsOneWidget);
     expect(find.textContaining('Rakibe verilen skor hasarı'), findsNWidgets(2));
     expect(find.text('Lobiye dön'), findsOneWidget);
@@ -364,4 +364,122 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     session.dispose();
   });
+  testWidgets(
+      'BattleResult renders Victory state with ZAFER, trophy icon, and winner highlight',
+      (tester) async {
+    final m = match();
+    m.player(1).game.score = 1500;
+    m.player(1).damage = 3;
+    m.player(1).boardOuts = 1;
+    m.player(2).game.score = 450;
+    m.player(2).damage = 0;
+    m.resign(2, DateTime.now().millisecondsSinceEpoch);
+    final session =
+        BlockBattleSession(listen: false, transport: (a, d) async => {})
+          ..receive(frame(m));
+    await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.dark, home: BlockBlastScreen(battle: session)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ZAFER'), findsOneWidget);
+    expect(find.text('Kazanan: Oyuncu 1'), findsOneWidget);
+    expect(find.byIcon(Icons.emoji_events_rounded), findsOneWidget);
+    expect(find.text('RAKİP MAÇTAN AYRILDI'), findsOneWidget);
+    expect(find.text('KAZANAN'), findsOneWidget);
+    expect(find.text('RAKİP'), findsOneWidget);
+    expect(find.text('VS'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(BattleResult), matching: find.text('1500')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(BattleResult), matching: find.text('450')),
+        findsOneWidget);
+    expect(find.text('3 hasar'), findsOneWidget);
+    expect(find.text('1 kez'), findsOneWidget);
+    expect(find.text('Tekrar Oyna'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
+  testWidgets(
+      'BattleResult renders correct reason badges for different game over reasons',
+      (tester) async {
+    final reasonsToTest = [
+      ('score', true, 'RAKİBİN CANI BİTTİ'),
+      ('score', false, 'CANLARIN TÜKENDİ'),
+      ('board_out', true, 'RAKİPTE HAMLE KALMADI'),
+      ('board_out', false, 'HAMLE KALMADI · BOARD-OUT'),
+      ('disconnect', true, 'RAKİBİN BAĞLANTISI KOPTU'),
+      ('disconnect', false, 'BAĞLANTI ZAMAN AŞIMI'),
+      ('expired', true, 'ODA SÜRESİ DOLDU'),
+    ];
+
+    for (final testCase in reasonsToTest) {
+      final reason = testCase.$1;
+      final isWinner = testCase.$2;
+      final expectedText = testCase.$3;
+
+      final m = match();
+      final winnerId = isWinner ? 1 : 2;
+      final frameMap = frame(m);
+      final stateMap = frameMap['state'] as Map<String, dynamic>;
+      stateMap['status'] = 'finished';
+      stateMap['reason'] = reason;
+      stateMap['winner'] = winnerId;
+
+      final session =
+          BlockBattleSession(listen: false, transport: (a, d) async => {})
+            ..receive(frameMap);
+      await tester.pumpWidget(MaterialApp(
+          theme: AppTheme.dark, home: BlockBlastScreen(battle: session)));
+      await tester.pumpAndSettle();
+
+      expect(find.text(expectedText), findsOneWidget,
+          reason: 'Expected "$expectedText" for reason: $reason, isWinner: $isWinner');
+      await tester.pumpWidget(const SizedBox());
+      session.dispose();
+    }
+  });
+  testWidgets(
+      'BattleResult handles long player names without overflow at Size(320, 568)',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final m = match();
+    m.resign(2, DateTime.now().millisecondsSinceEpoch);
+    final frameMap = frame(m);
+    final players =
+        (frameMap['state'] as Map<String, dynamic>)['players'] as List;
+    (players[0] as Map<String, dynamic>)['name'] =
+        'CokUzunBirOyuncuIsmiVeUnvani';
+    (players[1] as Map<String, dynamic>)['name'] =
+        'RakipOyuncuAdiDaCokUzunBirMetin';
+    final session =
+        BlockBattleSession(listen: false, transport: (a, d) async => {})
+          ..receive(frameMap);
+    await tester.pumpWidget(MaterialApp(
+        theme: AppTheme.dark, home: BlockBlastScreen(battle: session)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ZAFER'), findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(BattleResult),
+            matching: find.text('CokUzunBirOyuncuIsmiVeUnvani')),
+        findsOneWidget);
+    expect(
+        find.descendant(
+            of: find.byType(BattleResult),
+            matching: find.text('RakipOyuncuAdiDaCokUzunBirMetin')),
+        findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+    session.dispose();
+  });
 }
+
