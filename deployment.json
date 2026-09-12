@@ -1,0 +1,6 @@
+{
+  "source_commit": "d73764803a4654d248ceea8c4ed59e0a33b2f3ae",
+  "built_at": "2026-09-12T11:18:51.255445+00:00",
+  "checks": "66 Flutter, 22 backend tests passed; analyze clean; release build passed",
+  "change": "500 damage threshold, attack progress bar, and rematch system"
+}
