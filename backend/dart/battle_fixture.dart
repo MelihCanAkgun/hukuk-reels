@@ -37,5 +37,10 @@ void main() {
     m.place(id, p.lastMove + 1, slot, r, c, 3001 + i);
     record(command);
   }
+  // A fairer generator may keep this bot alive for the full trace budget.
+  if (!m.finished) {
+    m.resign(1, 4000);
+    record({'action': 'resign', 'id': 1, 'now': 4000});
+  }
   stdout.writeln(jsonEncode(steps));
 }

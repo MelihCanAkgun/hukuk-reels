@@ -63,7 +63,11 @@ class BlockBattleSession extends ChangeNotifier {
     var nextSet = mine!['nextSet'] as int;
     final seed = state!['seed'] as int;
     return BlockBlastEngine.restore(Map<String, dynamic>.from(mine!['game']),
-        nextTray: () => battleTray(seed, nextSet++));
+        // Shared board-aware sets are selected only by the authoritative server.
+        // Keep the tray empty during the existing pending-ack interval.
+        nextTray: () => state?['version'] == 2
+            ? <BlockPiece?>[null, null, null]
+            : battleTray(seed, nextSet++));
   }
 
   Future<bool> action(String action,

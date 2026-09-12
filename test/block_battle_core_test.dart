@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hukuk_reels/features/game/block_battle_core.dart';
+import 'package:hukuk_reels/features/game/block_battle_session.dart';
 import 'package:hukuk_reels/features/game/block_blast_engine.dart';
 
 BattleMatch playing() {
@@ -38,6 +39,92 @@ void main() {
     }
     expect(b.game.grid[0][0], null);
     expect(b.game.score, 0);
+  });
+  test('shared sets survive lag, different boards, restore and cache pruning',
+      () {
+    var m = playing();
+    final expected = <Object?>[];
+    for (var i = 0; i < 15; i++) {
+      m.player(1).game.grid[0][i % 7] = i % 8;
+      m.player(1).game.refill();
+      expected.add(m.player(1).game.toJson()['tray']);
+    }
+    m = BattleMatch.restore(jsonDecode(jsonEncode(m.toJson())));
+    m.player(2).game.grid = List.generate(
+        8, (r) => List.generate(8, (c) => (r + c).isEven ? 0 : null));
+    for (final tray in expected) {
+      m.player(2).game.refill();
+      expect(m.player(2).game.toJson()['tray'], tray);
+    }
+    expect(m.toJson()['sets'], isEmpty);
+  });
+  test('legacy persisted matches keep their original future sequence', () {
+    final data = playing().toJson()..['version'] = 1;
+    data.remove('sets');
+    final m = BattleMatch.restore(data);
+    final index = m.player(1).nextSet;
+    m.player(1).game.refill();
+    expect(m.player(1).game.tray.map((p) => p!.shape),
+        battleTray(m.seed, index).map((p) => p!.shape));
+    expect(m.toJson()['version'], 1);
+  });
+  test('fair generator is symmetric, deterministic and never mutates boards',
+      () {
+    final a = BlockBlastEngine(), b = BlockBlastEngine();
+    a.grid[0][0] = 1;
+    b.grid[7][7] = 2;
+    a.score = 2000;
+    final before = jsonEncode([a.toJson(), b.toJson()]);
+    for (var index = 0; index < 80; index++) {
+      final x =
+          fairBattleTray(123, index, [a, b]).map((p) => p!.shape).toList();
+      expect(fairBattleTray(123, index, [b, a]).map((p) => p!.shape), x);
+      expect(fairBattleTray(123, index, [a, b]).map((p) => p!.shape), x);
+    }
+    expect(jsonEncode([a.toJson(), b.toJson()]), before);
+  });
+  test('early shared distribution avoids all-large trays without single spam',
+      () {
+    final boards = [BlockBlastEngine.empty(), BlockBlastEngine.empty()];
+    var oldLarge = 0, newLarge = 0, singles = 0;
+    for (var seed = 1; seed <= 500; seed++) {
+      final old = battleTray(seed * 7919, 0).whereType<BlockPiece>().toList();
+      final next = fairBattleTray(seed * 7919, 0, boards)
+          .whereType<BlockPiece>()
+          .toList();
+      if (old.every((p) => p.cells.length >= 5)) oldLarge++;
+      if (next.every((p) => p.cells.length >= 5)) newLarge++;
+      singles += next.where((p) => p.cells.length == 1).length;
+      expect(next.length, 3);
+    }
+    expect(oldLarge, greaterThan(0));
+    expect(newLarge, 0);
+    expect(singles, lessThan(150));
+  });
+  test('ruined boards can still receive an unplayable shared set', () {
+    final a = BlockBlastEngine.empty();
+    a.grid = List.generate(
+        8, (r) => List.generate(8, (c) => (r + c).isEven ? 0 : null));
+    var blocked = 0;
+    for (var seed = 1; seed <= 50; seed++) {
+      a.tray = fairBattleTray(seed, 20, [a, a]);
+      if (!a.hasMove) blocked++;
+    }
+    expect(blocked, greaterThan(25));
+  });
+  test(
+      'client waits for authoritative refill instead of choosing shared pieces',
+      () {
+    final m = playing();
+    final session =
+        BlockBattleSession(listen: false, transport: (_, __) async => {})
+          ..receive({'me': 1, 'state': m.toJson(), 'connected': true});
+    final before = jsonEncode(session.state);
+    final prediction = session.engine()!;
+    prediction.refill();
+    expect(prediction.tray, everyElement(isNull));
+    expect(jsonEncode(session.state), before);
+    session.dispose();
   });
   for (final value in [999, 1999]) {
     test('$value crossing applies exactly one NEW damage threshold', () {
