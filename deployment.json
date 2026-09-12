@@ -1,6 +1,6 @@
 {
-  "source_commit": "404d778fa80eb4283bc138cbc149f95eaedf9dc7",
-  "built_at": "2026-09-12T12:02:10+00:00",
-  "checks": "70 Flutter, 25 backend tests passed; analyze clean; release build passed",
-  "change": "Implement Battle combo HUD, fix waiting disconnect and finished rematch reconnect"
+  "source_commit": "dbce53a2378d5156dd37c10612231a7dd0999079",
+  "built_at": "2026-09-12T12:24:50+00:00",
+  "checks": "73 Flutter, 25 backend tests passed; analyze clean; release build passed",
+  "change": "Redesign Block Blast 1v1 Battle match end screen with modern visual polish"
 }
