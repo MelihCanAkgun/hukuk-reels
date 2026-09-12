@@ -145,7 +145,7 @@
       navigator.serviceWorker.addEventListener('controllerchange', function () {
         if (applyingUpdate) window.location.reload();
       });
-      navigator.serviceWorker.register('flutter_service_worker.js?v=1411443976') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
+      navigator.serviceWorker.register('flutter_service_worker.js?v=795086909') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
         function offerUpdate() {
           if (!reg.waiting || !navigator.serviceWorker.controller || document.getElementById('update-app')) return;
           const button = document.createElement('button');
