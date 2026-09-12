@@ -249,7 +249,7 @@ class BlockBlastEngine {
   final List<BlockPiece?> Function()? nextTray;
   List<List<int?>> grid = List.generate(size, (_) => List.filled(size, null));
   List<BlockPiece?> tray = [null, null, null];
-  int score = 0, combo = 0, misses = 0;
+  int score = 0, combo = 0, misses = 0, comboBonus = 0;
   bool reviveUsed = false;
   BlockBlastEngine({Random? random, this.nextTray})
       : random = random ?? Random() {
@@ -327,11 +327,13 @@ class BlockBlastEngine {
     if (lines > 0) {
       combo++;
       misses = 0;
+      comboBonus = 10 * lines * lines * combo;
     } else if (combo > 0) {
       misses++;
       if (misses >= comboGrace) {
         combo = 0;
         misses = 0;
+        comboBonus = 0;
       }
     }
     final allClear =
@@ -391,6 +393,7 @@ class BlockBlastEngine {
     reviveUsed = true;
     combo = 0;
     misses = 0;
+    comboBonus = 0;
     grid = List.generate(size, (_) => List.filled(size, null));
     if (tray.every((p) => p == null)) refill();
   }
@@ -404,6 +407,7 @@ class BlockBlastEngine {
         'score': score,
         'combo': combo,
         'misses': misses,
+        'comboBonus': comboBonus,
         'reviveUsed': reviveUsed,
       };
   static BlockBlastEngine? restore(Map<String, dynamic>? data,
@@ -437,7 +441,8 @@ class BlockBlastEngine {
       if (t.length != 3 || t.every((p) => p == null)) return null;
       final score = data['score'] as int,
           combo = data['combo'] as int,
-          misses = data['misses'] as int;
+          misses = data['misses'] as int,
+          comboBonus = data['comboBonus'] as int? ?? 0;
       if (score < 0 ||
           combo < 0 ||
           misses < 0 ||
@@ -453,6 +458,7 @@ class BlockBlastEngine {
         ..score = score
         ..combo = combo
         ..misses = misses
+        ..comboBonus = comboBonus
         ..reviveUsed = data['reviveUsed'] as bool;
     } catch (_) {
       return null;

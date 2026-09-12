@@ -138,7 +138,7 @@ export class BattleRoom {
       else { this.send(ws,{type:'ERROR',error:'Bilinmeyen mesaj.'}); return; }
       await this.save();
       if (result.error) this.send(ws,this.frame({type:'ERROR',error:result.error}));
-      this.broadcast({events:result.events,move:result.move});
+      else this.broadcast({events:result.events,move:result.move});
     });
   }
   async webSocketClose(ws) {

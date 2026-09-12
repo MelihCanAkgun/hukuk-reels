@@ -247,7 +247,11 @@ class BattleMatch {
       revision++;
       return;
     }
-    p.disconnectAt = now + 15000;
+    if (status == 'playing') {
+      p.disconnectAt = now + 15000;
+    } else {
+      p.disconnectAt = null;
+    }
     if (status == 'countdown') {
       status = 'waiting';
       startAt = null;
@@ -277,13 +281,15 @@ class BattleMatch {
 
   void advance(int now) {
     if (finished) return;
-    final expired = players
-        .where((p) => p.disconnectAt != null && now >= p.disconnectAt!)
-        .toList()
-      ..sort((a, b) => a.disconnectAt!.compareTo(b.disconnectAt!));
-    if (expired.isNotEmpty) {
-      _end(expired.first.id, 'disconnect', expired.first.disconnectAt!);
-      return;
+    if (status == 'playing') {
+      final expired = players
+          .where((p) => p.disconnectAt != null && now >= p.disconnectAt!)
+          .toList()
+        ..sort((a, b) => a.disconnectAt!.compareTo(b.disconnectAt!));
+      if (expired.isNotEmpty) {
+        _end(expired.first.id, 'disconnect', expired.first.disconnectAt!);
+        return;
+      }
     }
     if (status == 'waiting' && now >= createdAt + 60 * 60 * 1000) {
       status = 'finished';
@@ -357,6 +363,7 @@ class BattleMatch {
         p.game.grid = List.generate(8, (_) => List<int?>.filled(8, null));
         p.game.combo = 0;
         p.game.misses = 0;
+        p.game.comboBonus = 0;
         p.game.refill();
       }
     }
