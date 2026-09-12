@@ -3,7 +3,7 @@
 <head>
   <base href="/hukuk-reels/">
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
   <!-- ── PWA Temel ── -->
   <meta name="theme-color" content="#170B12">
@@ -69,11 +69,15 @@
       box-sizing: border-box;
     }
     #loading {
+      /* Keep startup content outside document layout and input hit testing. */
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100dvh;
+
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
     #loading .spinner {
@@ -92,11 +96,12 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    /* iOS rubber-band scroll engeli */
-    html, body {
-      position: fixed;
-      width: 100%;
-      height: 100%;
+    /* Flutter owns the fixed body and viewport dimensions. In particular,
+       do not fix/size the html root: iOS measures it for canvas coordinates. */
+    html {
+      margin: 0;
+      padding: 0;
+      overscroll-behavior: none;
     }
   </style>
 </head>
@@ -145,7 +150,7 @@
       navigator.serviceWorker.addEventListener('controllerchange', function () {
         if (applyingUpdate) window.location.reload();
       });
-      navigator.serviceWorker.register('flutter_service_worker.js?v=3411089749') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
+      navigator.serviceWorker.register('flutter_service_worker.js?v=3717690171') /* Flutter's service worker is deprecated and will be removed in a future Flutter release. */.then(function (reg) {
         function offerUpdate() {
           if (!reg.waiting || !navigator.serviceWorker.controller || document.getElementById('update-app')) return;
           const button = document.createElement('button');

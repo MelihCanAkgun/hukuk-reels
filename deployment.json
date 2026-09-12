@@ -1,6 +1,6 @@
 {
-  "source_commit": "dbce53a2378d5156dd37c10612231a7dd0999079",
-  "built_at": "2026-09-12T12:24:50+00:00",
-  "checks": "73 Flutter, 25 backend tests passed; analyze clean; release build passed",
-  "change": "Redesign Block Blast 1v1 Battle match end screen with modern visual polish"
+  "source_commit": "579f5964a4388b40ccf3b7e7e68329739453259f",
+  "built_at": "2026-09-12T21:53:59.888404+00:00",
+  "checks": "analyze clean; 14 widget tests; six iPhone WebKit viewport/rotation canvas tap checks; release build passed",
+  "change": "Fix iPhone portrait viewport/input alignment and Flappy header overflow"
 }
