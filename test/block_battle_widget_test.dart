@@ -330,9 +330,12 @@ void main() {
     m.player(1).game.misses = 1;
     m.player(1).game.comboBonus = 120;
     session.receive(frame(m));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
 
-    expect(find.text('COMBO x4  ·  +120 COMBO  ·  RESET: 2'), findsOneWidget);
+    // ComboHud shows combo count and bonus as separate elements
+    expect(find.text('×4'), findsOneWidget);
+    expect(find.text('+120'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     session.dispose();

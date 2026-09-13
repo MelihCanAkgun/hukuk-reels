@@ -7,6 +7,7 @@ import 'block_leaderboard.dart';
 import 'block_battle_lobby.dart';
 import 'block_battle_session.dart';
 import 'block_battle_widgets.dart';
+import 'combo_hud.dart';
 import 'block_battle_life_fx.dart';
 import '../../core/services/social_bridge.dart';
 import 'package:flutter/material.dart';
@@ -648,17 +649,31 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                         fontWeight: FontWeight.w900,
                         color: Colors.white)),
               ),
-              Text(
-                  _game.combo > 0
-                      ? 'KOMBO ×${_game.combo} · ${BlockBlastEngine.comboGrace - _game.misses} hamle'
-                      : 'Bir satır veya sütun doldur',
-                  style:
-                      const TextStyle(fontSize: 12, color: Color(0xFFFFD36A))),
-              Text(_feedback,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700)),
+              ComboHud(
+                combo: _game.combo,
+                misses: _game.misses,
+                comboBonus: _game.comboBonus,
+                comboGrace: BlockBlastEngine.comboGrace,
+              ),
+              if (_game.combo == 0)
+                Text(
+                    _feedback.isNotEmpty
+                        ? _feedback
+                        : 'Bir satır veya sütun doldur',
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: _feedback.isNotEmpty
+                            ? Colors.white
+                            : const Color(0xFFFFD36A),
+                        fontWeight: _feedback.isNotEmpty
+                            ? FontWeight.w700
+                            : FontWeight.w400)),
+              if (_game.combo > 0 && _feedback.isNotEmpty)
+                Text(_feedback,
+                    style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700)),
             ])),
       );
 

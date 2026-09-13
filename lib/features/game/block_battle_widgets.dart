@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'block_battle_session.dart';
 import 'block_battle_life_fx.dart';
+import 'combo_hud.dart';
 
 class BattleHud extends StatelessWidget {
   final BlockBattleSession session;
@@ -19,7 +20,6 @@ class BattleHud extends StatelessWidget {
     final combo = (myGame?['combo'] as int?) ?? 0;
     final misses = (myGame?['misses'] as int?) ?? 0;
     final comboBonus = (myGame?['comboBonus'] as int?) ?? 0;
-    final resetIn = (3 - misses).clamp(1, 3);
 
     String connection = '';
     if (session.pending) {
@@ -30,17 +30,12 @@ class BattleHud extends StatelessWidget {
       connection = 'Rakibin bağlantısı bekleniyor · 15 sn';
     } else if (session.error != null) {
       connection = session.error!;
-    } else if (combo > 0) {
-      final bonus = comboBonus > 0 ? comboBonus : 10 * combo;
-      connection = 'COMBO x$combo  ·  +$bonus COMBO  ·  RESET: $resetIn';
     }
 
     final displayText = feedback.isNotEmpty ? feedback : connection;
     final displayKey = feedback.isNotEmpty
         ? ValueKey('feedback-$feedback')
-        : combo > 0
-            ? ValueKey('combo-$combo-$resetIn')
-            : ValueKey('connection-$connection');
+        : ValueKey('connection-$connection');
 
     return SizedBox(
         height: 112,
@@ -72,18 +67,24 @@ class BattleHud extends StatelessWidget {
                       Expanded(child: _player(other, mine, 'RAKİP', isMine: false)),
                     ]),
                     const SizedBox(height: 3),
-                    AnimatedSwitcher(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 180),
-                        child: Text(displayText,
-                            key: displayKey,
-                            maxLines: 2,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFFFD36A)))),
+                    ComboHud(
+                      combo: combo,
+                      misses: misses,
+                      comboBonus: comboBonus,
+                    ),
+                    if (displayText.isNotEmpty)
+                      AnimatedSwitcher(
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 180),
+                          child: Text(displayText,
+                              key: displayKey,
+                              maxLines: 2,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFFFD36A)))),
                   ])),
             )));
   }
