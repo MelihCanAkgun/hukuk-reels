@@ -48,6 +48,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon.png">
 
+  <meta name="app-build" content="__BUILD_VERSION__">
   <title>Hukuk Reels</title>
 
   <style>
@@ -111,6 +112,8 @@
     <p>Hukuk Reels yükleniyor...</p>
   </div>
 
+  <link rel="stylesheet" href="update.css">
+  <script src="update.js"></script>
   <script src="audio.js"></script>
   <script>
     // ── Android Chrome PWA Install Prompt ──
@@ -142,40 +145,6 @@
       _deferredInstallPrompt = null;
     });
 
-    // Updates wait for the player: never reload an active game automatically.
-    window.addEventListener('flutter-first-frame', function () {
-      document.getElementById('loading')?.remove();
-      if (!('serviceWorker' in navigator)) return;
-      let applyingUpdate = false;
-      navigator.serviceWorker.addEventListener('controllerchange', function () {
-        if (applyingUpdate) window.location.reload();
-      });
-      navigator.serviceWorker.register('flutter_service_worker.js').then(function (reg) {
-        function offerUpdate() {
-          if (!reg.waiting || !navigator.serviceWorker.controller || document.getElementById('update-app')) return;
-          const button = document.createElement('button');
-          button.id = 'update-app';
-          button.textContent = 'Yeni sürüm hazır · Yenile';
-          button.style.cssText = 'position:fixed;bottom:calc(16px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:99999;padding:14px 20px;border:0;border-radius:24px;background:#ffe26a;color:#182b50;font:600 14px -apple-system,sans-serif';
-          button.onclick = function () {
-            if (!reg.waiting) return;
-            applyingUpdate = true;
-            reg.waiting.postMessage('skipWaiting');
-          };
-          document.body.appendChild(button);
-        }
-        offerUpdate();
-        reg.addEventListener('updatefound', function () {
-          const worker = reg.installing;
-          if (worker) worker.addEventListener('statechange', function () {
-            if (worker.state === 'installed') offerUpdate();
-          });
-        });
-        document.addEventListener('visibilitychange', function () {
-          if (!document.hidden) reg.update().catch(function () {});
-        });
-      }).catch(function (error) { console.warn('[PWA]', error); });
-    });
   </script>
 
   <script src="social.js"></script>

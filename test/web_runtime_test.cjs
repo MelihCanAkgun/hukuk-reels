@@ -5,7 +5,7 @@ const vm = require('node:vm');
 async function main() {
   const handlers = {}, documentHandlers = {}, sources = [], mediaSources = [];
   class MediaElement {
-    constructor(tagName = 'AUDIO') { this.tagName = tagName; this.promise = Promise.resolve(); }
+    constructor(tagName = 'AUDIO') { this.tagName = tagName; this.promise = Promise.resolve(); this.playbackRate = 1; this.preservesPitch = true; }
     play() { this.played = true; return this.promise; }
   }
   let context;
@@ -59,17 +59,25 @@ async function main() {
   assert.equal(mediaSources.length, 2, 'video must keep native routing');
   assert.equal(audio._sfxGain.gain.value, 0.3, 'music must not change effects');
 
+  // SFX rate changes must remain local to their own BufferSource nodes.
+  for (let i = 0; i < 100; i++) audio.sfxPlay('combo', 1 + (i % 9) * 0.04);
+  assert.equal(track.playbackRate, 1);
+  assert.equal(nextTrack.playbackRate, 1);
+  assert.equal(track.preservesPitch, true);
+  assert.equal(mediaSources.length, 2);
+
   let skipped = 0, claimed = 0;
   const deleted = [], added = [];
   const cache = {addAll: async items => added.push(...items), match: async key => String(key).endsWith('index.html') ? 'offline-shell' : undefined};
   const self = {location: {origin: 'https://example.test'}, registration: {scope: 'https://example.test/game/'},
     clients: {claim: async () => claimed++}, skipWaiting() {skipped++;}, addEventListener(name, fn) {handlers[name] = fn;}};
-  const worker = vm.createContext({self, URL, caches: {open: async () => cache, keys: async () => ['unrelated-app', 'hukuk-games-old', 'hukuk-games-test'], delete: async key => deleted.push(key)}, fetch: async () => 'network'});
+  const worker = vm.createContext({self, URL, Request, caches: {open: async () => cache, keys: async () => ['unrelated-app', 'hukuk-games-old', 'hukuk-games-test'], delete: async key => deleted.push(key)}, fetch: async () => 'network'});
   const source = fs.readFileSync('web/sw.js','utf8').replace('__BUILD_VERSION__','test').replace('__CORE_FILES__','["index.html"]');
   vm.runInContext(source, worker);
   let pending;
   handlers.install({waitUntil(p) {pending = p;}}); await pending;
-  assert.equal(skipped, 0); assert.deepEqual(added, ['index.html']);
+  assert.equal(skipped, 0); assert.equal(added[0].url, 'https://example.test/game/index.html');
+  assert.equal(added[0].cache, 'reload');
   handlers.activate({waitUntil(p) {pending = p;}}); await pending;
   assert.deepEqual(deleted, ['hukuk-games-old']); assert.equal(claimed, 1);
   handlers.message({data: 'skipWaiting'}); assert.equal(skipped, 1);

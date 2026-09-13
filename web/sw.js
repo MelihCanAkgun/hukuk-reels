@@ -1,12 +1,14 @@
 'use strict';
 // tools/build_web.py injects a content hash and an atomic offline game shell.
-const CACHE = 'hukuk-games-__BUILD_VERSION__';
+const VERSION = '__BUILD_VERSION__';
+const CACHE = 'hukuk-games-' + VERSION;
 const CORE = __CORE_FILES__;
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE)));
+  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(CORE.map((path) => new Request(new URL(path, self.registration.scope), {cache: 'reload'})))));
   // A new version waits until the user chooses to reload or closes all tabs.
 });
 self.addEventListener('message', (event) => {
+  if (event.data === 'getVersion') event.ports[0]?.postMessage(VERSION);
   if (event.data === 'skipWaiting') self.skipWaiting();
 });
 self.addEventListener('activate', (event) => {

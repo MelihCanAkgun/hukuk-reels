@@ -1,0 +1,54 @@
+[
+  {
+    "fileRate": 32000,
+    "phase": "normal",
+    "sampleRate": 48000,
+    "bufferRates": {
+      "place": 48000,
+      "clear": 48000,
+      "over": 48000,
+      "combo": 48000
+    },
+    "wired": true,
+    "timelineRatio": 0.9999350712753038
+  },
+  {
+    "fileRate": 32000,
+    "phase": "block-stress",
+    "sampleRate": 48000,
+    "bufferRates": {
+      "place": 48000,
+      "clear": 48000,
+      "over": 48000,
+      "combo": 48000
+    },
+    "wired": true,
+    "timelineRatio": 1.0000295816967102
+  },
+  {
+    "fileRate": 48000,
+    "phase": "normal",
+    "sampleRate": 48000,
+    "bufferRates": {
+      "place": 48000,
+      "clear": 48000,
+      "combo": 48000,
+      "over": 48000
+    },
+    "wired": true,
+    "timelineRatio": 0.9999444582898513
+  },
+  {
+    "fileRate": 48000,
+    "phase": "block-stress",
+    "sampleRate": 48000,
+    "bufferRates": {
+      "place": 48000,
+      "clear": 48000,
+      "combo": 48000,
+      "over": 48000
+    },
+    "wired": true,
+    "timelineRatio": 0.9998433345942552
+  }
+]
