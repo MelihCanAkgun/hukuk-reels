@@ -72,8 +72,12 @@ class AudioService {
 
   AudioSource _sourceFor(String assetPath) {
     if (kIsWeb) {
-      final url = Uri.base.resolve('assets/$assetPath').toString();
-      return AudioSource.uri(Uri.parse(url));
+      // Music is streamed outside the offline shell. Change its URL when the
+      // encoding changes so Safari/CDN range caches cannot reuse old audio.
+      final url = Uri.base.resolve('assets/$assetPath').replace(
+        queryParameters: const {'audio': '48k-v1'},
+      );
+      return AudioSource.uri(url);
     }
     return AudioSource.asset(assetPath);
   }

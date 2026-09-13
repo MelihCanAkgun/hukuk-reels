@@ -29,7 +29,10 @@ for name in files:
     hash_value.update((out / name).read_bytes())
 source = (root / 'web/sw.js').read_text()
 hash_value.update(source.encode())
-worker = source.replace('__BUILD_VERSION__', hash_value.hexdigest()[:16]).replace('__CORE_FILES__', json.dumps(files))
+version = hash_value.hexdigest()[:16]
+index = out / 'index.html'
+index.write_text(index.read_text().replace('__BUILD_VERSION__', version))
+worker = source.replace('__BUILD_VERSION__', version).replace('__CORE_FILES__', json.dumps(files))
 (out / 'flutter_service_worker.js').write_text(worker)
 (out / 'sw.js').unlink(missing_ok=True)
 print(f'Offline game shell: {len(files)} files, {sum((out / f).stat().st_size for f in files) / 1024**2:.1f} MiB. Music requires a connection.')
