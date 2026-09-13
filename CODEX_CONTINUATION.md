@@ -142,3 +142,11 @@ Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğr
 - Güncelleme kartı applying/retry/success durumları, worker cache-reload ve sürüm doğrulaması eklendi. Gerçek WebKit SW testinde tek reload ve tekrarlamayan buton doğrulandı.
 - 74 Flutter testi, flutter analyze, web runtime/update testleri, 14 müziğin tam decode kontrolü ve temiz release build başarılı. WebKit iPhone emülasyonunda 32/48 kHz karşılaştırması ve gerçek müzik paneli kontrolleri geçti.
 - ÖNEMLİ: Duyulan geçici pitch arızası yeniden üretilemedi; sample-rate farkı doğrulandı ama kök neden olduğu kanıtlanmadı. Fiziksel iPhone/PWA veya çıkış waveform pitch ölçümü yapılmadı. “Kesin çözüldü” denmemeli. Ayrıntılar: docs/audio-playback-audit-2026-09-13.md.
+
+## Singleplayer ve Multiplayer Ortak Combo HUD — 2026-09-13
+- Singleplayer moduna multiplayer'da kullanılan arcade combo göstergesi entegre edildi ve her iki mod için ortak `ComboHud` bileşeni (`lib/features/game/combo_hud.dart`) oluşturuldu.
+- Görsel tasarım: Kademeli renk tier'ları (×1-2 mavi, ×3-4 mor, ×5+ altın), pulse/glow animasyonları, grace pips (3 nokta: kalan hamle sayısını gösteren gösterge), combo bonus rozeti (+N).
+- Combo == 0 olduğunda HUD gizlenir ve alan kaplamaz (`SizedBox.shrink()`).
+- İlk deploy'da base-href `/hukuk_reels/` (alt tire) verilmesi nedeniyle GitHub Pages üzerinde (`/hukuk-reels/`) 404 oluşup yükleme ekranında takılma yaşandı. `tools/build_web.py --base-href /hukuk-reels/` ile doğru path ile yeniden derlenip gh-pages güncellendi.
+- Doğrulama: `flutter analyze` 0 hata, 74 Flutter testi geçti, `node test/web_runtime_test.cjs` geçti. gh-pages `4d043c8` yayında.
+
