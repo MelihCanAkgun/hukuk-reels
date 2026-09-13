@@ -133,3 +133,12 @@ Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğr
 - Değişen dosyalar: web/index.html, lib/features/game/flappy_cat_screen.dart, test/widget_test.dart, bu kayıt. Backend/battle/puan/can/generator değişmedi.
 - Sıradaki adım: mevcut gh-pages ile bu build'i yayınla; canlı hash/branch doğrulaması yap.
 - YAYIN TAMAM: kaynak 579f596; gh-pages eed9385dcbc5a3216685241cecf6923e16b87ee7, Pages run 34721247980 success. Uzak branch'teki 73 build dosyası hash eşleşmesi, canlı index.html/main.dart.js/flutter_service_worker.js/deployment.json byte eşleşmesi doğrulandı. WebKit altı portrait/landscape koordinat kontrolü başarılı. Backend deploy edilmedi. Kalan iş yok; fiziksel iPhone'da son kullanıcı doğrulaması sınırı yukarıda belirtildi.
+
+
+## Müzik sample rate ve PWA güncelleme akışı — 2026-09-13
+
+- Kaynak fdfad6b; yayın c7fac473f6eea44c4beb74a445b1a0693d6b8e54; app build 49564a69449af093. Pages run 34746559209 success. Canlı 21 dosya (14 müzik dahil) SHA-256 eşleşti.
+- Playlist’teki 14 adet 32 kHz AAC müzik aynı isimlerle 48 kHz AAC/128 kbps yapıldı. Web müzik URL’leri `?audio=48k-v1`. Audio graph, SFX, gameplay, multiplayer ve bağımlılıklar değiştirilmedi. Playlist dışındaki beş kullanıcı dosyası korunup yayına dahil edilmedi.
+- Güncelleme kartı applying/retry/success durumları, worker cache-reload ve sürüm doğrulaması eklendi. Gerçek WebKit SW testinde tek reload ve tekrarlamayan buton doğrulandı.
+- 74 Flutter testi, flutter analyze, web runtime/update testleri, 14 müziğin tam decode kontrolü ve temiz release build başarılı. WebKit iPhone emülasyonunda 32/48 kHz karşılaştırması ve gerçek müzik paneli kontrolleri geçti.
+- ÖNEMLİ: Duyulan geçici pitch arızası yeniden üretilemedi; sample-rate farkı doğrulandı ama kök neden olduğu kanıtlanmadı. Fiziksel iPhone/PWA veya çıkış waveform pitch ölçümü yapılmadı. “Kesin çözüldü” denmemeli. Ayrıntılar: docs/audio-playback-audit-2026-09-13.md.
