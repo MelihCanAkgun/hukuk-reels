@@ -19,7 +19,7 @@ Web/PWA yayın paketi için **aşağıdaki betiği kullanın**. Sadece `flutter 
 ```sh
 python3 tools/build_web.py
 # GitHub Pages alt dizini örneği:
-python3 tools/build_web.py --base-href /hukuk_reels/
+python3 tools/build_web.py --base-href /hukuk-reels/
 python3 -m http.server 8765 --bind 127.0.0.1 --directory build/web
 ```
 
