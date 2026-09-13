@@ -1,8 +1,0 @@
-{
-  "source_commit": "fdfad6b7fd321db2c4a15c6a5564f102c2ba0a6b",
-  "built_at": "2026-09-13T07:57:20.416166+00:00",
-  "checks": "74 Flutter tests; analyze clean; runtime/update tests; 14 audio asset full decodes; WebKit 32/48 kHz timing and Flutter music controls; real service-worker single reload; release build",
-  "change": "48 kHz playlist normalization and verified PWA update UI; audible iPhone pitch root cause remains unconfirmed",
-  "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "49564a69449af093"
-}
