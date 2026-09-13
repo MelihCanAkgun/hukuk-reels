@@ -39,3 +39,30 @@ No `asetrate`, speed or pitch filters. AAC is re-encoded, so this is lossy and c
 - Both 32 kHz and 48 kHz passed the timing checks: this comparison **does not establish resampling as the cause**. `currentTime` is not a measurement of output waveform pitch. No physical iPhone, installed iOS PWA, long-duration gameplay, Bluetooth route change or speaker capture was available. Audible tempo/pitch and physical iOS regression verification remain outstanding.
 
 Prior update work is included: `web/index.html`, `web/update.js`, `web/update.css`, `web/sw.js`, `tools/build_web.py`, and update/runtime tests. The worker uses cache-reload install requests and a build-version handshake; the card has applying/retry states and a post-reload verified success message.
+
+## Publication
+
+- Source: `fdfad6b`; gh-pages: `c7fac473f6eea44c4beb74a445b1a0693d6b8e54`; app build: `49564a69449af093`.
+- [GitHub Pages run 34746559209](https://github.com/MelihCanAkgun/hukuk-reels/actions/runs/34746559209): success.
+- Clean source archive used the workspace’s tested `pubspec.lock`; every resolved package URI was compared and matched. No dependency upgrades shipped.
+- Live SHA-256 verification passed for index, main JS, service worker, update JS/CSS, audio JS, deployment metadata and all 14 playlist files (21 files total).
+- [Live application](https://melihcanakgun.github.io/hukuk-reels/). No backend deployment.
+
+## Converted filenames
+
+All paths below are under `assets/audio/`; each changed from AAC stereo 32000 Hz to AAC stereo 48000 Hz.
+
+- `Wildflower.m4a`
+- `Dolu_Kadehi_Ters_Tut.m4a`
+- `Sad_Girl.m4a`
+- `Takil_Yani_Takmiyo_Belli.m4a`
+- `Aramizda_Dinozor.m4a`
+- `Bari_Ruyalarima_Gel_Be.m4a`
+- `Bekledigim_Gibiyim.m4a`
+- `Degistim.m4a`
+- `Far_From_Any_Road.m4a`
+- `Gunduz_Yuzlu_Kiz.m4a`
+- `O_Ben_Olurum.m4a`
+- `Sadece_Senin_Olmak.m4a`
+- `Sahte_Dualar.m4a`
+- `Zaman_Yok.m4a`
