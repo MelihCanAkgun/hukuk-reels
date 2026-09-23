@@ -1,8 +1,8 @@
 {
-  "source_commit": "94ec7148a6f7d59ba2b2785979175d35cb5fcd51",
-  "built_at": "2026-09-23T14:54:39Z",
+  "source_commit": "aa2275bbc66a9105aaf92f775257c212c50efe0c",
+  "built_at": "2026-09-23T15:01:22Z",
   "checks": "77 Flutter tests including Battle regressions; flutter analyze clean; web audio/offline/update runtime checks passed; release build with base-href /hukuk-reels/",
-  "change": "Polish the singleplayer Block Blast run summary and reduce unnecessary board/FX rendering work while preserving animations and game behavior",
+  "change": "Polish the singleplayer Block Blast run summary, keep legacy run stats truthful, and reduce unnecessary board/FX rendering work while preserving animations and game behavior",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "875c5791b7a8ab4d"
+  "app_build": "3c58cc6bdd2205d6"
 }
