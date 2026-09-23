@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Visual snapshots only. The engine commits placements/clears immediately.
@@ -7,6 +8,7 @@ class BlockBoardFx {
   final impacts = <BlockImpact>[];
   final _clears = <_ClearWave>[];
   int _seed = 0;
+  int revision = 0;
   int get particleCount => _clears.fold(0, (n, e) => n + e.particles.length);
   bool get isEmpty => impacts.isEmpty && _clears.isEmpty;
   double get end => [
@@ -15,6 +17,7 @@ class BlockBoardFx {
       ].fold(0.0, max);
 
   void add(double now, Set<int> placed, Map<int, int> cleared, int lines) {
+    revision++;
     impacts.add(BlockImpact(now, placed));
     if (impacts.length > 3) impacts.removeAt(0);
     if (cleared.isEmpty) return;
@@ -34,12 +37,15 @@ class BlockBoardFx {
     final count = impacts.length + _clears.length;
     impacts.removeWhere((e) => now >= e.start + 170);
     _clears.removeWhere((e) => now >= e.start + e.duration);
-    return count != impacts.length + _clears.length;
+    final changed = count != impacts.length + _clears.length;
+    if (changed) revision++;
+    return changed;
   }
 
   void reset() {
     impacts.clear();
     _clears.clear();
+    revision++;
   }
 
   BlockImpact? impactAt(int key, double now) {
@@ -81,6 +87,10 @@ class _ClearWave {
   late final double duration;
   final delays = <int, double>{};
   final particles = <_CellParticle>[];
+  final tintPaint = Paint();
+  final shockwavePaint = Paint()..style = PaintingStyle.stroke;
+  final cellGlowPaint = Paint();
+  final cellGlowEdgePaint = Paint()..style = PaintingStyle.stroke;
 
   _ClearWave(this.start, Map<int, int> snapshot, int lines, int seed)
       : cells = Map.of(snapshot),
@@ -116,8 +126,9 @@ class _CellParticle {
   final int key, color;
   final Offset velocity;
   final double radius, rotation, spin;
-  const _CellParticle(this.key, this.color, this.velocity, this.radius,
-      this.rotation, this.spin);
+  final Paint paint = Paint();
+  _CellParticle(this.key, this.color, this.velocity, this.radius, this.rotation,
+      this.spin);
 }
 
 // Eight cached, unit-space gradients serve the whole board and every FX frame.
@@ -158,9 +169,11 @@ class BlockBoardFxPainter extends CustomPainter {
   final List<List<int?>> grid;
   final List<Color> palette;
   final Set<int> preview;
+  final int _revision;
   BlockBoardFxPainter(
       this.clock, this.fx, this.grid, this.palette, this.preview)
-      : super(repaint: clock);
+      : _revision = fx.revision,
+        super(repaint: clock);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -192,17 +205,16 @@ class BlockBoardFxPainter extends CustomPainter {
         final t = (age / 380).clamp(0.0, 1.0);
         final fade = sin(pi * t) * (1 - t);
         // A single fine ring and quiet board tint, reserved for 4+ lines.
-        canvas.drawRect(
-            Offset.zero & size,
-            Paint()
-              ..color = const Color(0xFFD7E9FF).withValues(alpha: fade * .045));
+        wave.tintPaint.color =
+            const Color(0xFFD7E9FF).withValues(alpha: fade * .045);
+        canvas.drawRect(Offset.zero & size, wave.tintPaint);
+        wave.shockwavePaint
+          ..strokeWidth = cell * .035 * (1 - t)
+          ..color = const Color(0xFFC9E2FF).withValues(alpha: fade * .34);
         canvas.drawCircle(
             wave.center * cell,
             size.width * (.05 + .65 * Curves.easeOutCubic.transform(t)),
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = cell * .035 * (1 - t)
-              ..color = const Color(0xFFC9E2FF).withValues(alpha: fade * .34));
+            wave.shockwavePaint);
       }
       for (final entry in wave.cells.entries) {
         final t = ((age - wave.delays[entry.key]!) / 230).clamp(0.0, 1.0);
@@ -229,14 +241,13 @@ class BlockBoardFxPainter extends CustomPainter {
             Radius.circular(cell * .16 * scale));
         final glow = sin(pi * t) * (.22 + wave.intensity * .10);
         if (glow > 0) {
-          canvas.drawRRect(rect.inflate(cell * .035),
-              Paint()..color = const Color(0xFFFFE5A0).withValues(alpha: glow));
-          canvas.drawRRect(
-              rect.inflate(cell * .075),
-              Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = cell * .045
-                ..color = color.withValues(alpha: glow * .55));
+          wave.cellGlowPaint.color =
+              const Color(0xFFFFE5A0).withValues(alpha: glow);
+          wave.cellGlowEdgePaint
+            ..strokeWidth = cell * .045
+            ..color = color.withValues(alpha: glow * .55);
+          canvas.drawRRect(rect.inflate(cell * .035), wave.cellGlowPaint);
+          canvas.drawRRect(rect.inflate(cell * .075), wave.cellGlowEdgePaint);
         }
         paintBlockCell(canvas, rect, color, alpha: alpha);
         canvas.restore();
@@ -252,6 +263,8 @@ class BlockBoardFxPainter extends CustomPainter {
         canvas.translate(position.dx, position.dy);
         canvas.rotate(p.rotation + p.spin * t);
         final radius = p.radius * cell * (1 - .45 * t);
+        p.paint.color =
+            palette[p.color].withValues(alpha: .65 * min(1, t * 8) * (1 - t));
         canvas.drawRRect(
             RRect.fromRectAndRadius(
                 Rect.fromCenter(
@@ -259,9 +272,7 @@ class BlockBoardFxPainter extends CustomPainter {
                     width: radius * 1.5,
                     height: radius * 2),
                 Radius.circular(radius * .35)),
-            Paint()
-              ..color = palette[p.color]
-                  .withValues(alpha: .65 * min(1, t * 8) * (1 - t)));
+            p.paint);
         canvas.restore();
       }
     }
@@ -269,5 +280,11 @@ class BlockBoardFxPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(BlockBoardFxPainter old) => true;
+  bool shouldRepaint(BlockBoardFxPainter old) =>
+      old._revision != _revision ||
+      old.clock != clock ||
+      old.fx != fx ||
+      old.grid != grid ||
+      old.palette != palette ||
+      !setEquals(old.preview, preview);
 }

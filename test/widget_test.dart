@@ -74,6 +74,48 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('game-over summary fits iPhone 14 Pro and iPhone 17',
+      (tester) async {
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    for (final physicalSize in [
+      const Size(1179, 2556), // iPhone 14 Pro @3x
+      const Size(1206, 2622), // iPhone 17 @3x
+    ]) {
+      tester.view.physicalSize = physicalSize;
+      final game = BlockBlastEngine.empty()
+        ..grid =
+            List.generate(8, (r) => List.generate(8, (c) => r == c ? null : 0))
+        ..tray = [
+          const BlockPiece(9, 0),
+          const BlockPiece(9, 1),
+          const BlockPiece(9, 2),
+        ]
+        ..score = 0
+        ..placementsMade = 87
+        ..linesCleared = 12
+        ..bestCombo = 7
+        ..allClears = 2
+        ..reviveUsed = true;
+      ProgressService.instance
+          .saveBlockGame(game.toJson(includeRunSummary: true));
+      await tester.pumpWidget(const MaterialApp(home: BlockBlastScreen()));
+      await tester.pump();
+
+      expect(find.byKey(const ValueKey('block-run-summary')), findsOneWidget);
+      expect(find.byKey(const ValueKey('block-run-score')), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
+      expect(find.text('×7'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('87'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox());
+      ProgressService.instance.clearBlockGame();
+    }
+  });
+
   testWidgets(
       'drag clears a line, commits save before animation and restores it',
       (tester) async {
@@ -206,6 +248,7 @@ void main() {
     const Size(320, 568),
     const Size(375, 667),
     const Size(393, 852),
+    const Size(402, 874),
     const Size(844, 390),
     const Size(1024, 768),
     const Size(507, 768)
