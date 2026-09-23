@@ -150,3 +150,12 @@ Dört aşamanın tamamı (Core, Networking, UI, Deployment) tamamlandı ve doğr
 - İlk deploy'da base-href `/hukuk_reels/` (alt tire) verilmesi nedeniyle GitHub Pages üzerinde (`/hukuk-reels/`) 404 oluşup yükleme ekranında takılma yaşandı. `tools/build_web.py --base-href /hukuk-reels/` ile doğru path ile yeniden derlenip gh-pages güncellendi.
 - Doğrulama: `flutter analyze` 0 hata, 74 Flutter testi geçti, `node test/web_runtime_test.cjs` geçti. gh-pages `4d043c8` yayında.
 
+## Reels kaydırma optimizasyonu ve Battle hasar sayacı — 2026-09-23
+- Battle hasar eşiği 500 puan olarak kaldı. Her iki oyuncunun ilerleme çubuğunun yanında bir sonraki hasara kalan puan sade biçimde gösteriliyor.
+- Reels sayfa geçişinde tüm ekranın yeniden kurulması kaldırıldı; yalnızca üst bilgi sayfa değişimini dinliyor. Hızlı sayfa kayıtları 180 ms birleştiriliyor; cevap kaydı, uygulamanın arka plana alınması ve ekranın kapanması bekleyen oturumu yazıyor. Eski/yeni session yazıları sıralı yürütülüyor.
+- Soru kartları kısa ekranlarda kompakt aralık kullanıyor; uzun soru/şık içeriği taşma yerine kontrollü olarak karta sığıyor. Açıklama önizlemesi 2/3 satır; tam açıklama paneli erişilebilir.
+- Değişen/eklenen dosyalar: `lib/features/game/block_battle_widgets.dart`, `lib/features/reels/screens/reels_screen.dart`, `lib/features/reels/widgets/question_card.dart`, `test/block_battle_widget_test.dart`, `test/reels_screen_test.dart`.
+- Kapı: `flutter analyze` temiz; iki ilgili widget test dosyasında 15 senaryo geçti. `python3 tools/build_web.py --base-href /hukuk-reels/` başarılı; app build `90d145d9c6530976`, offline shell 47 dosya / 15.7 MiB.
+- Beş yeni, playlist dışı kullanıcı müziği kaynakta korundu ve bu release build’inden hariç tutuldu; build’de mevcut 14 playlist parçası var.
+- Kaynak commit `db0cf603c10892572126417039bdf6ac34f20d11` `main` dalına push edildi. Web snapshot `446683f5cca07279ed06348ec2efc31ab12de75a` `gh-pages` dalına push edildi; Pages run `35863867022` artifact yüklemesinden sonra deploy adımında bekliyor.
+- Sıradaki adım: Actions run sonucunu bekle; sonra uzak `gh-pages` commit’ini ve canlı `index.html`, `main.dart.js`, `flutter_service_worker.js`, `update.js`, `update.css`, `deployment.json` hash’lerini/build kimliğini doğrula. Başarı durumunu bu kayda ekle.
