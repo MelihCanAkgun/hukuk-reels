@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -34,6 +35,10 @@ class _ReelsScreenState extends State<ReelsScreen>
   final _rng = Random();
 
   PageController? _pageController;
+  final ValueNotifier<int> _pageChanges = ValueNotifier(0);
+  Timer? _pageSaveTimer;
+  int? _pendingPageSave;
+  Future<void> _sessionWrites = Future<void>.value();
   List<QuizQuestion> _questions = [];
   final Map<int, int> _answers = {}; // soru index -> seçilen şık index
   int _page = 0;
@@ -91,6 +96,7 @@ class _ReelsScreenState extends State<ReelsScreen>
       ..clear()
       ..addAll(session.answers);
     _page = session.page.clamp(0, _questions.length);
+    _pageChanges.value = _page;
     _pageController = PageController(initialPage: _page);
     setState(() => _loading = false);
   }
@@ -98,7 +104,9 @@ class _ReelsScreenState extends State<ReelsScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    unawaited(_flushPendingPageSave());
     _pageController?.dispose();
+    _pageChanges.dispose();
     // Müziği burada DURDURMUYORUZ — kullanıcı uygulamadan çıksa/başka
     // ekrana geçse bile arka planda çalmaya devam etsin.
     super.dispose();
@@ -111,7 +119,45 @@ class _ReelsScreenState extends State<ReelsScreen>
     // duraklatmışsa devam ettir.
     if (state == AppLifecycleState.resumed) {
       _audio.resumeForLifecycle();
+    } else {
+      unawaited(_flushPendingPageSave());
     }
+  }
+
+  void _queuePageSave(int page) {
+    if (_isRetry) return;
+    _pendingPageSave = page;
+    _pageSaveTimer?.cancel();
+    _pageSaveTimer = Timer(const Duration(milliseconds: 180), () {
+      unawaited(_flushPendingPageSave());
+    });
+  }
+
+  Future<void> _flushPendingPageSave() {
+    _pageSaveTimer?.cancel();
+    _pageSaveTimer = null;
+    final page = _pendingPageSave;
+    _pendingPageSave = null;
+    if (page != null && !_isRetry) {
+      _enqueueSessionWrite(() => _progress.savePage(page));
+    }
+    return _sessionWrites;
+  }
+
+  void _discardPendingPageSave() {
+    _pageSaveTimer?.cancel();
+    _pageSaveTimer = null;
+    _pendingPageSave = null;
+  }
+
+  void _enqueueSessionWrite(Future<void> Function() write) {
+    _sessionWrites = _sessionWrites.then((_) async {
+      try {
+        await write();
+      } catch (_) {
+        // Storage must never stall swipe input or the rest of the session.
+      }
+    });
   }
 
   void _startAudioOnce() {
@@ -126,12 +172,15 @@ class _ReelsScreenState extends State<ReelsScreen>
     if (!_isRetry) {
       final q = _questions[index];
       _progress.recordAnswer(q.id, correct);
-      _progress.saveAnswer(q.id, selected);
+      unawaited(_flushPendingPageSave());
+      _enqueueSessionWrite(() => _progress.saveAnswer(q.id, selected));
     }
   }
 
   /// Havuzdan (çözülmemişler) yeni bir test başlatır.
   Future<void> _startNextTest() async {
+    _discardPendingPageSave();
+    await _sessionWrites;
     final session = await _progress.startNewTest(_rng);
     if (!mounted) return;
     setState(() {
@@ -140,6 +189,7 @@ class _ReelsScreenState extends State<ReelsScreen>
       _answers.clear();
       _page = 0;
     });
+    _pageChanges.value = 0;
     if (_questions.isNotEmpty) _pageController?.jumpToPage(0);
   }
 
@@ -159,6 +209,7 @@ class _ReelsScreenState extends State<ReelsScreen>
       _answers.clear();
       _page = 0;
     });
+    _pageChanges.value = 0;
     _pageController?.jumpToPage(0);
   }
 
@@ -218,8 +269,6 @@ class _ReelsScreenState extends State<ReelsScreen>
     if (_questions.isEmpty && !_isRetry) return _poolDoneScaffold();
 
     final total = _questions.length;
-    final onSummary = _page >= total;
-    final progress = total == 0 ? 0.0 : (_page.clamp(0, total)) / total;
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -238,9 +287,10 @@ class _ReelsScreenState extends State<ReelsScreen>
                 physics: const BouncingScrollPhysics(),
                 itemCount: total + 1, // son sayfa: özet
                 onPageChanged: (i) {
-                  setState(() => _page = i);
+                  _page = i;
+                  _pageChanges.value = i;
                   HapticFeedback.selectionClick();
-                  if (!_isRetry) _progress.savePage(i);
+                  _queuePageSave(i);
                 },
                 itemBuilder: (context, index) {
                   if (index >= total) {
@@ -290,22 +340,30 @@ class _ReelsScreenState extends State<ReelsScreen>
                 top: 0,
                 left: 0,
                 right: 0,
-                child: _TopBar(
-                  progress: progress,
-                  accent: _currentAccent,
-                  label: onSummary
-                      ? 'Bitti 🎉'
-                      : '${_page + 1} / $total${_isRetry ? '  ·  Tekrar' : ''}',
-                  correct: _correct,
-                  answered: _answers.length,
-                  showBack: _isRetry,
-                  onBack: () => Navigator.of(context).maybePop(),
-                  onGames: _openGames,
-                  onProfile: _openProfile,
-                  showMusic: _audio.hasTracks,
-                  musicOpen: _showMusicPanel,
-                  onMusicTap: () =>
-                      setState(() => _showMusicPanel = !_showMusicPanel),
+                child: ValueListenableBuilder<int>(
+                  valueListenable: _pageChanges,
+                  builder: (context, page, _) {
+                    final onSummary = page >= total;
+                    final progress =
+                        total == 0 ? 0.0 : page.clamp(0, total) / total;
+                    return _TopBar(
+                      progress: progress,
+                      accent: _currentAccent,
+                      label: onSummary
+                          ? 'Bitti 🎉'
+                          : '${page + 1} / $total${_isRetry ? '  ·  Tekrar' : ''}',
+                      correct: _correct,
+                      answered: _answers.length,
+                      showBack: _isRetry,
+                      onBack: () => Navigator.of(context).maybePop(),
+                      onGames: _openGames,
+                      onProfile: _openProfile,
+                      showMusic: _audio.hasTracks,
+                      musicOpen: _showMusicPanel,
+                      onMusicTap: () =>
+                          setState(() => _showMusicPanel = !_showMusicPanel),
+                    );
+                  },
                 ),
               ),
 

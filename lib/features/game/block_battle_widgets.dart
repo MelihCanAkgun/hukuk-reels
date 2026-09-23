@@ -94,6 +94,7 @@ class BattleHud extends StatelessWidget {
       {required bool isMine}) {
     final score = (p?['game']['score'] as int?) ?? 0;
     final attackCurrent = score % 500;
+    final attackRemaining = 500 - attackCurrent;
     final attackFactor = attackCurrent / 500.0;
     final targetLives = (target?['lives'] as int?) ?? 5;
     final showAttack = session.status != 'finished' && targetLives > 0;
@@ -116,7 +117,7 @@ class BattleHud extends StatelessWidget {
       const SizedBox(height: 2),
       if (showAttack) ...[
         Text(
-          isMine ? 'ATTACK $attackCurrent / 500' : '$attackCurrent / 500',
+          '$attackRemaining PUAN KALDI',
           key: ValueKey(isMine ? 'battle-mine-attack' : 'battle-other-attack'),
           style: TextStyle(
             fontSize: isMine ? 8.5 : 8,
