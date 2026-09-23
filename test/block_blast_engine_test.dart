@@ -111,6 +111,48 @@ void main() {
     expect(game.score, 632);
   });
 
+  test('run summary counters persist without changing scoring rules', () {
+    final game = emptyGame();
+    for (var c = 1; c < 8; c++) {
+      game.grid[0][c] = 0;
+    }
+    final first = game.place(0, 0, 0)!;
+    expect(first.lines, 1);
+    expect(first.allClear, isTrue);
+    for (var c = 1; c < 8; c++) {
+      game.grid[0][c] = 1;
+    }
+    final second = game.place(1, 0, 0)!;
+    expect(second.lines, 1);
+    expect(second.allClear, isTrue);
+    expect(game.placementsMade, 2);
+    expect(game.linesCleared, 2);
+    expect(game.bestCombo, 2);
+    expect(game.allClears, 2);
+    expect(game.toJson().containsKey('linesCleared'), isFalse,
+        reason: 'Battle serialization remains unchanged by singleplayer stats');
+
+    final restored = BlockBlastEngine.restore(
+        jsonDecode(jsonEncode(game.toJson(includeRunSummary: true))))!;
+    expect(restored.placementsMade, 2);
+    expect(restored.linesCleared, 2);
+    expect(restored.bestCombo, 2);
+    expect(restored.allClears, 2);
+  });
+
+  test('older saved games restore with empty run summary counters', () {
+    final save = emptyGame().toJson()
+      ..remove('placementsMade')
+      ..remove('linesCleared')
+      ..remove('bestCombo')
+      ..remove('allClears');
+    final restored = BlockBlastEngine.restore(save)!;
+    expect(restored.placementsMade, 0);
+    expect(restored.linesCleared, 0);
+    expect(restored.bestCombo, 0);
+    expect(restored.allClears, 0);
+  });
+
   test('tray refills only after all three pieces have been used', () {
     final game = emptyGame();
     game.place(0, 0, 0);

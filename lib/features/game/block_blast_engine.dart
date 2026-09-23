@@ -250,6 +250,8 @@ class BlockBlastEngine {
   List<List<int?>> grid = List.generate(size, (_) => List.filled(size, null));
   List<BlockPiece?> tray = [null, null, null];
   int score = 0, combo = 0, misses = 0, comboBonus = 0;
+  // Run summary counters are presentation data; they never affect move rules.
+  int placementsMade = 0, linesCleared = 0, bestCombo = 0, allClears = 0;
   bool reviveUsed = false;
   BlockBlastEngine({Random? random, this.nextTray})
       : random = random ?? Random() {
@@ -319,6 +321,7 @@ class BlockBlastEngine {
     if (slot < 0 || slot >= tray.length) return null;
     final p = tray[slot];
     if (p == null || !fits(p, r, c)) return null;
+    placementsMade++;
     _stamp(grid, p, r, c);
     tray[slot] = null;
     final (rows, cols) = _lines(grid);
@@ -326,6 +329,8 @@ class BlockBlastEngine {
     final cleared = _clear(grid);
     if (lines > 0) {
       combo++;
+      linesCleared += lines;
+      bestCombo = max(bestCombo, combo);
       misses = 0;
       comboBonus = 10 * lines * lines * combo;
     } else if (combo > 0) {
@@ -338,6 +343,7 @@ class BlockBlastEngine {
     }
     final allClear =
         lines > 0 && grid.every((row) => row.every((v) => v == null));
+    if (allClear) allClears++;
     // Tunable approximation, not Hungry Studio's unpublished scoring formula.
     final points =
         p.cells.length + 10 * lines * lines * combo + (allClear ? 300 : 0);
@@ -398,18 +404,30 @@ class BlockBlastEngine {
     if (tray.every((p) => p == null)) refill();
   }
 
-  Map<String, dynamic> toJson() => {
-        'version': 1,
-        'grid': grid,
-        'tray': [
-          for (final p in tray) p == null ? null : [p.shape, p.color]
-        ],
-        'score': score,
-        'combo': combo,
-        'misses': misses,
-        'comboBonus': comboBonus,
-        'reviveUsed': reviveUsed,
-      };
+  Map<String, dynamic> toJson({bool includeRunSummary = false}) {
+    final data = <String, dynamic>{
+      'version': 1,
+      'grid': grid,
+      'tray': [
+        for (final p in tray) p == null ? null : [p.shape, p.color]
+      ],
+      'score': score,
+      'combo': combo,
+      'misses': misses,
+      'comboBonus': comboBonus,
+      'reviveUsed': reviveUsed,
+    };
+    if (includeRunSummary) {
+      data.addAll({
+        'placementsMade': placementsMade,
+        'linesCleared': linesCleared,
+        'bestCombo': bestCombo,
+        'allClears': allClears,
+      });
+    }
+    return data;
+  }
+
   static BlockBlastEngine? restore(Map<String, dynamic>? data,
       {Random? random, List<BlockPiece?> Function()? nextTray}) {
     if (data == null) return null;
@@ -442,12 +460,19 @@ class BlockBlastEngine {
       final score = data['score'] as int,
           combo = data['combo'] as int,
           misses = data['misses'] as int,
-          comboBonus = data['comboBonus'] as int? ?? 0;
+          comboBonus = data['comboBonus'] as int? ?? 0,
+          placementsMade = data['placementsMade'] as int? ?? 0,
+          linesCleared = data['linesCleared'] as int? ?? 0,
+          bestCombo = data['bestCombo'] as int? ?? combo,
+          allClears = data['allClears'] as int? ?? 0;
       if (score < 0 ||
           combo < 0 ||
           misses < 0 ||
           misses >= comboGrace ||
-          (combo == 0 && misses != 0)) {
+          (combo == 0 && misses != 0) ||
+          placementsMade < 0 ||
+          linesCleared < 0 ||
+          allClears < 0) {
         return null;
       }
       final (rows, cols) = _lines(b);
@@ -459,7 +484,11 @@ class BlockBlastEngine {
         ..combo = combo
         ..misses = misses
         ..comboBonus = comboBonus
-        ..reviveUsed = data['reviveUsed'] as bool;
+        ..reviveUsed = data['reviveUsed'] as bool
+        ..placementsMade = placementsMade
+        ..linesCleared = linesCleared
+        ..bestCombo = bestCombo
+        ..allClears = allClears;
     } catch (_) {
       return null;
     }

@@ -50,7 +50,10 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   BlockBattleSession? get _battle => widget.battle;
   Timer? _battleTimer, _battleNoticeTimer;
   bool _predicted = false;
-  int _battleMove = -1, _battleOut = -1, _battleEventRevision = -1, _battleRound = 1;
+  int _battleMove = -1,
+      _battleOut = -1,
+      _battleEventRevision = -1,
+      _battleRound = 1;
   String _battleFeedback = '';
 
   final _gridKey = GlobalKey();
@@ -65,6 +68,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   String _feedback = '';
   BlockCelebrationData? _celebration;
   int _celebrationId = 0;
+  int _boardRevision = 0;
   Timer? _reviveTimer;
   int _run = 0;
   bool _over = false;
@@ -164,7 +168,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   void _save() {
     if (_battle != null) return;
     unawaited(socialCall('score', {'score': _score}));
-    unawaited(ProgressService.instance.saveBlockGame(_game.toJson()));
+    unawaited(ProgressService.instance
+        .saveBlockGame(_game.toJson(includeRunSummary: true)));
     final run = _run;
     unawaited(ProgressService.instance.submitBlockScore(_score).then((record) {
       if (mounted && run == _run && record) setState(() => _newRecord = true);
@@ -180,6 +185,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _feedback = '';
     _celebration = null;
     _game = BlockBlastEngine(random: _rng);
+    _boardRevision++;
     _over = false;
     _newRecord = false;
     _askContinue = false;
@@ -291,6 +297,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     if (_battle != null && !_battle!.canPlay) return;
     final move = _game.place(idx, tr, tc);
     if (move == null) return;
+    _boardRevision++;
     if (_battle != null) {
       _predicted = true;
       _battle!.place(idx, tr, tc);
@@ -342,8 +349,12 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     final round = session.round;
     final roundChanged = round != _battleRound;
     if (!session.pending &&
-        (_predicted || _battleMove != mine['lastMove'] || reset || roundChanged)) {
+        (_predicted ||
+            _battleMove != mine['lastMove'] ||
+            reset ||
+            roundChanged)) {
       _game = session.engine()!;
+      _boardRevision++;
       _predicted = false;
       _battleMove = mine['lastMove'];
       _battleOut = mine['boardOuts'];
@@ -468,6 +479,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   void _revive() {
     setState(() {
       _game.revive();
+      _boardRevision++;
       _reviveQ = null;
       _reviveSelected = null;
     });
@@ -705,7 +717,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                           {
                             for (final impact in _boardFx.impacts)
                               ...impact.cells
-                          }),
+                          },
+                          _boardRevision),
                     ))),
             Positioned.fill(
                 child: IgnorePointer(
@@ -1042,52 +1055,243 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   Widget _overOverlay(int best) {
+    final cardWidth = min(MediaQuery.sizeOf(context).width - 36, 420.0);
+    final statWidth = (cardWidth - 40 - 10) / 2;
+    final recordColor = _newRecord ? const Color(0xFFFFD36A) : AppTheme.accent;
     return Container(
-      color: Colors.black.withValues(alpha: 0.55),
+      color: const Color(0xD8091428),
       alignment: Alignment.center,
-      child: SingleChildScrollView(
-          child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 40),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-        decoration: BoxDecoration(
-          color: AppTheme.bgElevated,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_newRecord ? '🎉' : '🧱',
-                style: const TextStyle(fontSize: 48)),
-            const SizedBox(height: 10),
-            Text(
-              _newRecord ? 'Yeni Rekor!' : 'Oyun Bitti',
-              style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  color: AppTheme.textPrimary),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Center(
+            child: Container(
+              key: const ValueKey('block-run-summary'),
+              width: cardWidth,
+              margin: const EdgeInsets.symmetric(horizontal: 18),
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF233B61), Color(0xFF14243F)],
+                ),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                    color:
+                        recordColor.withValues(alpha: _newRecord ? .62 : .28)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x66050B16),
+                    blurRadius: 28,
+                    offset: Offset(0, 14),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: recordColor.withValues(alpha: .14),
+                      borderRadius: BorderRadius.circular(19),
+                      border:
+                          Border.all(color: recordColor.withValues(alpha: .34)),
+                    ),
+                    child: Icon(
+                      _newRecord
+                          ? Icons.emoji_events_rounded
+                          : Icons.grid_view_rounded,
+                      color: recordColor,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _newRecord ? 'YENİ REKOR!' : 'OYUN TAMAMLANDI',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: recordColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    _newRecord
+                        ? 'Kendi rekorunu geçtin.'
+                        : 'Sığacak yer kalmadı.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0E1B30).withValues(alpha: .72),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'SKOR',
+                          style: TextStyle(
+                            color: AppTheme.textMuted,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.6,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '$_score',
+                            key: const ValueKey('block-run-score'),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 42,
+                              height: 1.05,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: -1.2,
+                              shadows: [
+                                Shadow(
+                                  color: recordColor.withValues(alpha: .25),
+                                  blurRadius: 18,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          'REKOR  ${max(best, _score)}',
+                          style: const TextStyle(
+                            color: Color(0xFFFFD36A),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: .45,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      SizedBox(
+                        width: statWidth,
+                        child: _runStat(
+                          'TEMİZLENEN ÇİZGİ',
+                          '${_game.linesCleared}',
+                          Icons.view_week_rounded,
+                          const Color(0xFF80E7DC),
+                        ),
+                      ),
+                      SizedBox(
+                        width: statWidth,
+                        child: _runStat(
+                          'EN İYİ KOMBO',
+                          '×${_game.bestCombo}',
+                          Icons.bolt_rounded,
+                          const Color(0xFFFFD36A),
+                        ),
+                      ),
+                      SizedBox(
+                        width: statWidth,
+                        child: _runStat(
+                          'ALL CLEAR',
+                          '${_game.allClears}',
+                          Icons.auto_awesome_rounded,
+                          const Color(0xFFC9A6FF),
+                        ),
+                      ),
+                      SizedBox(
+                        width: statWidth,
+                        child: _runStat(
+                          'YERLEŞTİRİLEN PARÇA',
+                          '${_game.placementsMade}',
+                          Icons.extension_rounded,
+                          const Color(0xFF8CB8FF),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _bigBtn('Tekrar Oyna', primary: true, onTap: _reset),
+                  const SizedBox(height: 9),
+                  _bigBtn('Oyunlara Dön',
+                      primary: false,
+                      onTap: () => Navigator.of(context).maybePop()),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            const Text('Sığacak yer kalmadı.',
-                style:
-                    TextStyle(fontSize: 13.5, color: AppTheme.textSecondary)),
-            const SizedBox(height: 18),
-            Row(
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _runStat(String label, String value, IconData icon, Color color) {
+    return Container(
+      height: 68,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1B30).withValues(alpha: .52),
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.white.withValues(alpha: .065)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _scoreBox('Skor', '$_score', AppTheme.accent),
-                const SizedBox(width: 14),
-                _scoreBox('Rekor', '$best', AppTheme.success),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      color: AppTheme.textMuted,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .45,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  key: ValueKey('block-stat-${label.toLowerCase()}'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    height: 1,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 22),
-            _bigBtn('Tekrar Oyna', primary: true, onTap: _reset),
-            const SizedBox(height: 10),
-            _bigBtn('Oyunlara Dön',
-                primary: false, onTap: () => Navigator.of(context).maybePop()),
-          ],
-        ),
-      )),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1116,29 +1320,6 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       ),
     );
   }
-
-  Widget _scoreBox(String label, String value, Color color) {
-    return Container(
-      width: 92,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        children: [
-          Text(value,
-              style: TextStyle(
-                  fontSize: 26, fontWeight: FontWeight.w900, color: color)),
-          const SizedBox(height: 2),
-          Text(label,
-              style:
-                  const TextStyle(fontSize: 12, color: AppTheme.textSecondary)),
-        ],
-      ),
-    );
-  }
 }
 
 /// Izgarayı tek seferde çizer (64 widget yerine). Sürükleme sırasında yalnızca
@@ -1149,9 +1330,9 @@ class _GridPainter extends CustomPainter {
   final Color? previewColor;
   final Set<int> clearCells; // bırakınca silinecek hücreler (parlama)
   final Set<int> movingCells;
-  _GridPainter(List<List<int?>> grid, this.preview, this.previewColor,
-      this.clearCells, this.movingCells)
-      : grid = [for (final row in grid) List.of(row)];
+  final int boardRevision;
+  _GridPainter(this.grid, this.preview, this.previewColor, this.clearCells,
+      this.movingCells, this.boardRevision);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1214,9 +1395,9 @@ class _GridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GridPainter old) =>
+      boardRevision != old.boardRevision ||
       previewColor != old.previewColor ||
       !setEquals(preview, old.preview) ||
       !setEquals(clearCells, old.clearCells) ||
-      !setEquals(movingCells, old.movingCells) ||
-      List.generate(_n, (i) => i).any((i) => !listEquals(grid[i], old.grid[i]));
+      !setEquals(movingCells, old.movingCells);
 }
