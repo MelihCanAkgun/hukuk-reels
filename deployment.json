@@ -1,8 +1,8 @@
 {
-  "source_commit": "e5378676d4982637254ad36919e160a3b2ad99da",
-  "built_at": "2026-09-13T08:33:25.000000+00:00",
-  "checks": "74 Flutter tests; analyze clean; runtime/update tests; release build with base-href /hukuk-reels/",
-  "change": "Fix base-href to /hukuk-reels/ and deploy shared ComboHud",
+  "source_commit": "db0cf603c10892572126417039bdf6ac34f20d11",
+  "built_at": "2026-09-23T12:56:49Z",
+  "checks": "flutter analyze clean; 15 Flutter widget tests; release build with base-href /hukuk-reels/",
+  "change": "Optimize Reels swipe rendering and progress persistence; show remaining points to next 500-point Battle hit",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "e1c47dd11e0da355"
+  "app_build": "90d145d9c6530976"
 }
