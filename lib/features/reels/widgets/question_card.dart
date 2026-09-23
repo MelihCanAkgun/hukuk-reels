@@ -146,6 +146,7 @@ class _QuestionCardState extends State<QuestionCard> {
   @override
   Widget build(BuildContext context) {
     final q = widget.question;
+    final compact = MediaQuery.sizeOf(context).height < 700;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -172,29 +173,39 @@ class _QuestionCardState extends State<QuestionCard> {
           children: [
             const CornerDecorations(),
             Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _badge(q.category),
-            const SizedBox(height: 14),
-            Text(
-              q.question,
-              style: const TextStyle(
-                fontSize: 17.5,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ...List.generate(q.options.length, (i) => _option(i)),
-            if (_answered) ...[
-              const SizedBox(height: 6),
-              Flexible(child: _resultPanel()),
-            ] else
-              const Spacer(),
-                ],
+              padding: EdgeInsets.all(compact ? 14 : 18),
+              child: LayoutBuilder(
+                builder: (context, constraints) => FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: constraints.maxWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _badge(q.category),
+                        SizedBox(height: compact ? 10 : 14),
+                        Text(
+                          q.question,
+                          style: TextStyle(
+                            fontSize: compact ? 16 : 17.5,
+                            height: compact ? 1.3 : 1.4,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: compact ? 12 : 16),
+                        ...List.generate(
+                            q.options.length, (i) => _option(i, compact)),
+                        if (_answered) ...[
+                          const SizedBox(height: 6),
+                          _resultPanel(compact),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -238,7 +249,7 @@ class _QuestionCardState extends State<QuestionCard> {
     );
   }
 
-  Widget _option(int index) {
+  Widget _option(int index, bool compact) {
     final q = widget.question;
     final isCorrect = index == q.correctIndex;
     final isSelected = index == _selected;
@@ -279,7 +290,10 @@ class _QuestionCardState extends State<QuestionCard> {
         onTap: () => _select(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          padding: EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: compact ? 9 : 11,
+          ),
           decoration: BoxDecoration(
             color: bg,
             borderRadius: BorderRadius.circular(14),
@@ -327,7 +341,7 @@ class _QuestionCardState extends State<QuestionCard> {
     );
   }
 
-  Widget _resultPanel() {
+  Widget _resultPanel(bool compact) {
     final color = _isCorrect ? AppTheme.success : AppTheme.danger;
 
     return GestureDetector(
@@ -377,15 +391,14 @@ class _QuestionCardState extends State<QuestionCard> {
               ],
             ),
             const SizedBox(height: 8),
-            Flexible(
-              child: Text(
-                widget.question.explanation,
-                overflow: TextOverflow.fade,
-                style: const TextStyle(
-                  color: AppTheme.textSecondary,
-                  fontSize: 13.5,
-                  height: 1.5,
-                ),
+            Text(
+              widget.question.explanation,
+              maxLines: compact ? 2 : 3,
+              overflow: TextOverflow.fade,
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 13.5,
+                height: 1.5,
               ),
             ),
             const SizedBox(height: 8),

@@ -251,9 +251,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('battle-mine-attack')), findsOneWidget);
-    expect(find.text('ATTACK 250 / 500'), findsOneWidget);
+    expect(find.text('250 PUAN KALDI'), findsOneWidget);
     expect(find.byKey(const ValueKey('battle-other-attack')), findsOneWidget);
-    expect(find.text('375 / 500'), findsOneWidget);
+    expect(find.text('125 PUAN KALDI'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     session.dispose();
@@ -485,4 +485,3 @@ void main() {
     session.dispose();
   });
 }
-
