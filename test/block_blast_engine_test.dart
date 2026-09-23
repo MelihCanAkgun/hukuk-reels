@@ -138,6 +138,7 @@ void main() {
     expect(restored.linesCleared, 2);
     expect(restored.bestCombo, 2);
     expect(restored.allClears, 2);
+    expect(restored.runSummaryAvailable, isTrue);
   });
 
   test('older saved games restore with empty run summary counters', () {
@@ -151,6 +152,7 @@ void main() {
     expect(restored.linesCleared, 0);
     expect(restored.bestCombo, 0);
     expect(restored.allClears, 0);
+    expect(restored.runSummaryAvailable, isFalse);
   });
 
   test('tray refills only after all three pieces have been used', () {

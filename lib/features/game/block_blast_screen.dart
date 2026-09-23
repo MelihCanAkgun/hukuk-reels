@@ -1057,6 +1057,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   Widget _overOverlay(int best) {
     final cardWidth = min(MediaQuery.sizeOf(context).width - 36, 420.0);
     final statWidth = (cardWidth - 40 - 10) / 2;
+    final summaryAvailable = _game.runSummaryAvailable;
     final recordColor = _newRecord ? const Color(0xFFFFD36A) : AppTheme.accent;
     return Container(
       color: const Color(0xD8091428),
@@ -1193,7 +1194,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                         width: statWidth,
                         child: _runStat(
                           'TEMİZLENEN ÇİZGİ',
-                          '${_game.linesCleared}',
+                          summaryAvailable ? '${_game.linesCleared}' : '—',
                           Icons.view_week_rounded,
                           const Color(0xFF80E7DC),
                         ),
@@ -1202,7 +1203,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                         width: statWidth,
                         child: _runStat(
                           'EN İYİ KOMBO',
-                          '×${_game.bestCombo}',
+                          summaryAvailable ? '×${_game.bestCombo}' : '—',
                           Icons.bolt_rounded,
                           const Color(0xFFFFD36A),
                         ),
@@ -1211,7 +1212,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                         width: statWidth,
                         child: _runStat(
                           'ALL CLEAR',
-                          '${_game.allClears}',
+                          summaryAvailable ? '${_game.allClears}' : '—',
                           Icons.auto_awesome_rounded,
                           const Color(0xFFC9A6FF),
                         ),
@@ -1220,13 +1221,25 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                         width: statWidth,
                         child: _runStat(
                           'YERLEŞTİRİLEN PARÇA',
-                          '${_game.placementsMade}',
+                          summaryAvailable ? '${_game.placementsMade}' : '—',
                           Icons.extension_rounded,
                           const Color(0xFF8CB8FF),
                         ),
                       ),
                     ],
                   ),
+                  if (!summaryAvailable) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Bu kayıt eski sürümden; bazı istatistikler tutulmamış.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppTheme.textMuted,
+                        fontSize: 10,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   _bigBtn('Tekrar Oyna', primary: true, onTap: _reset),
                   const SizedBox(height: 9),

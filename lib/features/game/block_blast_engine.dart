@@ -252,6 +252,7 @@ class BlockBlastEngine {
   int score = 0, combo = 0, misses = 0, comboBonus = 0;
   // Run summary counters are presentation data; they never affect move rules.
   int placementsMade = 0, linesCleared = 0, bestCombo = 0, allClears = 0;
+  bool runSummaryAvailable = true;
   bool reviveUsed = false;
   BlockBlastEngine({Random? random, this.nextTray})
       : random = random ?? Random() {
@@ -423,6 +424,7 @@ class BlockBlastEngine {
         'linesCleared': linesCleared,
         'bestCombo': bestCombo,
         'allClears': allClears,
+        'runSummaryAvailable': runSummaryAvailable,
       });
     }
     return data;
@@ -464,7 +466,12 @@ class BlockBlastEngine {
           placementsMade = data['placementsMade'] as int? ?? 0,
           linesCleared = data['linesCleared'] as int? ?? 0,
           bestCombo = data['bestCombo'] as int? ?? combo,
-          allClears = data['allClears'] as int? ?? 0;
+          allClears = data['allClears'] as int? ?? 0,
+          runSummaryAvailable = data['runSummaryAvailable'] as bool? ??
+              (data.containsKey('placementsMade') &&
+                  data.containsKey('linesCleared') &&
+                  data.containsKey('bestCombo') &&
+                  data.containsKey('allClears'));
       if (score < 0 ||
           combo < 0 ||
           misses < 0 ||
@@ -488,7 +495,8 @@ class BlockBlastEngine {
         ..placementsMade = placementsMade
         ..linesCleared = linesCleared
         ..bestCombo = bestCombo
-        ..allClears = allClears;
+        ..allClears = allClears
+        ..runSummaryAvailable = runSummaryAvailable;
     } catch (_) {
       return null;
     }
