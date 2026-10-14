@@ -1,8 +1,8 @@
 {
-  "source_commit": "aa2275bbc66a9105aaf92f775257c212c50efe0c",
-  "built_at": "2026-09-23T15:01:22Z",
-  "checks": "77 Flutter tests including Battle regressions; flutter analyze clean; web audio/offline/update runtime checks passed; release build with base-href /hukuk-reels/",
-  "change": "Polish the singleplayer Block Blast run summary, keep legacy run stats truthful, and reduce unnecessary board/FX rendering work while preserving animations and game behavior",
+  "source_commit": "52f206083a0fcd2497ce01d724621666a2fb9397",
+  "built_at": "2026-10-14T20:10:15Z",
+  "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
+  "change": "Pixel-art bouquet surprise after update, 🌷 button, Wildflower",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "3c58cc6bdd2205d6"
+  "app_build": "4e47550e9b54ae92"
 }
