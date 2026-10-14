@@ -47,7 +47,8 @@ class ProgressService {
   Future<void> _blockWrites = Future.value();
   int _blockHighMemory = 0;
   static const _kSubwayHigh = 'subway_high_v1';
-  static const kFlowerSurpriseSeenKey = 'flower_surprise_seen_v1';
+  // v2: bildirim öncesi sürpriz herkeste yeniden açılsın diye yenilendi.
+  static const kFlowerSurpriseSeenKey = 'flower_surprise_seen_v2';
   bool _flowerSeenMemory = false;
 
   SharedPreferences? _prefs;
