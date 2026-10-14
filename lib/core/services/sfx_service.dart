@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,6 +42,7 @@ class SfxService {
     'clear': 'assets/sfx/clear.wav',
     'combo': 'assets/sfx/combo.wav',
     'over': 'assets/sfx/over.wav',
+    'chime': 'assets/sfx/chime.wav',
   };
 
   Future<void> init() =>
@@ -133,4 +136,9 @@ class SfxService {
   // Reuse the short placement impact at a lower pitch; honors the SFX volume.
   void damage() => _play('place', rate: 0.65);
   void gameOver() => _play('over');
+
+  final _rng = Random();
+
+  /// Bukete dokunma: tatlı "bıling"; her seferinde perdesi biraz değişir.
+  void chime() => _play('chime', rate: 0.92 + _rng.nextDouble() * 0.2);
 }

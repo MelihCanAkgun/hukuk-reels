@@ -76,8 +76,11 @@ class _GamesScreenState extends State<GamesScreen> {
                       ),
                     ),
                     const Spacer(),
-                    _flowerButton(),
-                    const SizedBox(width: 6),
+                    // Sürpriz görülmeden 🌷 görünmesin (spoiler olmasın).
+                    if (_progress.flowerSurpriseSeen) ...[
+                      _flowerButton(),
+                      const SizedBox(width: 6),
+                    ],
                     const MusicButton(),
                   ],
                 ),
