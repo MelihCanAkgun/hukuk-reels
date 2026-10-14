@@ -1,8 +1,8 @@
 {
-  "source_commit": "dd9c82fec3665f9526c4f2f20a03b504e196106a",
-  "built_at": "2026-10-14T20:16:07Z",
+  "source_commit": "17485c39b3bba9a73d8bac53278c20ee1c59eb13",
+  "built_at": "2026-10-14T20:22:40Z",
   "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Bouquet tap chime; remove flower spoilers before the surprise opens",
+  "change": "Re-arm bouquet surprise (seen flag v2)",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "79206b365c3c94ac"
+  "app_build": "7251f62600d9a870"
 }
