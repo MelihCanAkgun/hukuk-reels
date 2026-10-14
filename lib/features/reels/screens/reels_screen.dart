@@ -307,7 +307,7 @@ class _ReelsScreenState extends State<ReelsScreen>
                       onBeatWrong: _beatWrong,
                     );
                   }
-                  final topInset = MediaQuery.of(context).padding.top + 58;
+                  final topInset = MediaQuery.paddingOf(context).top + 58;
                   // Geniş ekranlarda kartı ortala ve max 480px tut; mobilde
                   // tam genişlik (tight SizedBox: taşma/yükseklik sorunu yok).
                   return Padding(
@@ -376,7 +376,7 @@ class _ReelsScreenState extends State<ReelsScreen>
                   ),
                 ),
                 Positioned(
-                  top: MediaQuery.of(context).padding.top + 54,
+                  top: MediaQuery.paddingOf(context).top + 54,
                   right: 12,
                   child: MusicControlPanel(
                     onClose: () => setState(() => _showMusicPanel = false),
@@ -546,7 +546,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pad = MediaQuery.of(context).padding;
+    final pad = MediaQuery.paddingOf(context);
     return Container(
       padding: EdgeInsets.fromLTRB(16, pad.top + 8, 16, 10),
       decoration: BoxDecoration(
@@ -807,7 +807,7 @@ class _SummaryCard extends StatelessWidget {
           ),
         ),
         Positioned(
-          bottom: MediaQuery.of(context).padding.bottom + 22,
+          bottom: MediaQuery.paddingOf(context).bottom + 22,
           left: 0,
           right: 0,
           child: const Center(
