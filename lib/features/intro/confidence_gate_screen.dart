@@ -10,7 +10,29 @@ import '../reels/screens/reels_screen.dart';
 /// "Evet 🥰" tıklanabilir ve teste geçirir.
 /// "Hayır 😟" yaklaşınca ayakları çıkar ve kaçar — asla tıklanamaz.
 class ConfidenceGateScreen extends StatefulWidget {
-  const ConfidenceGateScreen({super.key});
+  const ConfidenceGateScreen({
+    super.key,
+    this.badge = 'MEDENİ USUL HUKUKU · FİNAL',
+    this.title = 'Kendine Güveniyor musun?',
+    this.taunts = _defaultTaunts,
+    this.onYes,
+  });
+
+  final String badge;
+  final String title;
+  final List<String> taunts;
+
+  /// Verilirse "Evet" bunu çağırır; yoksa teste geçer.
+  final void Function(BuildContext context)? onYes;
+
+  static const _defaultTaunts = [
+    'Hayır 😟',
+    'Yakalayamazsın 😝',
+    'Nereye? 🏃',
+    'Boşuna 😆',
+    'Pes et 😎',
+    'Hâlâ mı? 🙄',
+  ];
 
   @override
   State<ConfidenceGateScreen> createState() => _ConfidenceGateScreenState();
@@ -31,15 +53,6 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
   double? _noTop;
   bool _hasFled = false;
   int _escapeCount = 0;
-
-  static const _taunts = [
-    'Hayır 😟',
-    'Yakalayamazsın 😝',
-    'Nereye? 🏃',
-    'Boşuna 😆',
-    'Pes et 😎',
-    'Hâlâ mı? 🙄',
-  ];
 
   @override
   void initState() {
@@ -116,6 +129,11 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
 
   void _onEvet() {
     HapticFeedback.mediumImpact();
+    final onYes = widget.onYes;
+    if (onYes != null) {
+      onYes(context);
+      return;
+    }
     AudioService.instance.start();
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
@@ -163,9 +181,9 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
                                 color: AppTheme.accent.withValues(alpha: 0.3),
                               ),
                             ),
-                            child: const Text(
-                              'MEDENİ USUL HUKUKU · FİNAL',
-                              style: TextStyle(
+                            child: Text(
+                              widget.badge,
+                              style: const TextStyle(
                                 color: AppTheme.accent,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,
@@ -174,10 +192,10 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
                             ),
                           ),
                           const SizedBox(height: 28),
-                          const Text(
-                            'Kendine Güveniyor musun?',
+                          Text(
+                            widget.title,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w800,
                               color: AppTheme.textPrimary,
@@ -209,7 +227,7 @@ class _ConfidenceGateScreenState extends State<ConfidenceGateScreen>
                       child: _NoButton(
                         width: _btnW,
                         height: _btnH,
-                        label: _taunts[_escapeCount % _taunts.length],
+                        label: widget.taunts[_escapeCount % widget.taunts.length],
                         showLegs: _hasFled,
                         legAnim: _legCtrl,
                         // Dokununca da kaçsın; tıklama asla "gerçekleşmez".
