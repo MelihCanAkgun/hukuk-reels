@@ -7,7 +7,7 @@ import 'package:hukuk_reels/features/reels/screens/reels_screen.dart';
 void main() {
   testWidgets('reel swipes update the header and persist the latest page',
       (tester) async {
-    SharedPreferences.setMockInitialValues({'flower_surprise_seen_v1': true});
+    SharedPreferences.setMockInitialValues({'flower_surprise_seen_v2': true});
     await ProgressService.instance.init();
 
     await tester.pumpWidget(const MaterialApp(home: ReelsScreen()));
