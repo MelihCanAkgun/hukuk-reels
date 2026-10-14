@@ -89836,7 +89836,7 @@ break
 case 1:return A.r(q,r)}})
 return A.t($async$yU,r)},
 ga_F(){if(!this.e){var s=this.f
-s=s==null?null:A.h2(s.a.h(0,"flower_surprise_seen_v1"))
+s=s==null?null:A.h2(s.a.h(0,"flower_surprise_seen_v2"))
 s=s===!0}else s=!0
 return s},
 qJ(a){return this.a4B(a)},
@@ -89847,12 +89847,12 @@ q=3
 n=o.f
 s=a?6:8
 break
-case 6:n=n==null?null:n.jV("Bool","flower_surprise_seen_v1",!0)
+case 6:n=n==null?null:n.jV("Bool","flower_surprise_seen_v2",!0)
 s=9
 return A.o(t.Sg.b(n)?n:A.cd(n,t.X7),$async$qJ)
 case 9:s=7
 break
-case 8:n=n==null?null:n.E(0,"flower_surprise_seen_v1")
+case 8:n=n==null?null:n.E(0,"flower_surprise_seen_v2")
 s=10
 return A.o(t.Sg.b(n)?n:A.cd(n,t.X7),$async$qJ)
 case 10:case 7:q=1
