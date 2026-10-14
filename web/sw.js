@@ -40,7 +40,7 @@ self.addEventListener('push', (event) => {
   try { data = event.data?.json() || {}; } catch (_) {}
   event.waitUntil(self.registration.showNotification(data.title || 'Block Blast', {
     body: data.body || 'Yeni bir bildirimin var.',
-    icon: new URL('icons/Icon-192.png', self.registration.scope).href,
+    icon: new URL('icons/icon-192x192.png', self.registration.scope).href,
     tag: data.tag || 'block-blast',
     data: {url: self.registration.scope},
   }));

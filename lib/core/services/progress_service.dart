@@ -53,6 +53,11 @@ class ProgressService {
 
   SharedPreferences? _prefs;
 
+  // Çözümlenmiş istatistik / çözülen soru önbelleği: her okumada JSON
+  // çözmemek için. Yazan her yöntem önbelleği de günceller.
+  Map<String, QuestionStat>? _statsCache;
+  Set<String>? _solvedCache;
+
   /// Depolama hazır değilse (init başarısız/eklenti yok) uygulama yine de
   /// çalışır; ilerleme yalnızca o oturum için tutulur.
   bool get isReady => _prefs != null;
@@ -70,7 +75,10 @@ class ProgressService {
 
   // ───────────────────────── İstatistikler ─────────────────────────
 
-  Map<String, QuestionStat> get stats {
+  /// Değiştirilebilir kopya döner (önbelleği korumak için).
+  Map<String, QuestionStat> get stats => Map.of(_statsCache ??= _readStats());
+
+  Map<String, QuestionStat> _readStats() {
     final raw = _prefs?.getString(_kStats);
     if (raw == null) return {};
     try {
@@ -87,14 +95,17 @@ class ProgressService {
     }
   }
 
-  Set<String> get solvedIds =>
-      (_prefs?.getStringList(_kSolved) ?? const []).toSet();
+  Set<String> get _solved =>
+      _solvedCache ??= (_prefs?.getStringList(_kSolved) ?? const []).toSet();
+
+  /// Değiştirilebilir kopya döner (önbelleği korumak için).
+  Set<String> get solvedIds => Set.of(_solved);
 
   int get poolSize => kQuestions.length;
 
   /// Havuzda henüz hiç cevaplanmamış soru sayısı.
   int get unsolvedCount {
-    final s = solvedIds;
+    final s = _solved;
     return kQuestions.where((q) => !s.contains(q.id)).length;
   }
 
@@ -102,7 +113,7 @@ class ProgressService {
   Future<void> recordAnswer(String id, bool correct) async {
     final p = _prefs;
     if (p == null) return;
-    final s = stats;
+    final s = _statsCache ??= _readStats();
     final old = s[id] ?? const QuestionStat();
     s[id] = QuestionStat(
       correct: old.correct + (correct ? 1 : 0),
@@ -112,7 +123,7 @@ class ProgressService {
       _kStats,
       jsonEncode(s.map((k, v) => MapEntry(k, {'c': v.correct, 'w': v.wrong}))),
     );
-    final solved = solvedIds..add(id);
+    final solved = _solved..add(id);
     await p.setStringList(_kSolved, solved.toList());
   }
 
@@ -235,7 +246,7 @@ class ProgressService {
   /// Çözülmemiş sorulardan rastgele [testSize] soruluk yeni test başlatır
   /// ve diske yazar. Havuzda çözülmemiş soru kalmadıysa null döner.
   Future<SessionData?> startNewTest(Random rng) async {
-    final s = solvedIds;
+    final s = _solved;
     final unsolved = kQuestions.where((q) => !s.contains(q.id)).toList()
       ..shuffle(rng);
     if (unsolved.isEmpty) return null;
@@ -276,11 +287,16 @@ class ProgressService {
   Future<void> clearSession() async => _prefs?.remove(_kSession);
 
   /// Çözülmüşlük işaretlerini temizler (istatistikler kalır).
-  Future<void> resetPool() async => _prefs?.remove(_kSolved);
+  Future<void> resetPool() async {
+    _solvedCache = <String>{};
+    await _prefs?.remove(_kSolved);
+  }
 
   /// Her şeyi sıfırlar: istatistik + havuz + oturum.
   Future<void> resetAll() async {
     _blockHighMemory = 0;
+    _statsCache = <String, QuestionStat>{};
+    _solvedCache = <String>{};
     await clearBlockGame();
     await _prefs?.remove(_kStats);
     await _prefs?.remove(_kSolved);

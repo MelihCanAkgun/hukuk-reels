@@ -55,7 +55,7 @@ class _BeatPagerState extends State<_BeatPager> {
   @override
   Widget build(BuildContext context) {
     final total = widget.questions.length;
-    final pad = MediaQuery.of(context).padding;
+    final pad = MediaQuery.paddingOf(context);
 
     return Stack(
       children: [
