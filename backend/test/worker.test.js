@@ -154,3 +154,14 @@ test('test player can auth and use battle but never writes to leaderboard or DB'
   assert.equal((await testCall('/message', {message:'Test'})).status, 403);
 });
 
+
+test('admin can preview a manual message on own devices only', async()=>{
+  const {db,call}=await setup();
+  assert.equal((await call('/message',{message:'Önizleme',self:true})).status,400);
+  db.prepare("INSERT INTO subscriptions VALUES('mine',1,'{}')").run();
+  assert.equal((await call('/message',{message:'Önizleme',self:true})).status,200);
+  const event=db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 1').get();
+  assert.equal(event.player_id,1);
+  assert.match(event.title,/Melih sana mesaj gönderdi/);
+  assert.equal((await call('/message',{message:'Önizleme',self:true},1)).status,403);
+});

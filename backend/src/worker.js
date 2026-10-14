@@ -104,10 +104,15 @@ export async function route(request, env, ctx) {
   if (path === '/message') {
     const message = typeof data.message === 'string' ? data.message.trim() : '';
     if (!message || message.length > 180) fail('1–180 karakterlik bir mesaj yaz.');
-    const target = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
+    // self:true → yalnızca yöneticinin kendi cihazlarına önizleme (nasıl göründüğünü görmek için).
+    const toSelf = data.self === true;
+    const target = toSelf ? {id: player.id}
+      : await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
     if (!target) fail('Diğer oyuncu henüz katılmadı.');
     const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscriptions WHERE player_id = ?').bind(target.id).first();
-    if (!count.count) fail('Diğer oyuncunun kayıtlı bildirim cihazı yok. Uygulamayı ana ekrandan açıp Bildirimleri aç düğmesine dokunması gerekiyor.');
+    if (!count.count) fail(toSelf
+      ? 'Bu hesabın kayıtlı bildirim cihazı yok. Uygulamayı ana ekrandan açıp Bildirimleri aç düğmesine dokun.'
+      : 'Diğer oyuncunun kayıtlı bildirim cihazı yok. Uygulamayı ana ekrandan açıp Bildirimleri aç düğmesine dokunması gerekiyor.');
     // Atomic cooldown prevents double taps/retries from sending multiple messages.
     const now = Math.floor(Date.now()/1000);
     const result = await env.DB.prepare('UPDATE players SET last_message = ? WHERE id = ? AND last_message <= ? RETURNING id')
