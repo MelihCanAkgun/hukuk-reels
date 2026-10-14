@@ -1,8 +1,8 @@
 {
-  "source_commit": "52f206083a0fcd2497ce01d724621666a2fb9397",
-  "built_at": "2026-10-14T20:10:15Z",
+  "source_commit": "dd9c82fec3665f9526c4f2f20a03b504e196106a",
+  "built_at": "2026-10-14T20:16:07Z",
   "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Pixel-art bouquet surprise after update, 🌷 button, Wildflower",
+  "change": "Bouquet tap chime; remove flower spoilers before the surprise opens",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "4e47550e9b54ae92"
+  "app_build": "79206b365c3c94ac"
 }
