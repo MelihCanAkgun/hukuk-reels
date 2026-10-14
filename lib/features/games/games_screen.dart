@@ -10,6 +10,7 @@ import '../profile/profile_settings_screen.dart';
 import '../game/flappy_cat_screen.dart';
 import '../game/subway_cat_screen.dart';
 import '../reels/widgets/music_button.dart';
+import '../surprise/flower_surprise_flow.dart';
 
 /// Mini oyunların listelendiği ayrı "Oyunlar" sekmesi. (Eskiden profilin
 /// içindeydi.) Oyun içinde de müziğe erişilebilsin diye üstte müzik düğmesi
@@ -30,9 +31,16 @@ class _GamesScreenState extends State<GamesScreen> {
     // A refresh returns directly to the saved room, within its reconnect window.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final saved = await battleCall('inspect');
-      if (mounted && saved['room'] != null) {
+      if (!mounted) return;
+      if (saved['room'] != null) {
         Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const BlockBattleLobby()));
+        return;
+      }
+      // Güncellemeyle gelen çiçek sürprizi: ilk açılışta bir kez.
+      if (!_progress.flowerSurpriseSeen) {
+        await showFlowerSurpriseGate(context);
+        if (mounted) setState(() {});
       }
     });
   }
@@ -68,6 +76,8 @@ class _GamesScreenState extends State<GamesScreen> {
                       ),
                     ),
                     const Spacer(),
+                    _flowerButton(),
+                    const SizedBox(width: 6),
                     const MusicButton(),
                   ],
                 ),
@@ -125,6 +135,36 @@ class _GamesScreenState extends State<GamesScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Sürprizden sonra kalan çiçek. Dokununca çiçek yeniden açılır; uzun
+  /// basınca sürpriz bir sonraki açılış için sıfırlanır (test amaçlı).
+  Widget _flowerButton() {
+    return Semantics(
+      button: true,
+      label: 'Çiçeğin',
+      child: GestureDetector(
+        onTap: () => openFlower(context),
+        onLongPress: () async {
+          await _progress.setFlowerSurpriseSeen(false);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Sürpriz sıfırlandı: uygulama yeniden açılınca gösterilecek.'),
+          ));
+        },
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.accent.withValues(alpha: 0.12),
+            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.45)),
+          ),
+          child: const Text('🌷', style: TextStyle(fontSize: 20)),
         ),
       ),
     );

@@ -21,6 +21,7 @@ class AudioService {
   Future<void>? _initializing;
   bool _hasStarted = false;
   bool _userPaused = false; // kullanıcı bilerek durdurduysa true
+  bool _specialActive = false; // sürpriz ekranındaki parça tekrarda mı
 
   bool get hasTracks => AppConfig.musicTracks.isNotEmpty;
 
@@ -103,6 +104,35 @@ class AudioService {
     } catch (e) {
       debugPrint('[Audio] start hatası: $e');
     }
+  }
+
+  /// [assetPath] parçasını baştan çalar ve [endSpecial] çağrılana kadar
+  /// tekrarlar (çiçek sürprizinde Wildflower). Web autoplay kısıtı nedeniyle
+  /// bir dokunuşun içinden çağrılmalıdır.
+  Future<void> playSpecial(String assetPath) async {
+    final index = AppConfig.musicTracks.indexOf(assetPath);
+    if (index < 0) return;
+    _userPaused = false;
+    _specialActive = true;
+    try {
+      if (!_initialized) await init();
+      if (!_initialized) return;
+      unawaited(_player.setLoopMode(LoopMode.one).catchError((Object _) {}));
+      final seek = _player.seek(Duration.zero, index: index);
+      if (!_player.playing) _play();
+      await seek;
+    } catch (e) {
+      debugPrint('[Audio] özel parça hatası: $e');
+    }
+  }
+
+  /// Özel parçadan çıkınca normal karışık döngüye döner; çalan parça kesilmez.
+  Future<void> endSpecial() async {
+    if (!_specialActive) return;
+    _specialActive = false;
+    try {
+      await _player.setLoopMode(LoopMode.all);
+    } catch (_) {}
   }
 
   /// Denetim masası: çal / durdur.

@@ -47,6 +47,8 @@ class ProgressService {
   Future<void> _blockWrites = Future.value();
   int _blockHighMemory = 0;
   static const _kSubwayHigh = 'subway_high_v1';
+  static const kFlowerSurpriseSeenKey = 'flower_surprise_seen_v1';
+  bool _flowerSeenMemory = false;
 
   SharedPreferences? _prefs;
 
@@ -176,6 +178,25 @@ class ProgressService {
     if (score <= subwayHigh) return false;
     await _prefs?.setInt(_kSubwayHigh, score);
     return true;
+  }
+
+  // ───────────────────────── Çiçek sürprizi ─────────────────────────
+
+  /// Güncellemeyle gelen çiçek sürprizi açılışta bir kez gösterilir.
+  bool get flowerSurpriseSeen =>
+      _flowerSeenMemory || (_prefs?.getBool(kFlowerSurpriseSeenKey) ?? false);
+
+  /// [seen] false ise sürpriz bir sonraki açılışta yeniden gösterilir
+  /// (🌷 düğmesine uzun basarak test için).
+  Future<void> setFlowerSurpriseSeen(bool seen) async {
+    _flowerSeenMemory = seen;
+    try {
+      if (seen) {
+        await _prefs?.setBool(kFlowerSurpriseSeenKey, true);
+      } else {
+        await _prefs?.remove(kFlowerSurpriseSeenKey);
+      }
+    } catch (_) {}
   }
 
   // ───────────────────────── Oturum ─────────────────────────

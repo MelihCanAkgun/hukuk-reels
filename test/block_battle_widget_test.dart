@@ -62,7 +62,7 @@ void main() {
       }
       return {};
     });
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'flower_surprise_seen_v1': true});
     await ProgressService.instance.init();
     await (FontLoader('Inter')
           ..addFont(rootBundle.load('assets/fonts/Inter.ttf')))

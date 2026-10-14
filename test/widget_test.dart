@@ -12,7 +12,7 @@ import 'package:hukuk_reels/features/game/subway_cat_screen.dart';
 
 void main() {
   setUpAll(() async {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({'flower_surprise_seen_v1': true});
     await ProgressService.instance.init();
   });
 
