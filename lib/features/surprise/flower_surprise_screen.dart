@@ -6,6 +6,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/services/audio_service.dart';
+import '../../core/services/sfx_service.dart';
 import '../reels/widgets/music_button.dart';
 import 'bouquet_sprite.dart';
 import 'pixel_font.dart';
@@ -113,6 +114,7 @@ class _FlowerSurpriseScreenState extends State<FlowerSurpriseScreen>
   void _onTap(TapDownDetails d) {
     final onFlower = _scene.hitsBloom(d.localPosition);
     _scene.burstHearts(d.localPosition, onFlower ? 12 : 7);
+    SfxService.instance.chime();
     if (onFlower) {
       _scene.squish();
       HapticFeedback.lightImpact();

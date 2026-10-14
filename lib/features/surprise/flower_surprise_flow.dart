@@ -17,13 +17,13 @@ Route<void> _fade(Widget page) => PageRouteBuilder<void>(
 /// kapanırsa bir sonraki açılışta yeniden sorulur.
 Future<void> showFlowerSurpriseGate(BuildContext context) {
   return Navigator.of(context).push(_fade(ConfidenceGateScreen(
-    badge: '🌸 YENİ GÜNCELLEME 🌸',
+    badge: '💌 YENİ GÜNCELLEME 💌',
     title: 'Sana bir sürprizim var…\nGörmek ister misin?',
     taunts: const [
       'Hayır 😟',
       'Emin misin? 🥺',
       'Kaçamazsın 😝',
-      'Ama çiçek var 🌷',
+      'Olmaz öyle 😤',
       'Hadi ama 🙈',
       'Evet\'e bas 💗',
     ],

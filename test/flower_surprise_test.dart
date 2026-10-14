@@ -76,6 +76,8 @@ void main() {
     expect(find.byType(ConfidenceGateScreen), findsOneWidget);
     expect(find.textContaining('Sana bir sürprizim var'), findsOneWidget);
     expect(ProgressService.instance.flowerSurpriseSeen, isFalse);
+    expect(find.text('🌷'), findsNothing); // spoiler yok
+    expect(find.textContaining('çiçek'), findsNothing);
 
     await tester.tap(find.text('Evet 🥰'));
     await _play(tester, 1);
