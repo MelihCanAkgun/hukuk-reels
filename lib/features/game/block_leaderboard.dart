@@ -7,6 +7,7 @@ import '../../core/services/social_bridge.dart';
 import '../../core/services/avatar_sync.dart';
 import '../../core/services/avatar_bridge.dart';
 import '../profile/profile_avatar.dart';
+import '../../core/widgets/pixel_logo.dart';
 
 const socialApiUrl = String.fromEnvironment('SOCIAL_API_URL',
     defaultValue: 'https://hukuk-games-social.hukuk-games-social.workers.dev');
@@ -319,14 +320,28 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                                '${players[i]['name']}${players[i]['id'] == _data['me'] ? ' · Sen' : ''}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w700)),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                      '${players[i]['name']}${players[i]['id'] == _data['me'] ? ' · Sen' : ''}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700)),
+                                ),
+                                // Uygulamanın sahibi ve yöneticisi (Oyuncu 1).
+                                if (players[i]['id'] == 1) ...[
+                                  const SizedBox(width: 6),
+                                  const Tooltip(
+                                    message: 'Yönetici',
+                                    child: PixelLogo(kLogoCrown, size: 20),
+                                  ),
+                                ],
+                              ],
+                            ),
                             const SizedBox(height: 2),
                             Text(
                                 players[i]['active'] == 1

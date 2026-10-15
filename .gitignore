@@ -49,3 +49,12 @@ backend/node_modules/
 backend/.wrangler/
 backend/.dev.vars
 backend/.secrets/
+
+# Local-only tooling and outputs (never publish: may contain service state/logs)
+/.wrangler/
+/.preview/
+/.audio_hold/
+/.*_running/
+/.*.txt
+/*.command
+/*.command.kapali
