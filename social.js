@@ -26,6 +26,24 @@
     if (!response.ok) throw Object.assign(new Error(result.error || 'Bağlantı kurulamadı.'), {status:response.status});
     return result;
   }
+  // Full-quality photos (Player 1 only), kept in memory per version so a
+  // second tap can save without downloading again.
+  const fullCache = {};
+  async function bigRequest(path, body) {
+    if (!config.url || !config.token) throw new Error('Önce sıralamaya oyuncu kodunla katıl.');
+    const response = await fetch(config.url + path, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: {Authorization: 'Bearer ' + config.token, ...(body === undefined ? {} : {'Content-Type': 'text/plain'})},
+      ...(body === undefined ? {} : {body}),
+      cache: 'no-store', signal: AbortSignal.timeout(180000),
+    });
+    if (!response.ok) {
+      let message = 'Bağlantı kurulamadı.';
+      try { message = (await response.json()).error || message; } catch (_) {}
+      throw Object.assign(new Error(message), {status: response.status});
+    }
+    return response;
+  }
   async function flush() {
     if (sending || !config.token || !config.url || document.hidden) return;
     const mine = lastBoard?.players?.find(p => p.id === lastBoard.me);
@@ -130,6 +148,7 @@
       if (action === 'leave') {
         config.token = ''; config.best = 0; verifiedSubscription = ''; lastBoard = null; persist();
         avatars = {}; persistAvatars();
+        for (const k of Object.keys(fullCache)) delete fullCache[k];
       }
       return state(false);
     }
@@ -143,6 +162,25 @@
       if (!m) throw new Error('Fotoğraf geçersiz. Lütfen başka bir fotoğraf seç.');
       lastBoard = await api('/avatar', {data: m[1]});
       return state(false);
+    }
+    if (action === 'avatarPutFull') {
+      const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(data.data || ''));
+      const full = window.hukukTakeAvatarFull ? window.hukukTakeAvatarFull() : '';
+      if (!m || !full) throw new Error('Fotoğraf geçersiz. Lütfen başka bir fotoğraf seç.');
+      lastBoard = await (await bigRequest('/avatar/full', m[1] + '\n' + full)).json();
+      return state(false);
+    }
+    if (action === 'avatarSaveFull') {
+      const id = Number(data.id);
+      if (id !== 1 && id !== 2) throw new Error('Geçersiz oyuncu.');
+      const filename = String(data.filename || 'profil.jpg');
+      const cached = fullCache[id];
+      // Önbellekteyse hiç beklemeden kaydet (dokunuş izni korunur).
+      if (cached && cached.version === data.version) return {status: await window.hukukSaveAvatar(cached.data, filename)};
+      const response = await bigRequest('/avatar/full?id=' + id);
+      const b64 = await response.text();
+      fullCache[id] = {version: response.headers.get('X-Avatar-Version'), data: b64};
+      return {status: await window.hukukSaveAvatar(b64, filename)};
     }
     if (action === 'avatarDelete') {
       lastBoard = await api('/avatar/delete', {});
