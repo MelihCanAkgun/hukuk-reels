@@ -1,8 +1,8 @@
 {
-  "source_commit": "79773b04d0d87ecd27a21be83afee2835608ed3c",
-  "built_at": "2026-10-15T14:24:38Z",
-  "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Reels maintenance screen; pixel-art bat, SFX and faster beat mode",
+  "source_commit": "2782ba9f1444e827f3dc5a2237fece9afef97be0",
+  "built_at": "2026-10-15T20:46:31Z",
+  "checks": "flutter analyze (no issues); flutter test (100 passed); release build with base-href /hukuk-reels/",
+  "change": "Pixel-art game/app logos; player 1 can download profile photos",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "6e53d13e0bfd2dbb"
+  "app_build": "4f379bd69108aff1"
 }
