@@ -119,20 +119,42 @@
     input.click();
   });
 
-  function drawSticker(ctx, st, S) {
-    const rows = st.rows, cols = rows[0].length, n = rows.length;
-    const box = st.size * S, px = box / Math.max(cols, n);
-    const ox = st.x * S + (box - cols * px) / 2, oy = st.y * S + (box - n * px) / 2;
-    for (let y = 0; y < n; y++) {
+  function drawPixels(ctx, rows, palette, ox, oy, px) {
+    for (let y = 0; y < rows.length; y++) {
       const y0 = Math.round(oy + y * px), y1 = Math.round(oy + (y + 1) * px);
-      for (let x = 0; x < cols; x++) {
+      for (let x = 0; x < rows[y].length; x++) {
         const ch = rows[y][x];
         if (ch === '.') continue;
         const x0 = Math.round(ox + x * px), x1 = Math.round(ox + (x + 1) * px);
-        ctx.fillStyle = st.palette[ch];
+        ctx.fillStyle = palette[ch];
         ctx.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
       }
     }
+  }
+
+  function drawSticker(ctx, st, S) {
+    const rows = st.rows, cols = rows[0].length, n = rows.length;
+    const box = st.size * S, px = box / Math.max(cols, n);
+    const w = cols * px, h = n * px;
+    const cx = st.x * S + box / 2, cy = st.y * S + box / 2;
+    const rot = Number(st.rot) || 0;
+    if (!rot) {
+      drawPixels(ctx, rows, st.palette, cx - w / 2, cy - h / 2, px);
+      return;
+    }
+    // Döndürülmüş: önce düz hâlini ayrı tuvale tam piksellerle çiz, sonra bütün
+    // olarak döndür (kareler arasında ince dikiş çizgisi kalmaz).
+    const ip = Math.max(1, Math.ceil(px));
+    const off = canvasOf(cols * ip, n * ip);
+    drawPixels(off.getContext('2d'), rows, st.palette, 0, 0, ip);
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rot);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(off, -w / 2, -h / 2, w, h);
+    ctx.restore();
+    free(off);
   }
 
   /**
