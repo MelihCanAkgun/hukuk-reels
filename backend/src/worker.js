@@ -1,6 +1,6 @@
 import webpush from 'web-push';
 import {validRoom, roomCode} from './battle-room.js';
-import {avatarRoute} from './avatar.js';
+import {avatarRoute, avatarFullRoute} from './avatar.js';
 export {BattleRoom} from './battle-room.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -31,8 +31,10 @@ async function body(request) {
 }
 async function board(env, playerId) {
   // `avatar` is only a version tag; the photo itself needs an authenticated /avatar request.
-  const {results} = await env.DB.prepare(`SELECT p.id, p.name, p.best, p.active, a.version AS avatar
-    FROM players p LEFT JOIN avatars a ON a.player_id = p.id ORDER BY p.best DESC, p.id`).all();
+  const {results} = await env.DB.prepare(`SELECT p.id, p.name, p.best, p.active, a.version AS avatar,
+    f.size AS avatarFull, f.width AS avatarWidth, f.height AS avatarHeight
+    FROM players p LEFT JOIN avatars a ON a.player_id = p.id
+    LEFT JOIN avatar_full f ON f.player_id = p.id AND f.version = a.version ORDER BY p.best DESC, p.id`).all();
   const other = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscriptions WHERE player_id != ?').bind(playerId).first();
   const latest = playerId === 1 ? await env.DB.prepare(
     'SELECT sent, attempts, created, delivery_status FROM notifications WHERE player_id = 2 ORDER BY id DESC LIMIT 1').first() : null;
@@ -70,9 +72,10 @@ export async function route(request, env, ctx) {
   if (path === '/board' && request.method === 'GET') return json(await board(env, player.id));
   if (isTestPlayer && ['/profile', '/score', '/subscribe', '/unsubscribe'].includes(path))
     return json({ok: true, players: [], me: 0});
-  if (path === '/avatar' || path === '/avatar/delete') {
+  if (path === '/avatar' || path === '/avatar/delete' || path === '/avatar/full') {
     if (isTestPlayer) fail('Profil fotoğrafları yalnız kayıtlı oyunculara açıktır.', 403);
     if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
+    if (path === '/avatar/full') return avatarFullRoute(request, env, player, board, json);
     return avatarRoute(request, env, player, path, board, json);
   }
   if (request.method !== 'POST') fail('Bulunamadı.', 404);

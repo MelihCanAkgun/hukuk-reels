@@ -18,6 +18,8 @@ const Map<String, Color> kLogoPalette = {
   'G': Color(0xFFA8F0D0),
   'e': Color(0xFF1E8A63),
   'o': Color(0xFFFF9A3C),
+  'r': Color(0xFFED343D),
+  'R': Color(0xFFFFAD9B),
   'c': Color(0xFF9C98A6),
   'C': Color(0xFFE4E0EA),
   's': Color(0xFF5C5866),
@@ -150,4 +152,28 @@ const List<String> kLogoTulip = [
   '..kkkgkkk..',
   '....kgk....',
   '....kek....',
+];
+
+const List<String> kLogoHeart = [
+  '.kk...kk.',
+  'krrk.krrk',
+  'krRrkrrrk',
+  'krrrrrrrk',
+  '.krrrrrk.',
+  '..krrrk..',
+  '...krk...',
+  '....k....',
+];
+
+const List<String> kLogoStar = [
+  '....k....',
+  '...kyk...',
+  '...kYk...',
+  'kkkyYykkk',
+  'kYYyyyyyk',
+  '.kyyyyyk.',
+  '..kyyyk..',
+  '.kyykyyk.',
+  '.kyk.kyk.',
+  'kkk...kkk',
 ];

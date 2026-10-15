@@ -25,6 +25,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
   Map<String, dynamic> _data = {};
   String? _notice;
   bool _busy = false;
+  final Set<String> _fullCached = {};
   Timer? _poll;
 
   @override
@@ -137,14 +138,19 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                 ? const ProfileAvatar(size: 40)
                 : PeerAvatar(id: id, name: name, size: 40),
             title: Text(name),
-            subtitle:
-                Text(bytes == null ? 'Fotoğraf yüklenmemiş' : 'JPEG · 320×320'),
+            subtitle: Text(bytes == null
+                ? 'Fotoğraf yüklenmemiş'
+                : p['avatarFull'] is int
+                    ? 'Tam kalite · ${p['avatarWidth']}×${p['avatarHeight']} · '
+                        '${((p['avatarFull'] as int) / 1048576).toStringAsFixed(1)} MB'
+                    : 'Yalnız küçük kopya (320×320)'),
             trailing: IconButton(
               tooltip: 'Fotoğrafı indir',
               icon: const Icon(Icons.download_rounded),
               onPressed: bytes == null
                   ? null
-                  : () => _downloadAvatar(bytes, name, p['avatar'] as String?),
+                  : () => _downloadAvatar(bytes, name, p['avatar'] as String?,
+                      fullId: p['avatarFull'] is int ? id : null),
             ),
           ));
         }
@@ -154,8 +160,8 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
     );
   }
 
-  Future<void> _downloadAvatar(
-      Uint8List bytes, String name, String? version) async {
+  Future<void> _downloadAvatar(Uint8List bytes, String name, String? version,
+      {int? fullId}) async {
     // Dosya adı ASCII kalsın; Türkçe karakterler bazı cihazlarda bozuluyor.
     const tr = {
       'ç': 'c',
@@ -179,8 +185,39 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
         .replaceAll(RegExp(r'^_+|_+$'), '');
     final file = 'profil_${safe.isEmpty ? 'oyuncu' : safe}'
         '${version == null ? '' : '_${version.substring(0, version.length.clamp(0, 8))}'}.jpg';
-    final result = await saveAvatarJpeg(base64Encode(bytes), file);
-    if (!mounted || result.isEmpty) return;
+    final String result;
+    if (fullId != null) {
+      // Tam kalite kopya sunucudan (yalnız Oyuncu 1) indirilir; bellekte
+      // tutulur, ikinci dokunuş anında kaydeder.
+      if (!_fullCached.contains('$fullId:$version')) {
+        setState(() => _notice = 'Tam kalite fotoğraf indiriliyor…');
+      }
+      final r = await socialCall('avatarSaveFull',
+          {'id': fullId, 'version': version, 'filename': file});
+      final error = r['error'] as String?;
+      result = error != null ? 'error:$error' : (r['status'] as String? ?? '');
+      if (error == null) _fullCached.add('$fullId:$version');
+    } else {
+      result = await saveAvatarJpeg(base64Encode(bytes), file);
+    }
+    if (!mounted) return;
+    if (result == 'retry') {
+      // İndirme sürerken iPhone dokunuş iznini düşürür; ikinci dokunuş kaydeder.
+      setState(() => _notice = null);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Fotoğraf hazır.'),
+        duration: const Duration(seconds: 12),
+        action: SnackBarAction(
+            label: 'Kaydet',
+            onPressed: () =>
+                _downloadAvatar(bytes, name, version, fullId: fullId)),
+      ));
+      return;
+    }
+    if (result.isEmpty) {
+      setState(() => _notice = null);
+      return;
+    }
     setState(() => _notice = result.startsWith('error:')
         ? result.substring(6)
         : result == 'shared'

@@ -33,6 +33,8 @@ PALETTE = {
     'G': 0xA8F0D0,
     'e': 0x1E8A63,
     'o': 0xFF9A3C,
+    'r': 0xED343D,
+    'R': 0xFFAD9B,
     'c': 0x9C98A6,  # tekir kedi
     'C': 0xE4E0EA,
     's': 0x5C5866,
@@ -294,6 +296,35 @@ def tulip():
     ]
 
 
+def heart():
+    # 1v1 Battle can kalbi ile aynı biçim.
+    return [
+        '.kk...kk.',
+        'krrkkkrrk'.replace('kkk', 'k.k'),
+        'krRrkrrrk',
+        'krrrrrrrk',
+        '.krrrrrk.',
+        '..krrrk..',
+        '...krk...',
+        '....k....',
+    ]
+
+
+def star():
+    return [
+        '....k....',
+        '...kyk...',
+        '...kYk...',
+        'kkkyYykkk',
+        'kYYyyyyyk',
+        '.kyyyyyk.',
+        '..kyyyk..',
+        '.kyykyyk.',
+        '.kyk.kyk.',
+        'kkk...kkk',
+    ]
+
+
 SPRITES = {
     'blockBlast': block_blast(),
     'flappyCat': flappy_cat(),
@@ -302,6 +333,8 @@ SPRITES = {
     'games': gamepad(),
     'questionBank': scales_small(),
     'tulip': tulip(),
+    'heart': heart(),
+    'star': star(),
 }
 
 
