@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import {validRoom, roomCode} from './battle-room.js';
+import {avatarRoute} from './avatar.js';
 export {BattleRoom} from './battle-room.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -29,7 +30,9 @@ async function body(request) {
   try { return JSON.parse(value); } catch { fail('Geçersiz istek.'); }
 }
 async function board(env, playerId) {
-  const {results} = await env.DB.prepare('SELECT id, name, best, active FROM players ORDER BY best DESC, id').all();
+  // `avatar` is only a version tag; the photo itself needs an authenticated /avatar request.
+  const {results} = await env.DB.prepare(`SELECT p.id, p.name, p.best, p.active, a.version AS avatar
+    FROM players p LEFT JOIN avatars a ON a.player_id = p.id ORDER BY p.best DESC, p.id`).all();
   const other = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscriptions WHERE player_id != ?').bind(playerId).first();
   const latest = playerId === 1 ? await env.DB.prepare(
     'SELECT sent, attempts, created, delivery_status FROM notifications WHERE player_id = 2 ORDER BY id DESC LIMIT 1').first() : null;
@@ -63,6 +66,11 @@ export async function route(request, env, ctx) {
   if (path === '/board' && request.method === 'GET') return json(await board(env, player.id));
   if (isTestPlayer && ['/profile', '/score', '/subscribe', '/unsubscribe'].includes(path))
     return json({ok: true, players: [], me: 0});
+  if (path === '/avatar' || path === '/avatar/delete') {
+    if (isTestPlayer) fail('Profil fotoğrafları yalnız kayıtlı oyunculara açıktır.', 403);
+    if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
+    return avatarRoute(request, env, player, path, board, json);
+  }
   if (request.method !== 'POST') fail('Bulunamadı.', 404);
   const data = await body(request);
   if (path === '/profile') {

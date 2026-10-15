@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/social_bridge.dart';
+import '../../core/services/avatar_sync.dart';
+import '../profile/profile_avatar.dart';
 
 const socialApiUrl = String.fromEnvironment('SOCIAL_API_URL',
     defaultValue: 'https://hukuk-games-social.hukuk-games-social.workers.dev');
@@ -51,7 +53,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
   }
 
   Future<void> _refresh() async {
-    final result = await socialCall('state');
+    final result = await AvatarSync.instance.sync(await socialCall('state'));
     if (mounted) {
       setState(() {
         _data = result;
@@ -67,7 +69,11 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
       _notice = null;
     });
     // Do not insert an await here: Safari requires the permission call inside the tap.
-    final result = await socialCall(action, payload);
+    var result = await socialCall(action, payload);
+    if (action == 'leave') AvatarSync.instance.clearPeers();
+    if (action == 'join' && result['error'] == null) {
+      result = await AvatarSync.instance.sync(result);
+    }
     if (!mounted) return;
     if (action == 'message') await _refresh();
     if (!mounted) return;
@@ -175,11 +181,27 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                     ? const Color(0xFF294573)
                     : const Color(0xFF203252),
                 child: ListTile(
-                  leading: Text(tied ? '=' : '${i + 1}',
-                      style: const TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFFFFD76A))),
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 22,
+                        child: Text(tied ? '=' : '${i + 1}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFFFFD76A))),
+                      ),
+                      const SizedBox(width: 8),
+                      players[i]['id'] == _data['me']
+                          ? const ProfileAvatar(size: 40)
+                          : PeerAvatar(
+                              id: players[i]['id'] as int,
+                              name: players[i]['name'] as String?,
+                              size: 40),
+                    ],
+                  ),
                   title: Text(
                       '${players[i]['name']}${players[i]['id'] == _data['me'] ? ' · Sen' : ''}',
                       style: const TextStyle(fontWeight: FontWeight.w700)),

@@ -51,6 +51,8 @@ class ProgressService {
   // v2: bildirim öncesi sürpriz herkeste yeniden açılsın diye yenilendi.
   static const _kNick = 'profile_nick_v1';
   static const _kAvatar = 'profile_avatar_v1';
+  static const _kAvatarVer = 'profile_avatar_ver_v1';
+  static const _kAvatarPending = 'profile_avatar_pending_v1';
   static const kFlowerSurpriseSeenKey = 'flower_surprise_seen_v2';
   bool _flowerSeenMemory = false;
 
@@ -236,9 +238,68 @@ class ProgressService {
     return _avatar;
   }
 
-  /// [dataUrl] bir `data:image/...;base64,` adresi olmalı; null kaldırır.
-  /// Geçersiz veride false döner ve mevcut fotoğraf korunur.
+  /// Sunucudaki kendi fotoğrafımızın sürümü (eşitlenmişse).
+  String? get avatarVersion => _prefs?.getString(_kAvatarVer);
+
+  /// Sunucuya gönderilmeyi bekleyen işlem: 'up' (yükle), 'del' (sil),
+  /// 'rejected' (sunucu kabul etmedi; yeni seçime kadar tekrar denenmez)
+  /// veya null. Eşitlenmemiş eski fotoğraf da 'up' sayılır.
+  String? get avatarPending {
+    final v = _prefs?.getString(_kAvatarPending);
+    if (v != null) return v;
+    return (avatar != null && avatarVersion == null) ? 'up' : null;
+  }
+
+  /// JPEG data URL (yükleme için) ya da null.
+  String? get avatarDataUrl {
+    final raw = _prefs?.getString(_kAvatar);
+    return raw == null ? null : 'data:image/jpeg;base64,$raw';
+  }
+
+  Future<void> markAvatarSynced(String? version) async {
+    try {
+      if (version == null) {
+        await _prefs?.remove(_kAvatarVer);
+      } else {
+        await _prefs?.setString(_kAvatarVer, version);
+      }
+      await _prefs?.remove(_kAvatarPending);
+    } catch (_) {}
+  }
+
+  Future<void> markAvatarRejected() async {
+    try {
+      await _prefs?.setString(_kAvatarPending, 'rejected');
+    } catch (_) {}
+  }
+
+  /// Başka cihazda seçilmiş kendi fotoğrafımızı sunucudan alır.
+  Future<bool> setAvatarFromServer(String base64Jpeg, String version) async {
+    final ok = await _storeAvatar('data:image/jpeg;base64,$base64Jpeg');
+    if (ok) await markAvatarSynced(version);
+    return ok;
+  }
+
+  /// Kendi fotoğrafımız başka cihazdan kaldırıldı.
+  Future<void> setAvatarFromServerRemoved() async {
+    await _storeAvatar(null);
+    await markAvatarSynced(null);
+  }
+
+  /// Kullanıcı seçimi: fotoğrafı kaydeder ve sunucuya gönderilmek üzere
+  /// işaretler. [dataUrl] bir `data:image/...;base64,` adresi olmalı; null
+  /// kaldırır. Geçersiz veride false döner ve mevcut fotoğraf korunur.
   Future<bool> setAvatarDataUrl(String? dataUrl) async {
+    final ok = await _storeAvatar(dataUrl);
+    if (ok) {
+      try {
+        await _prefs?.setString(_kAvatarPending, dataUrl == null ? 'del' : 'up');
+      } catch (_) {}
+    }
+    return ok;
+  }
+
+  Future<bool> _storeAvatar(String? dataUrl) async {
     Uint8List? bytes;
     String? b64;
     if (dataUrl != null) {

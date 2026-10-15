@@ -5,6 +5,7 @@ import '../../app/theme.dart';
 import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/audio_service.dart';
+import '../../core/services/avatar_sync.dart';
 import '../../core/services/avatar_bridge.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
@@ -43,7 +44,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   Future<void> _loadSocial() async {
-    final result = await socialCall('state');
+    final result = await AvatarSync.instance.sync(await socialCall('state'));
     if (!mounted) return;
     setState(() {
       _social = result;
@@ -64,6 +65,27 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       }
     }
     return null;
+  }
+
+  Map<String, dynamic>? get _partner {
+    final players = _social['players'];
+    if (players is! List) return null;
+    for (final p in players) {
+      if (p is Map && p['id'] != _social['me'] && p['active'] == 1) {
+        return p.cast<String, dynamic>();
+      }
+    }
+    return null;
+  }
+
+  /// Fotoğraf değişikliğini (bağlıysa) hemen sunucuya iletir.
+  Future<void> _syncAvatar() async {
+    if (!_connected) return;
+    final result = await AvatarSync.instance.sync(_social);
+    if (!mounted) return;
+    setState(() => _social = result);
+    final error = AvatarSync.instance.lastError;
+    if (error != null) _toast('Fotoğraf eşitlenemedi: $error');
   }
 
   String? get _serverName {
@@ -452,7 +474,17 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 ),
               ),
               const ProfileAvatar(size: 96),
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Fotoğrafını yalnızca oyuncu kodu kayıtlı olan ikiniz '
+                  'görebilirsiniz. Konum bilgisi silinir.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.textMuted),
+                ),
+              ),
+              const SizedBox(height: 8),
               _sheetButton(
                 icon: Icons.photo_library_rounded,
                 label: 'Yeni fotoğraf seç',
@@ -471,6 +503,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   Navigator.of(ctx).pop();
                   await _progress.setAvatarDataUrl(null);
                   _toast('Profil fotoğrafı kaldırıldı.');
+                  await _syncAvatar();
                 },
               ),
             ],
@@ -511,6 +544,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     if (!mounted) return;
     HapticFeedback.lightImpact();
     _toast(ok ? 'Profil fotoğrafı güncellendi.' : 'Bu fotoğraf kaydedilemedi.');
+    if (ok) await _syncAvatar();
   }
 
   Future<void> _onEditNick() async {
@@ -1237,12 +1271,27 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           ? 'Rekorun ${_formatScore(best.toInt())} · $bell'
           : bell;
     }
+    final partner = _connected ? _partner : null;
     return _actionRow(
       icon: Icons.emoji_events_rounded,
       color: const Color(0xFFFFC857),
       title: 'İkimizin sıralaması',
       subtitle: subtitle,
       onTap: _openLeaderboard,
+      trailing: partner == null
+          ? null
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                PeerAvatar(
+                  id: partner['id'] as int,
+                  name: partner['name'] as String?,
+                  size: 30,
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: AppTheme.textMuted, size: 20),
+              ],
+            ),
     );
   }
 
