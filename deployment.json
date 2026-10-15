@@ -1,8 +1,8 @@
 {
-  "source_commit": "47e685888c25634e39355a9c38261a7d0cbf4616",
-  "built_at": "2026-10-15T13:06:39Z",
+  "source_commit": "046ad3b4591f8feb11958ca72731559d880f34e5",
+  "built_at": "2026-10-15T13:16:44Z",
   "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Profile & settings redesign, nickname editing, private shared profile photos",
+  "change": "Security hardening: test backdoor closed, CSP, headers, name validation",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "afc305345b85e5cf"
+  "app_build": "a21608b29d539d8a"
 }
