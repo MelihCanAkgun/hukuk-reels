@@ -42,6 +42,10 @@ PALETTE = {
     'V': 0xDCC8FF,
     'm': 0x7A4FCF,
     'l': 0x8A5A3A,
+    'L': 0xD9A066,
+    'w': 0xF4ECE0,  # kağıt
+    'a': 0x6B6F80,
+    'A': 0xB8BCC8,
 }
 
 
@@ -325,6 +329,315 @@ def star():
     ]
 
 
+# ── Şekil yardımcıları: dolguyu çiz, kontur otomatik eklensin ──
+
+import math
+
+
+def rot_rect(g, cx, cy, length, width, ang, ch):
+    """Ekseni `ang` derece (ekran koordinatı, y aşağı) olan dikdörtgen."""
+    c, s_ = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    for y in range(len(g)):
+        for x in range(len(g[0])):
+            dx, dy = x + 0.5 - cx, y + 0.5 - cy
+            u, v = dx * c + dy * s_, -dx * s_ + dy * c
+            if abs(u) <= length / 2 and abs(v) <= width / 2:
+                g[y][x] = ch
+
+
+def rot_ellipse(g, cx, cy, a, b, ang, ch):
+    c, s_ = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+    for y in range(len(g)):
+        for x in range(len(g[0])):
+            dx, dy = x + 0.5 - cx, y + 0.5 - cy
+            u, v = dx * c + dy * s_, -dx * s_ + dy * c
+            if (u / a) ** 2 + (v / b) ** 2 <= 1:
+                g[y][x] = ch
+
+
+def disk(g, cx, cy, r, ch):
+    for y in range(len(g)):
+        for x in range(len(g[0])):
+            if (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 <= r * r:
+                g[y][x] = ch
+
+
+def outlined(rows):
+    """1 piksellik kenar boşluğu ekler ve dolgunun çevresine 'k' kontur çizer."""
+    w, h = len(rows[0]) + 2, len(rows) + 2
+    g = [['.'] * w for _ in range(h)]
+    for y, r in enumerate(rows):
+        for x, ch in enumerate(r):
+            if ch != '.':
+                g[y + 1][x + 1] = ch
+    out = [row[:] for row in g]
+    for y in range(h):
+        for x in range(w):
+            if g[y][x] != '.':
+                continue
+            if any(0 <= y + dy < h and 0 <= x + dx < w and g[y + dy][x + dx] not in '.k'
+                   for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                out[y][x] = 'k'
+    return rows_of(out)
+
+
+# ── Hukuk ──
+
+def gavel():
+    g = grid(15, 15)
+    rot_rect(g, 9.2, 9.2, 8, 1.8, 45, 'L')          # sap
+    rot_rect(g, 5, 5, 8, 4.2, -45, 'l')             # baş
+    rot_rect(g, 5, 5, 8, 1.4, -45, 'L')             # parlama
+    for t in (-3, 3):
+        rot_rect(g, 5 + t * 0.707, 5 - t * 0.707, 1.4, 4.6, -45, 'y')
+    for x in range(7, 15):
+        g[13][x] = 'L'
+        g[14][x] = 'l'
+    return outlined(rows_of(g))
+
+
+def law_book():
+    return outlined([
+        'mqqqqqqqqqq',
+        'mqyyyyyyyyq',
+        'mqyqqqqqqyq',
+        'mqyqqyyqqyq',
+        'mqyqyqqqqyq',
+        'mqyqqyyqqyq',
+        'mqyqyqqyqyq',
+        'mqyqqyyqqyq',
+        'mqyqqqqyqyq',
+        'mqyqqyyqqyq',
+        'mqyqqqqqqyq',
+        'mqyyyyyyyyq',
+        'mqqqqqqqqqq',
+        'mwwwwwwwwwq',
+    ])
+
+
+def courthouse():
+    return outlined([
+        '.......Y.......',
+        '......YyY......',
+        '....YYyyyYY....',
+        '..YYyyyyyyyYY..',
+        'YYYYYYYYYYYYYYY',
+        'ddddddddddddddd',
+        '.AC.AC...AC.AC.',
+        '.AC.AC...AC.AC.',
+        '.AC.AClllAC.AC.',
+        '.AC.AClllAC.AC.',
+        '.AC.AClllAC.AC.',
+        'YYYYYYYYYYYYYYY',
+        'ddddddddddddddd',
+    ])
+
+
+def petition():
+    return outlined([
+        'wwwwwwwwwww',
+        'waaaaaaaaaw',
+        'wwwwwwwwwww',
+        'waaaaaaawww',
+        'wwwwwwwwwww',
+        'waaaaaaaaaw',
+        'wwwwwwwwwww',
+        'waaaaawwwww',
+        'wwwwwwwwwww',
+        'wwwwwwrrrww',
+        'wwwwwrRrrrw',
+        'wwwwwrrrrrw',
+        'wwwwwwrrrww',
+        '......r.r..',
+        '.....r...r.',
+    ])
+
+
+def briefcase():
+    return outlined([
+        '.....llll.....',
+        '....l....l....',
+        'LLLLLLLLLLLLLL',
+        'llllllllllllll',
+        'llllllyylllll' + 'l',
+        'dddddyYYyddddd',
+        'llllllyyllllll',
+        'llllllllllllll',
+        'llllllllllllll',
+        'llllllllllllll',
+        'dddddddddddddd',
+    ])
+
+
+def quill():
+    g = grid(14, 15)
+    for x in range(0, 6):
+        for y in range(11, 15):
+            g[y][x] = 'n'
+    for x in range(1, 5):
+        g[10][x] = 'a'
+    g[11][1] = 'b'
+    rot_ellipse(g, 8.8, 5.2, 6.6, 2.9, -45, 'W')
+    rot_ellipse(g, 9.6, 4.4, 4.0, 1.6, -45, 'C')
+    rot_rect(g, 8.4, 5.6, 10, 0.8, -45, 'A')
+    rot_rect(g, 3.6, 10.4, 3.4, 1.0, -45, 'a')
+    return outlined(rows_of(g))
+
+
+# ── Oyun ──
+
+def trophy():
+    return outlined([
+        '..YYYYYYYYY..',
+        'yyYyyyyyyydyy',
+        'y.Yyyyyyyyd.y',
+        'y.Yyyyyyyyd.y',
+        '.yYyyyyyyydy.',
+        '...Yyyyyyd...',
+        '....yyyyd....',
+        '.....yyd.....',
+        '.....Yyd.....',
+        '.....yyd.....',
+        '...ddddddd...',
+        '..lllllllll..',
+        '..LLLLLLLLL..',
+    ])
+
+
+def coin():
+    g = grid(12, 12)
+    disk(g, 6, 6, 6, 'd')
+    disk(g, 5.6, 5.6, 5.2, 'y')
+    disk(g, 6, 6, 3.6, 'Y')
+    disk(g, 6.2, 6.2, 3.0, 'y')
+    for y in range(3, 9):
+        g[y][5] = 'd'
+        g[y][6] = 'd'
+    g[3][4] = g[4][4] = 'W'
+    return outlined(rows_of(g))
+
+
+def crown():
+    return outlined([
+        'Y.....Y.....Y',
+        'yy...yYy...yy',
+        'yyy.yyyyy.yyy',
+        'yyyyyyyyyyyyy',
+        'yyryyybyyyryy',
+        'yyyyyyyyyyyyy',
+        'ddddddddddddd',
+    ])
+
+
+def joystick():
+    return outlined([
+        '....rrr....',
+        '...rRrrr...',
+        '...rrrrr...',
+        '....rrr....',
+        '.....a.....',
+        '.....a.....',
+        '.....a.....',
+        '..AAAAAAA..',
+        '.AAAAAAAAA.',
+        'aaaaaaaaaaa',
+        'sssssssssss',
+    ])
+
+
+def arcade():
+    return outlined([
+        '.vvvvvvvvv.',
+        'vVVVVVVVVVv',
+        'vVyyyyyyyVv',
+        'vvvvvvvvvvv',
+        'vkkkkkkkkkv',
+        'vkbBbbbgbkv',
+        'vkbbbybbbkv',
+        'vkbbbbbbbkv',
+        'vkkkkkkkkkv',
+        'mmmmmmmmmmm',
+        'mmammmrmbmm',
+        'vvvvvvvvvvv',
+        'vvvvyyyvvvv',
+        'vvvvvvvvvvv',
+        'vvvvvvvvvvv',
+        'mmmmmmmmmmm',
+    ])
+
+
+def dice():
+    return outlined([
+        '.WWWWWWWWWW.',
+        'WWWWWWWWWWWC',
+        'WWkkWWWWkkWC',
+        'WWkkWWWWkkWC',
+        'WWWWWWWWWWWC',
+        'WWWWWkkWWWWC',
+        'WWWWWkkWWWWC',
+        'WWWWWWWWWWWC',
+        'WWkkWWWWkkWC',
+        'WWkkWWWWkkWC',
+        'WWWWWWWWWWWC',
+        '.CCCCCCCCCC.',
+    ])
+
+
+def sword():
+    g = grid(15, 15)
+    rot_rect(g, 9.0, 6.0, 12, 2.4, -45, 'C')
+    rot_rect(g, 9.4, 5.6, 12, 0.9, -45, 'W')
+    rot_rect(g, 3.9, 11.1, 6, 1.6, 45, 'y')
+    rot_rect(g, 2.6, 12.4, 3.2, 1.6, -45, 'l')
+    disk(g, 1.2, 13.8, 1.2, 'y')
+    return outlined(rows_of(g))
+
+
+def gem():
+    return outlined([
+        '..BBBBBBB..',
+        '.BWBBbBBbb.',
+        'BWBBbbbBbbn',
+        'bbbbbbbbbnn',
+        '.bbbbbbbnn.',
+        '..bbbbbnn..',
+        '...bbbnn...',
+        '....bnn....',
+        '.....n.....',
+    ])
+
+
+def alien():
+    return outlined([
+        '.G.......G.',
+        '..g.....g..',
+        '...ggggg...',
+        '..gGggggg..',
+        '.gkkgggkkg.',
+        '.gkWgggkWg.',
+        '.ggggggggg.',
+        '..ggkkkgg..',
+        '...ggggg...',
+    ])
+
+
+def potion():
+    return outlined([
+        '...lll...',
+        '...lll...',
+        '...CCC...',
+        '...CWC...',
+        '..CCCCC..',
+        '.CWCCCCC.',
+        'CWpppPppC',
+        'CppppppqC',
+        'CpPppppqC',
+        'CppppppqC',
+        '.CppppqC.',
+        '..CCCCC..',
+    ])
+
+
 SPRITES = {
     'blockBlast': block_blast(),
     'flappyCat': flappy_cat(),
@@ -335,6 +648,22 @@ SPRITES = {
     'tulip': tulip(),
     'heart': heart(),
     'star': star(),
+    'gavel': gavel(),
+    'lawBook': law_book(),
+    'courthouse': courthouse(),
+    'petition': petition(),
+    'briefcase': briefcase(),
+    'quill': quill(),
+    'trophy': trophy(),
+    'coin': coin(),
+    'crown': crown(),
+    'joystick': joystick(),
+    'arcade': arcade(),
+    'dice': dice(),
+    'sword': sword(),
+    'gem': gem(),
+    'alien': alien(),
+    'potion': potion(),
 }
 
 
@@ -445,14 +774,11 @@ def main():
 
     if args.preview:
         tiles = list(SPRITES.items())
-        px = 12
-        sheet = Image.new('RGBA', (len(tiles) * 18 * px + 520, 36 * px), (0x29, 0x15, 0x21, 255))
-        x = px
-        for _, rows in tiles:
-            render(rows, px, sheet, x, px)
-            x += (len(rows[0]) + 2) * px
-        sheet.paste(render_icon(256), (x, px))
-        sheet.paste(render_icon(32).resize((128, 128), Image.NEAREST), (x + 270, px))
+        px, per = 10, 8
+        nrows = -(-len(tiles) // per)
+        sheet = Image.new('RGBA', (per * 20 * px, nrows * 20 * px), (0x29, 0x15, 0x21, 255))
+        for i, (_, rows) in enumerate(tiles):
+            render(rows, px, sheet, (i % per) * 20 * px + px, (i // per) * 20 * px + px)
         sheet.save(args.preview)
         print('preview →', args.preview)
         return
