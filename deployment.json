@@ -1,8 +1,8 @@
 {
-  "source_commit": "ff53035e1d5c6d7c9f46a3090c11e55e70b23b7b",
-  "built_at": "2026-10-15T21:27:31Z",
-  "checks": "flutter analyze (no issues); flutter test (104 passed); backend tests (34 passed); local wrangler + headless Chrome editor/leaderboard check",
-  "change": "Rotatable stickers, 16 new law/game pixel logos, larger leaderboard photos",
+  "source_commit": "19bf537bcfb68b9528dd14bf9d67d54d54f21af5",
+  "built_at": "2026-10-15T21:42:40Z",
+  "checks": "flutter analyze (no issues); flutter test (104 passed); backend tests (35 passed); ImageIO-encoded JPEG cleaned and decoded identically by ImageIO/PIL/Chrome",
+  "change": "Safari full-quality avatar fix (worker 4625a3bf); admin dialog on full upload failure",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "dd22fd16bbf191d9"
+  "app_build": "b020cb52486fd9f5"
 }
