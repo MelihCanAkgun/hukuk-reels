@@ -36,6 +36,13 @@ npx wrangler d1 migrations apply hukuk-games-social --remote
 npm run deploy
 ```
 
+## Security notes
+
+- Every endpoint except `/health` requires a player's 256-bit Bearer code; foreign origins are refused. Responses carry `nosniff`, `no-referrer`, `X-Frame-Options: DENY` and a deny-all CSP.
+- The old battle-only test code is public in git history, so the test identity is **disabled** unless a `TEST_PLAYER_HASH` secret (SHA-256 hex of a new, private code) is set. Do not set it in production.
+- Player names reject control, zero-width and bidirectional override characters (no spoofed or hidden names).
+- The web app ships a Content-Security-Policy (`web/index.html`): scripts only from the site itself (plus WebAssembly for CanvasKit), network access only to the site, this Worker (https/wss) and Google's font fallback host. If `SOCIAL_API_URL` changes, update `connect-src` too. There are no inline scripts (`web/pwa.js`), and the app refuses to run inside a foreign frame.
+
 ## Development / deployment
 
 - `npm ci && npm test` (Node 22+, tests use SQLite in memory, no real push recipients).
