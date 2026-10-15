@@ -1,15 +1,25 @@
 import 'dart:math';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../app/theme.dart';
-import '../../core/config/app_config.dart';
 import '../../core/models/quiz_question.dart';
+import '../../core/services/sfx_service.dart';
+import '../surprise/pixel_font.dart';
+import '../surprise/pixel_sprites.dart';
 
 /// "Yanlış Soruları Döv" modu 🏏
 ///
 /// Sopayı al, sıra sıra kaydırıp istediğin yanlış soruya vur. Her vuruşta
 /// ekran çatlar ve sorunun harfleri dağılır. 10 vuruştan sonra hangi şıkkı
 /// işaretlersen doğru cevap o olur (soru pes eder).
+///
+/// Performans: soru metni bir kez dizilir ve harfler tek bir CustomPainter
+/// ile çizilir; sopa, patlama ve kıymıklar önbelleğe alınmış piksel
+/// resimlerle ayrı bir katmanda boyanır. Vuruşta yalnızca bu katmanlar
+/// yeniden boyanır, metin yeniden dizilmez.
 class BeatModeScreen extends StatelessWidget {
   final List<QuizQuestion> questions;
   const BeatModeScreen({super.key, required this.questions});
@@ -36,7 +46,7 @@ class _BeatPager extends StatefulWidget {
 
 class _BeatPagerState extends State<_BeatPager> {
   final _controller = PageController();
-  int _page = 0;
+  final _page = ValueNotifier<int>(0);
   int? _firstDefeatedIndex;
 
   /// İlk dövülen sorunun index'ini kaydeder; bu kartın ilk dövülen olup
@@ -49,6 +59,7 @@ class _BeatPagerState extends State<_BeatPager> {
   @override
   void dispose() {
     _controller.dispose();
+    _page.dispose();
     super.dispose();
   }
 
@@ -64,14 +75,14 @@ class _BeatPagerState extends State<_BeatPager> {
           scrollDirection: Axis.vertical,
           physics: const BouncingScrollPhysics(),
           itemCount: total,
+          // Sayfa değişince yalnızca sayaç yenilenir, kartlar değil.
           onPageChanged: (i) {
-            setState(() => _page = i);
+            _page.value = i;
             HapticFeedback.selectionClick();
           },
           itemBuilder: (context, index) {
-            final topInset = pad.top + 60;
             return Padding(
-              padding: EdgeInsets.only(top: topInset),
+              padding: EdgeInsets.only(top: pad.top + 60),
               child: LayoutBuilder(
                 builder: (context, c) {
                   final w = c.maxWidth < 480 ? c.maxWidth : 480.0;
@@ -103,21 +114,25 @@ class _BeatPagerState extends State<_BeatPager> {
             child: Row(
               children: [
                 IconButton(
+                  tooltip: 'Geri',
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.arrow_back_rounded,
                       color: AppTheme.textPrimary),
                 ),
-                const Text('🏏', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 6),
-                const Text(
-                  'Yanlış Soruları Döv',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                const _BatIcon(size: 22),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Yanlış Soruları Döv',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-                const Spacer(),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
@@ -126,12 +141,15 @@ class _BeatPagerState extends State<_BeatPager> {
                     borderRadius: BorderRadius.circular(30),
                     border: Border.all(color: AppTheme.border),
                   ),
-                  child: Text(
-                    '${_page + 1} / $total',
-                    style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: _page,
+                    builder: (context, page, _) => Text(
+                      '${page + 1} / $total',
+                      style: const TextStyle(
+                        color: AppTheme.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
@@ -143,6 +161,66 @@ class _BeatPagerState extends State<_BeatPager> {
     );
   }
 }
+
+// ───────────────────────── Piksel resim önbelleği ─────────────────────────
+
+/// Piksel dizilerini bir kez [ui.Picture]'a kaydeder; her karede yüzlerce
+/// kare çizmek yerine hazır resim çizilir.
+class _Sprites {
+  static final Map<String, ui.Picture> _cache = {};
+
+  static ui.Picture of(String name, List<String> rows, double px) {
+    return _cache.putIfAbsent('$name@$px', () {
+      final rec = ui.PictureRecorder();
+      final c = Canvas(rec);
+      final paint = Paint()..isAntiAlias = false;
+      for (var y = 0; y < rows.length; y++) {
+        final row = rows[y];
+        for (var x = 0; x < row.length; x++) {
+          final ch = row[x];
+          if (ch == '.') continue;
+          paint.color = kSpritePalette[ch]!;
+          // Komşu karelerin arasında ince boşluk kalmasın diye hafif taşır.
+          c.drawRect(Rect.fromLTWH(x * px, y * px, px + 0.35, px + 0.35), paint);
+        }
+      }
+      return rec.endRecording();
+    });
+  }
+
+  static Size sizeOf(List<String> rows, double px) =>
+      Size(rows.first.length * px, rows.length * px);
+}
+
+/// Üst bardaki küçük piksel sopa.
+class _BatIcon extends StatelessWidget {
+  const _BatIcon({required this.size});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: size,
+        height: size,
+        child: CustomPaint(painter: _BatIconPainter()),
+      );
+}
+
+class _BatIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final px = size.height / kBatSprite.length * 1.25;
+    final s = _Sprites.sizeOf(kBatSprite, px);
+    canvas.translate(size.width / 2, size.height / 2);
+    canvas.rotate(0.75);
+    canvas.translate(-s.width / 2, -s.height / 2);
+    canvas.drawPicture(_Sprites.of('bat', kBatSprite, px));
+  }
+
+  @override
+  bool shouldRepaint(_BatIconPainter old) => false;
+}
+
+// ───────────────────────── Kart ─────────────────────────
 
 /// Tek bir "dövülebilir" soru kartı.
 class _BeatCard extends StatefulWidget {
@@ -165,14 +243,16 @@ class _BeatCardState extends State<_BeatCard>
   static const int kHitsNeeded = 10;
 
   // Çatlak çizgileri vuruş ANINDA bir kez hesaplanır (her karede yeniden
-  // üretilmez) — performans için kritik.
+  // üretilmez).
   final List<({Offset a, Offset b})> _crackSegs = [];
   int _hits = 0;
   int? _selected; // pes ettikten sonra seçilen (zorla doğru) şık
-  Offset _lastHit = Offset.zero;
   bool _showResist = false;
   bool _isFirst = false; // bu kart, ilk dövülen soru mu?
   bool _apologyAccepted = false; // özür kabul edildi mi?
+
+  /// Vuruş efektlerinin (sopa, patlama, kıymık) ortak durumu.
+  final _fx = _HitFx();
 
   static const String _apologyMsg =
       'Yüce Hukuk Profesörü Arife Hanım, siz yanlış işaretlemediniz, ben '
@@ -180,7 +260,8 @@ class _BeatCardState extends State<_BeatCard>
       'bana öğretin, hangi şıkkım doğru? 😭';
 
   late final AnimationController _shake;
-  late final AnimationController _bat;
+  late final AnimationController _swing;
+  late final AnimationController _scatter;
 
   bool get _defeated => _hits >= kHitsNeeded;
   double get _intensity => (_hits / kHitsNeeded).clamp(0.0, 1.0);
@@ -195,36 +276,49 @@ class _BeatCardState extends State<_BeatCard>
   void initState() {
     super.initState();
     _shake = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 460));
-    _bat = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 340));
+        vsync: this, duration: const Duration(milliseconds: 380));
+    _swing = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 520));
+    _scatter = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 260));
   }
 
   @override
   void dispose() {
     _shake.dispose();
-    _bat.dispose();
+    _swing.dispose();
+    _scatter.dispose();
     super.dispose();
   }
 
   void _hit(Offset pos) {
+    _fx.hit(pos, seed: _hits * 7919 + pos.dx.round() * 31 + pos.dy.round());
     if (_defeated) {
       // Pes etti; artık şık seçilmeli. Yine de küçük bir tepki ver.
-      _bat.forward(from: 0);
+      _fx.label = null;
+      SfxService.instance.bonk(_hits);
+      _swing.forward(from: 0);
       return;
     }
+    final hits = _hits + 1;
+    _fx.label = hits >= kHitsNeeded ? 'K.O.!' : 'BONK!';
     setState(() {
-      _hits++;
-      _lastHit = pos;
+      _hits = hits;
       _addCrackAt(pos);
     });
     HapticFeedback.heavyImpact();
     _shake.forward(from: 0);
-    _bat.forward(from: 0);
-    if (_hits == kHitsNeeded) _onDefeated();
+    _swing.forward(from: 0);
+    _scatter.animateTo(_intensity, curve: Curves.easeOut);
+    if (_hits == kHitsNeeded) {
+      SfxService.instance.ko();
+      _onDefeated();
+    } else {
+      SfxService.instance.bonk(_hits);
+    }
   }
 
-  /// Vuruş noktasından yayılan cam çatlağı çizgilerini üretir (tek seferlik).
+  /// Vuruş noktasından yayılan çatlak çizgilerini üretir (tek seferlik).
   void _addCrackAt(Offset p) {
     final rnd = Random((p.dx * 53 + p.dy * 17).toInt());
     final spokes = 5 + rnd.nextInt(4);
@@ -257,7 +351,7 @@ class _BeatCardState extends State<_BeatCard>
     setState(() => _isFirst = isFirst);
     // İlk dövülen soru için özür pop-up'ı.
     if (isFirst) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 650), () {
         if (mounted) _showApologyDialog();
       });
     }
@@ -285,6 +379,7 @@ class _BeatCardState extends State<_BeatCard>
     if (!_defeated) {
       // Daha pes etmedi: direnç göster.
       HapticFeedback.lightImpact();
+      SfxService.instance.nope();
       _shake.forward(from: 0);
       setState(() => _showResist = true);
       Future.delayed(const Duration(milliseconds: 1300), () {
@@ -305,9 +400,11 @@ class _BeatCardState extends State<_BeatCard>
       animation: _shake,
       builder: (context, child) {
         final t = _shake.value;
+        if (t == 0 || t == 1) return child!;
         final decay = 1 - t;
-        final dx = sin(t * pi * 10) * 11 * decay;
-        final dy = cos(t * pi * 9) * 7 * decay;
+        // Piksel hissi için sarsıntı tam piksellere oturur.
+        final dx = (sin(t * pi * 10) * 9 * decay).roundToDouble();
+        final dy = (cos(t * pi * 9) * 6 * decay).roundToDouble();
         return Transform.translate(offset: Offset(dx, dy), child: child);
       },
       // RepaintBoundary: sarsıntı sırasında kart içeriği yeniden boyanmaz,
@@ -316,7 +413,15 @@ class _BeatCardState extends State<_BeatCard>
         child: Stack(
           children: [
             _card(),
-            _batWidget(),
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _HitFxPainter(_fx, _swing),
+                  ),
+                ),
+              ),
+            ),
             if (_showResist) _resistBubble(),
           ],
         ),
@@ -334,22 +439,15 @@ class _BeatCardState extends State<_BeatCard>
           end: Alignment.bottomRight,
           colors: [AppTheme.surface, AppTheme.bgElevated],
         ),
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(22),
+        // Bulanık gölge yerine çizgi: her vuruşta yeniden boyanırken ucuz.
         border: Border.all(
-          color: _defeated ? AppTheme.success : AppTheme.border,
-          width: _defeated ? 1.5 : 1,
+          color: _defeated ? AppTheme.success : _accent.withValues(alpha: 0.45),
+          width: 2,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: _accent.withValues(alpha: 0.16),
-            blurRadius: 32,
-            spreadRadius: -6,
-            offset: const Offset(0, 14),
-          ),
-        ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(20),
         child: Stack(
           children: [
             // Vuruş alanı (şıklar hariç her yer) — en altta
@@ -358,33 +456,42 @@ class _BeatCardState extends State<_BeatCard>
                 behavior: HitTestBehavior.opaque,
                 // onTapUp: gerçek dokunuşta vurur; kaydırma (sonraki soruya
                 // geçiş) yanlışlıkla vuruş saymaz.
-                onTapUp: (d) => _hit(d.localPosition),
+                onTapUp: (d) => _hit(d.localPosition + const Offset(2, 2)),
               ),
             ),
-            // İçerik
+            // İçerik: sığmazsa taşmak yerine orantılı küçülür (uzun soru,
+            // özür mesajı veya küçük ekran).
             Padding(
               padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _badge(),
-                  const SizedBox(height: 8),
-                  _hitMeter(),
-                  const SizedBox(height: 14),
-                  // Dağılan soru metni — özür kabul edildiyse özür mesajı.
-                  IgnorePointer(
-                    child: (_isFirst && _apologyAccepted)
-                        ? _apologyMessage()
-                        : _ShatterText(
-                            text: q.question,
-                            intensity: _intensity,
-                          ),
+              child: LayoutBuilder(
+                builder: (context, c) => FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: c.maxWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _badge(),
+                        const SizedBox(height: 10),
+                        _hitMeter(),
+                        const SizedBox(height: 14),
+                        // Dağılan soru metni — özür kabul edildiyse özür mesajı.
+                        IgnorePointer(
+                          child: (_isFirst && _apologyAccepted)
+                              ? _apologyMessage()
+                              : _ShatterText(
+                                  text: q.question, intensity: _scatter),
+                        ),
+                        const SizedBox(height: 18),
+                        ...List.generate(q.options.length, (i) => _option(i)),
+                        const SizedBox(height: 8),
+                        _footerHint(),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 18),
-                  ...List.generate(q.options.length, (i) => _option(i)),
-                  const Spacer(),
-                  _footerHint(),
-                ],
+                ),
               ),
             ),
             // Çatlak katmanı (özür kabul edilince temizlenir)
@@ -393,7 +500,6 @@ class _BeatCardState extends State<_BeatCard>
                 child: IgnorePointer(
                   child: RepaintBoundary(
                     child: CustomPaint(
-                      isComplex: true,
                       painter: _CrackPainter(_crackSegs),
                     ),
                   ),
@@ -417,11 +523,7 @@ class _BeatCardState extends State<_BeatCard>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            width: 7,
-            height: 7,
-            decoration: BoxDecoration(color: cat.color, shape: BoxShape.circle),
-          ),
+          Container(width: 7, height: 7, color: cat.color),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
@@ -441,6 +543,7 @@ class _BeatCardState extends State<_BeatCard>
     );
   }
 
+  /// Sorunun "canı": 10 piksel blok. Her vuruşta biri söner.
   Widget _hitMeter() {
     if (_defeated) {
       return Row(
@@ -462,30 +565,33 @@ class _BeatCardState extends State<_BeatCard>
         ],
       );
     }
+    final left = kHitsNeeded - _hits;
     return Row(
       children: [
-        const Text('🏏', style: TextStyle(fontSize: 15)),
-        const SizedBox(width: 6),
-        Text(
-          'Karta vur:  $_hits / $kHitsNeeded',
-          style: const TextStyle(
+        const Text(
+          'SORU CANI',
+          style: TextStyle(
             color: AppTheme.textSecondary,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1,
           ),
         ),
         const SizedBox(width: 10),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: _intensity,
-              minHeight: 5,
-              backgroundColor: AppTheme.border.withValues(alpha: 0.6),
-              valueColor: AlwaysStoppedAnimation(_accent),
+        for (var i = 0; i < kHitsNeeded; i++)
+          Container(
+            width: 11,
+            height: 11,
+            margin: const EdgeInsets.only(right: 3),
+            decoration: BoxDecoration(
+              color: i < left ? _accent : AppTheme.border.withValues(alpha: 0.6),
+              border: Border.all(
+                color: i < left
+                    ? Colors.white.withValues(alpha: 0.35)
+                    : Colors.transparent,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -613,69 +719,6 @@ class _BeatCardState extends State<_BeatCard>
     );
   }
 
-  /// Salınan sopa + vuruş patlaması.
-  Widget _batWidget() {
-    return Positioned.fill(
-      child: IgnorePointer(
-        // RepaintBoundary: sopanın salınımı yalnızca kendi katmanını boyar.
-        child: RepaintBoundary(
-          child: AnimatedBuilder(
-            animation: _bat,
-            // Sopa görseli her karede yeniden oluşturulmasın diye child.
-            child: _batArt(),
-            builder: (context, batChild) {
-              final t = _bat.value;
-              final swing = sin(t * pi); // 0→1→0
-              final angle = -0.5 + 1.2 * swing; // havadan aşağı iner
-              return Stack(
-                children: [
-                  // Vuruş patlaması (son vuruş noktasında)
-                  if (t > 0 && t < 1 && !_defeated)
-                    Positioned(
-                      left: _lastHit.dx - 30,
-                      top: _lastHit.dy - 30,
-                      child: Opacity(
-                        opacity: (1 - t).clamp(0.0, 1.0),
-                        child: Transform.scale(
-                          scale: 0.6 + swing * 0.9,
-                          child: const Text('💥',
-                              style: TextStyle(fontSize: 52)),
-                        ),
-                      ),
-                    ),
-                  // Sopa (sağ alt köşede salınır)
-                  Positioned(
-                    right: 6,
-                    bottom: 8,
-                    child: Transform.rotate(
-                      angle: angle,
-                      alignment: Alignment.bottomRight,
-                      child: batChild,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// Sopa görseli: PNG (AppConfig.batImage) varsa onu, yoksa 🏏 emojisini.
-  Widget _batArt() {
-    if (AppConfig.batImage.isEmpty) {
-      return const Text('🏏', style: TextStyle(fontSize: 76));
-    }
-    return Image.asset(
-      AppConfig.batImage,
-      height: AppConfig.batSize,
-      fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) =>
-          const Text('🏏', style: TextStyle(fontSize: 76)),
-    );
-  }
-
   Widget _resistBubble() {
     return Positioned(
       left: 0,
@@ -702,9 +745,133 @@ class _BeatCardState extends State<_BeatCard>
   }
 }
 
+// ───────────────────────── Vuruş efektleri ─────────────────────────
+
+/// Son vuruşun konumu ve kıymık yönleri (painter bunu okur).
+class _HitFx {
+  Offset at = Offset.zero;
+  bool active = false;
+  String? label;
+  final List<(Offset, Color)> chips = [];
+
+  static const _chipColors = [
+    Color(0xFFF2C48A),
+    Color(0xFFD99A55),
+    Color(0xFFA8662E),
+    Color(0xFFFFFFFF),
+    Color(0xFFFFD84D),
+  ];
+
+  void hit(Offset p, {required int seed}) {
+    at = p;
+    active = true;
+    final rnd = Random(seed);
+    chips
+      ..clear()
+      ..addAll(List.generate(9, (i) {
+        final a = -pi / 2 + (rnd.nextDouble() - 0.5) * 2.6;
+        final v = 120 + rnd.nextDouble() * 160;
+        return (Offset(cos(a) * v, sin(a) * v), _chipColors[i % 5]);
+      }));
+  }
+}
+
+/// Sopa (beklerken sağ altta, vuruşta tıklanan yere iner), piksel patlama,
+/// "BONK!" yazısı ve tahta kıymıkları. Yalnız [swing] ilerledikçe boyanır.
+class _HitFxPainter extends CustomPainter {
+  _HitFxPainter(this.fx, this.swing) : super(repaint: swing);
+  final _HitFx fx;
+  final Animation<double> swing;
+
+  static const double _batPx = 3.5;
+  static final _chipPaint = Paint()..isAntiAlias = false;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final t = swing.value;
+    final animating = fx.active && t > 0 && t < 1;
+    final bat = _Sprites.of('bat', kBatSprite, _batPx);
+    final batSize = _Sprites.sizeOf(kBatSprite, _batPx);
+
+    if (!animating) {
+      // Bekleme: sağ alt köşede yaslanmış sopa.
+      _drawBat(canvas, bat, batSize,
+          Offset(size.width - 22, size.height - 14), -0.42);
+      return;
+    }
+
+    // Vuruş anı ~%28'de: sopa sağ-yukarıdan iner, değer, hafifçe geri seker.
+    const contact = 0.28;
+    double angle;
+    if (t < contact) {
+      final k = Curves.easeIn.transform(t / contact);
+      angle = 1.6 * (1 - k);
+    } else {
+      final k = (t - contact) / (1 - contact);
+      angle = 0.38 * sin(k * pi) * (1 - k);
+    }
+    // Retro his: açı 0.12 rad'lık adımlara oturur.
+    angle = (angle / 0.12).round() * 0.12;
+    // Sopanın ucu tıklanan noktaya değecek şekilde sap aşağı-sağda durur.
+    final handle = fx.at + Offset(batSize.height * 0.5, batSize.height * 0.78);
+    _drawBat(canvas, bat, batSize, handle, angle - 0.58);
+
+    if (t < contact) return;
+    final k = (t - contact) / (1 - contact); // 0..1 vuruş sonrası
+
+    // Kıymıklar
+    for (final (v, color) in fx.chips) {
+      final p = fx.at + v * (k * 0.45) + Offset(0, 520 * k * k * 0.2);
+      final s = (k < 0.8 ? 5.0 : 3.0);
+      _chipPaint.color = color;
+      canvas.drawRect(
+          Rect.fromLTWH(p.dx.roundToDouble(), p.dy.roundToDouble(), s, s),
+          _chipPaint);
+    }
+
+    // Patlama yıldızı: büyür, küçülür (piksel boyu adım adım).
+    const steps = [3.0, 5.0, 6.0, 5.0, 4.0, 3.0, 2.0];
+    final px = steps[(k * (steps.length - 1)).floor()];
+    final burst = _Sprites.of('burst', kBurstSprite, px);
+    final bs = _Sprites.sizeOf(kBurstSprite, px);
+    canvas.save();
+    canvas.translate((fx.at.dx - bs.width / 2).roundToDouble(),
+        (fx.at.dy - bs.height / 2).roundToDouble());
+    canvas.drawPicture(burst);
+    canvas.restore();
+
+    // "BONK!" / "K.O.!" yukarı süzülür.
+    final label = fx.label;
+    if (label != null && k < 0.85) {
+      const lpx = 3.0;
+      final w = pixelLineWidth(label) * lpx;
+      final origin = Offset(
+        (fx.at.dx - w / 2).clamp(4.0, max(4.0, size.width - w - 4)),
+        fx.at.dy - 70 - 28 * k,
+      );
+      paintPixelText(canvas, label, origin, lpx,
+          label == 'K.O.!' ? const Color(0xFFFFD84D) : const Color(0xFFFFFFFF),
+          shadow: const Color(0xFFB8285A));
+    }
+  }
+
+  void _drawBat(Canvas canvas, ui.Picture bat, Size batSize, Offset handle,
+      double angle) {
+    canvas.save();
+    canvas.translate(handle.dx, handle.dy);
+    canvas.rotate(angle);
+    // Sapın ucu (resmin alt ortası) dönme noktasıdır.
+    canvas.translate(-batSize.width / 2, -batSize.height);
+    canvas.drawPicture(bat);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HitFxPainter old) => old.fx != fx;
+}
+
 /// Önceden hesaplanmış çatlak çizgilerini çizer. Üretim _addCrackAt'te bir
-/// kez yapılır; burada yalnızca hazır segmentler çizilir (her karede rastgele
-/// yürüyüş üretilmez) — bu, döv modundaki kasmanın ana çözümlerinden biri.
+/// kez yapılır; burada yalnızca hazır segmentler çizilir.
 class _CrackPainter extends CustomPainter {
   final List<({Offset a, Offset b})> segments;
   final int count;
@@ -714,36 +881,44 @@ class _CrackPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final line = Paint()
       ..color = Colors.white.withValues(alpha: 0.5)
-      ..strokeWidth = 1.3
+      ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.square;
     final faint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.18)
-      ..strokeWidth = 2.4
+      ..color = Colors.white.withValues(alpha: 0.16)
+      ..strokeWidth = 3
       ..style = PaintingStyle.stroke;
-
+    final path = Path();
     for (final s in segments) {
-      canvas.drawLine(s.a, s.b, faint);
-      canvas.drawLine(s.a, s.b, line);
+      path
+        ..moveTo(s.a.dx, s.a.dy)
+        ..lineTo(s.b.dx, s.b.dy);
     }
+    canvas.drawPath(path, faint);
+    canvas.drawPath(path, line);
   }
 
   @override
   bool shouldRepaint(_CrackPainter old) => old.count != count;
 }
 
-/// Yoğunluğa (0..1) göre harfleri dağıtan metin. Kelimeler satırda bütün
-/// kalır; her harf ayrı yöne uçar.
+// ───────────────────────── Dağılan metin ─────────────────────────
+
+/// Yoğunluğa (0..1) göre harfleri dağıtan metin.
 ///
-/// Performans: harf başına ayrı animatör YOK — yoğunluğu tek bir
-/// TweenAnimationBuilder sürer, harfler ondan türetilen statik Transform'lar
-/// alır. Solma da Opacity widget'ı (saveLayer) yerine metin renginin
-/// alfasıyla yapılır.
-class _ShatterText extends StatelessWidget {
+/// Metin genişliğe göre bir kez dizilir; her harfin konumu ve kendi küçük
+/// paragrafı saklanır. Animasyon sırasında yalnızca CustomPainter yeniden
+/// boyanır — widget kurulmaz, metin yeniden dizilmez.
+class _ShatterText extends StatefulWidget {
   final String text;
-  final double intensity;
+  final Animation<double> intensity;
   const _ShatterText({required this.text, required this.intensity});
 
+  @override
+  State<_ShatterText> createState() => _ShatterTextState();
+}
+
+class _ShatterTextState extends State<_ShatterText> {
   static const _style = TextStyle(
     fontSize: 19,
     height: 1.4,
@@ -751,56 +926,132 @@ class _ShatterText extends StatelessWidget {
     color: AppTheme.textPrimary,
   );
 
+  _ShatterLayout? _layout;
+
+  @override
+  void dispose() {
+    _layout?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (intensity <= 0) {
-      return Text(text, style: _style);
-    }
-    return TweenAnimationBuilder<double>(
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOut,
-      tween: Tween(end: intensity),
-      builder: (context, v, _) => _scattered(v),
-    );
-  }
-
-  Widget _scattered(double v) {
-    final color = AppTheme.textPrimary
-        .withValues(alpha: (1 - v * 0.85).clamp(0.0, 1.0));
-    final style = _style.copyWith(color: color);
-
-    final words = text.split(' ');
-    var charIndex = 0;
-    return Wrap(
-      spacing: 7,
-      runSpacing: 2,
-      children: [
-        for (final word in words)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final ch in word.split(''))
-                _char(ch, charIndex++, v, style),
-            ],
-          ),
-      ],
-    );
-  }
-
-  Widget _char(String ch, int seed, double v, TextStyle style) {
-    final rnd = Random(seed * 9973 + ch.codeUnitAt(0));
-    final dirX = rnd.nextDouble() * 2 - 1;
-    final dirY = rnd.nextDouble() * 2 - 1;
-    final rot = rnd.nextDouble() * 2 - 1;
-    return Transform.translate(
-      offset: Offset(dirX * 46 * v, dirY * 26 * v + v * v * 34),
-      child: Transform.rotate(
-        angle: rot * 1.1 * v,
-        child: Text(ch, style: style),
-      ),
-    );
+    final scaler = MediaQuery.textScalerOf(context);
+    return LayoutBuilder(builder: (context, c) {
+      final width = c.maxWidth;
+      var layout = _layout;
+      if (layout == null ||
+          layout.width != width ||
+          layout.text != widget.text ||
+          layout.scaler != scaler) {
+        layout?.dispose();
+        layout = _layout = _ShatterLayout(widget.text, width, _style, scaler);
+      }
+      return SizedBox(
+        width: width,
+        height: layout.height,
+        child: CustomPaint(
+          painter: _ShatterPainter(layout, widget.intensity),
+        ),
+      );
+    });
   }
 }
+
+class _Glyph {
+  _Glyph(this.painter, this.origin, this.dir, this.spin);
+  final TextPainter painter;
+  final Offset origin;
+  final Offset dir;
+  final double spin;
+}
+
+class _ShatterLayout {
+  _ShatterLayout(this.text, this.width, TextStyle style, this.scaler) {
+    final full = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+    )..layout(maxWidth: width);
+    height = full.height + 4;
+    var offset = 0;
+    var index = 0;
+    for (final ch in text.characters) {
+      final start = offset;
+      offset += ch.length;
+      if (ch.trim().isEmpty) continue;
+      final boxes = full.getBoxesForSelection(
+          TextSelection(baseOffset: start, extentOffset: offset));
+      if (boxes.isEmpty) continue;
+      final box = boxes.first;
+      final rnd = Random(index++ * 9973 + ch.codeUnitAt(0));
+      final painter = TextPainter(
+        text: TextSpan(text: ch, style: style),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+      )..layout();
+      glyphs.add(_Glyph(
+        painter,
+        Offset(box.left, box.top),
+        Offset(rnd.nextDouble() * 2 - 1, rnd.nextDouble() * 2 - 1),
+        rnd.nextDouble() * 2 - 1,
+      ));
+    }
+    full.dispose();
+  }
+
+  final String text;
+  final double width;
+  final TextScaler scaler;
+  late final double height;
+  final List<_Glyph> glyphs = [];
+
+  void dispose() {
+    for (final g in glyphs) {
+      g.painter.dispose();
+    }
+  }
+}
+
+class _ShatterPainter extends CustomPainter {
+  _ShatterPainter(this.layout, this.intensity) : super(repaint: intensity);
+  final _ShatterLayout layout;
+  final Animation<double> intensity;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final v = intensity.value;
+    final fade = v <= 0 ? 1.0 : (1 - v * 0.85).clamp(0.0, 1.0);
+    final layered = fade < 0.999;
+    if (layered) {
+      // Tek bir saydamlık katmanı: harf başına ayrı katman açılmaz.
+      canvas.saveLayer(
+        Rect.fromLTWH(-80, -60, size.width + 160, size.height + 160),
+        Paint()..color = Color.fromRGBO(0, 0, 0, fade),
+      );
+    }
+    for (final g in layout.glyphs) {
+      if (v <= 0) {
+        g.painter.paint(canvas, g.origin);
+        continue;
+      }
+      final w = g.painter.width, h = g.painter.height;
+      final dx = g.dir.dx * 46 * v;
+      final dy = g.dir.dy * 26 * v + v * v * 34;
+      canvas.save();
+      canvas.translate(g.origin.dx + dx + w / 2, g.origin.dy + dy + h / 2);
+      canvas.rotate(g.spin * 1.1 * v);
+      g.painter.paint(canvas, Offset(-w / 2, -h / 2));
+      canvas.restore();
+    }
+    if (layered) canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ShatterPainter old) => old.layout != layout;
+}
+
+// ───────────────────────── Özür penceresi ─────────────────────────
 
 /// İlk dövülen sorunun "özür dileme" pop-up'ı.
 class _ApologyDialog extends StatelessWidget {

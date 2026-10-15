@@ -1,8 +1,11 @@
-/// Sürpriz mesajı için minik piksel yazı tipi.
-///
-/// Her glif 11 satırdır: 0-1 nokta/şapka, 2-8 gövde (büyük harf yüksekliği 7,
-/// küçük harf 5), 9-10 kuyruk (y, g, Ç). '#' dolu pikseldir. Yalnızca mesajda
-/// geçen harfler tanımlıdır; bilinmeyen karakter boşluk gibi davranır.
+import 'dart:ui';
+
+// Sürpriz mesajı için minik piksel yazı tipi.
+//
+// Her glif 11 satırdır: 0-1 nokta/şapka, 2-8 gövde (büyük harf yüksekliği 7,
+// küçük harf 5), 9-10 kuyruk (y, g, Ç). '#' dolu pikseldir. Yalnızca mesajda
+// geçen harfler tanımlıdır; bilinmeyen karakter boşluk gibi davranır.
+
 const int kGlyphRows = 11;
 const int kGlyphSpacing = 1;
 
@@ -28,6 +31,23 @@ const Map<String, List<String>> kPixelGlyphs = {
   'l': ['...', '...', '##.', '.#.', '.#.', '.#.', '.#.', '.#.', '###', '...', '...'],
   'd': ['.....', '.....', '....#', '....#', '.####', '#...#', '#...#', '#...#', '.####', '.....', '.....'],
   'g': ['.....', '.....', '.....', '.....', '.####', '#...#', '#...#', '#...#', '.####', '....#', '.###.'],
+  // Bakım ekranı ve dövme modu için ek harfler.
+  'B': ['.....', '.....', '####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.', '.....', '.....'],
+  'O': ['.....', '.....', '.###.', '#...#', '#...#', '#...#', '#...#', '#...#', '.###.', '.....', '.....'],
+  'N': ['.....', '.....', '#...#', '##..#', '#.#.#', '#.#.#', '#..##', '#...#', '#...#', '.....', '.....'],
+  'K': ['.....', '.....', '#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#', '.....', '.....'],
+  'Y': ['.....', '.....', '#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..', '.....', '.....'],
+  'D': ['.....', '.....', '####.', '#...#', '#...#', '#...#', '#...#', '#...#', '####.', '.....', '.....'],
+  'İ': ['.#.', '...', '###', '.#.', '.#.', '.#.', '.#.', '.#.', '###', '...', '...'],
+  '!': ['.', '.', '#', '#', '#', '#', '#', '.', '#', '.', '.'],
+  '.': ['.', '.', '.', '.', '.', '.', '.', '.', '#', '.', '.'],
+  'a': ['.....', '.....', '.....', '.....', '.###.', '....#', '.####', '#...#', '.####', '.....', '.....'],
+  'ı': ['...', '...', '...', '...', '##.', '.#.', '.#.', '.#.', '###', '...', '...'],
+  'h': ['.....', '.....', '#....', '#....', '####.', '#...#', '#...#', '#...#', '#...#', '.....', '.....'],
+  'c': ['.....', '.....', '.....', '.....', '.###.', '#....', '#....', '#....', '.###.', '.....', '.....'],
+  'ç': ['.....', '.....', '.....', '.....', '.###.', '#....', '#....', '#....', '.###.', '..#..', '.##..'],
+  'ö': ['.....', '.....', '.#.#.', '.....', '.###.', '#...#', '#...#', '#...#', '.###.', '.....', '.....'],
+  'ğ': ['.....', '.....', '#...#', '.###.', '.####', '#...#', '#...#', '#...#', '.####', '....#', '.###.'],
   // Mesajın sonunda atan kalp.
   '♥': ['.......', '.......', '.##.##.', '#######', '#######', '#######', '.#####.', '..###..', '...#...', '.......', '.......'],
 };
@@ -39,4 +59,29 @@ int pixelLineWidth(String line) {
     w += (kPixelGlyphs[ch] ?? kPixelGlyphs[' ']!).first.length + kGlyphSpacing;
   }
   return w == 0 ? 0 : w - kGlyphSpacing;
+}
+
+/// [text]'i piksel yazıyla çizer: sol üst köşe [origin], piksel boyu [px].
+/// [shadow] verilirse bir piksel sağ-alta gölge düşer.
+void paintPixelText(Canvas canvas, String text, Offset origin, double px,
+    Color color, {Color? shadow}) {
+  final paint = Paint()..isAntiAlias = false;
+  for (var pass = shadow == null ? 1 : 0; pass < 2; pass++) {
+    paint.color = pass == 0 ? shadow! : color;
+    final off = pass == 0 ? px : 0.0;
+    var x = origin.dx;
+    for (final ch in text.split('')) {
+      final g = kPixelGlyphs[ch] ?? kPixelGlyphs[' ']!;
+      for (var r = 0; r < g.length; r++) {
+        final row = g[r];
+        for (var q = 0; q < row.length; q++) {
+          if (row.codeUnitAt(q) != 35) continue; // '#'
+          canvas.drawRect(
+              Rect.fromLTWH(x + q * px + off, origin.dy + r * px + off, px, px),
+              paint);
+        }
+      }
+      x += (g.first.length + kGlyphSpacing) * px;
+    }
+  }
 }
