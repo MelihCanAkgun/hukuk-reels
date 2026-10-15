@@ -42,5 +42,33 @@
     document.body.appendChild(input);
     input.click();
   });
+  // Yönetici için: sunucudaki profil fotoğrafını cihaza kaydeder. Dokunmatik
+  // cihazlarda paylaşım sayfası açılır ("Resmi Kaydet" → Fotoğraflar);
+  // diğerlerinde dosya olarak iner. Dosya dokunuşun içinde hazırlanır ki
+  // tarayıcı paylaşım iznini düşürmesin.
+  window.hukukSaveAvatar = async (b64, filename) => {
+    try {
+      const raw = atob(b64);
+      const bytes = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
+      const file = new File([bytes], filename, {type: 'image/jpeg'});
+      if (navigator.canShare && matchMedia('(pointer: coarse)').matches && navigator.canShare({files: [file]})) {
+        try { await navigator.share({files: [file]}); return 'shared'; }
+        catch (e) { if (e && e.name === 'AbortError') return ''; }
+      }
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      return 'downloaded';
+    } catch (e) {
+      return 'error:' + ((e && e.message) || 'Fotoğraf indirilemedi.');
+    }
+  };
   window.hukukAvatarTest = {toAvatar};
 })();

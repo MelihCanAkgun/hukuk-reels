@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/social_bridge.dart';
 import '../../core/services/avatar_sync.dart';
+import '../../core/services/avatar_bridge.dart';
 import '../profile/profile_avatar.dart';
 
 const socialApiUrl = String.fromEnvironment('SOCIAL_API_URL',
@@ -110,6 +113,79 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
       return 'Bildirim servisine iletilemedi; sunucu yeniden deneyecek.';
     }
     return 'Son bildirim gönderim sırasında; henüz teslim onayı yok.';
+  }
+
+  /// Yalnız Oyuncu 1'e görünür: uygulamaya yüklenen profil fotoğraflarını
+  /// cihaza indirir. Fotoğraflar eşitlemeyle zaten bellekte; ağ isteği yok.
+  Widget _avatarDownloads() {
+    final sync = AvatarSync.instance;
+    return ValueListenableBuilder<int>(
+      valueListenable: sync.changes,
+      builder: (context, _, __) {
+        final rows = <Widget>[];
+        for (final p
+            in (_data['players'] as List? ?? const []).whereType<Map>()) {
+          final id = p['id'];
+          if (id is! int) continue;
+          final Uint8List? bytes = id == _data['me']
+              ? ProgressService.instance.avatar
+              : sync.photoOf(id);
+          final name = (p['name'] as String?) ?? 'Oyuncu $id';
+          rows.add(ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: id == _data['me']
+                ? const ProfileAvatar(size: 40)
+                : PeerAvatar(id: id, name: name, size: 40),
+            title: Text(name),
+            subtitle:
+                Text(bytes == null ? 'Fotoğraf yüklenmemiş' : 'JPEG · 320×320'),
+            trailing: IconButton(
+              tooltip: 'Fotoğrafı indir',
+              icon: const Icon(Icons.download_rounded),
+              onPressed: bytes == null
+                  ? null
+                  : () => _downloadAvatar(bytes, name, p['avatar'] as String?),
+            ),
+          ));
+        }
+        if (rows.isEmpty) return const Text('Henüz oyuncu bilgisi yok.');
+        return Column(children: rows);
+      },
+    );
+  }
+
+  Future<void> _downloadAvatar(
+      Uint8List bytes, String name, String? version) async {
+    // Dosya adı ASCII kalsın; Türkçe karakterler bazı cihazlarda bozuluyor.
+    const tr = {
+      'ç': 'c',
+      'ğ': 'g',
+      'ı': 'i',
+      'ö': 'o',
+      'ş': 's',
+      'ü': 'u',
+      'Ç': 'C',
+      'Ğ': 'G',
+      'İ': 'I',
+      'Ö': 'O',
+      'Ş': 'S',
+      'Ü': 'U'
+    };
+    final safe = name
+        .split('')
+        .map((c) => tr[c] ?? c)
+        .join()
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    final file = 'profil_${safe.isEmpty ? 'oyuncu' : safe}'
+        '${version == null ? '' : '_${version.substring(0, version.length.clamp(0, 8))}'}.jpg';
+    final result = await saveAvatarJpeg(base64Encode(bytes), file);
+    if (!mounted || result.isEmpty) return;
+    setState(() => _notice = result.startsWith('error:')
+        ? result.substring(6)
+        : result == 'shared'
+            ? 'Fotoğraf paylaşım menüsüne gönderildi.'
+            : 'Fotoğraf indirildi: $file');
   }
 
   @override
@@ -282,6 +358,11 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                       : () => _action('message', {'message': _message.text}),
                   icon: const Icon(Icons.send_rounded),
                   label: const Text('Bildirim gönder')),
+              const Divider(height: 32),
+              const Text('Profil fotoğrafları',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              _avatarDownloads(),
             ],
             const SizedBox(height: 16),
             TextButton(
