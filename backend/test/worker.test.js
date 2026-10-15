@@ -121,7 +121,14 @@ test('board reports actual recipient registrations instead of inferred permissio
 
 test('test player can auth and use battle but never writes to leaderboard or DB', async()=>{
   const {db,env,call}=await setup();
+  // This code is public in git history: without the secret it must be refused.
   const testToken = 'test-player-battle-mode-hukuk-reels-mqcan01';
+  const refused = await worker.fetch(new Request('https://worker.example/board', {
+    headers:{Origin:'https://app.example', Authorization:'Bearer '+testToken}}), env, {waitUntil(){}});
+  assert.equal(refused.status, 401);
+  assert.equal(refused.headers.get('x-content-type-options'), 'nosniff');
+  assert.equal(refused.headers.get('x-frame-options'), 'DENY');
+  env.TEST_PLAYER_HASH = await tokenHash(testToken);
   const testCall = async(path, data) => {
     const pending=[];
     const response = await worker.fetch(new Request('https://worker.example'+path, {
@@ -154,6 +161,14 @@ test('test player can auth and use battle but never writes to leaderboard or DB'
   assert.equal((await testCall('/message', {message:'Test'})).status, 403);
 });
 
+
+test('names cannot hide or spoof text with invisible or bidi characters', async()=>{
+  const {call}=await setup();
+  for (const name of ['ari\u202Eesrever', 'a\u200Bb', '\u2066x', 'x\uFEFFy', 'a\u0085b']) {
+    assert.equal((await call('/profile',{name})).status, 400, JSON.stringify(name));
+  }
+  assert.equal((await call('/profile',{name:'mqcan 😎'})).status, 200);
+});
 
 test('admin can preview a manual message on own devices only', async()=>{
   const {db,call}=await setup();

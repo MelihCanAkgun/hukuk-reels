@@ -56,8 +56,12 @@ export async function route(request, env, ctx) {
   const token = request.headers.get('Authorization')?.replace(/^Bearer /, '') || '';
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) fail('Oyuncu kodunu kontrol et.', 401);
   const hash = await tokenHash(token);
-  // Battle-only test player: no DB record, no leaderboard, no persistent state.
-  const player = hash === 'd599ed0d4bacfca6da76233725553af1903f8dc9ab1ef0feec5f3b21e37a4413'
+  // Optional battle-only test identity (no DB record, no leaderboard, no
+  // persistent state). It exists only when the TEST_PLAYER_HASH secret is set;
+  // production leaves it unset because an earlier test code is public in git.
+  const testHash = typeof env.TEST_PLAYER_HASH === 'string' && /^[0-9a-f]{64}$/.test(env.TEST_PLAYER_HASH)
+    ? env.TEST_PLAYER_HASH : null;
+  const player = testHash && hash === testHash
     ? {id: 0, name: 'Test Oyuncu', active: 1, token_hash: hash}
     : await env.DB.prepare('SELECT * FROM players WHERE token_hash = ?').bind(hash).first();
   if (!player) fail('Oyuncu kodunu kontrol et.', 401);
@@ -75,7 +79,9 @@ export async function route(request, env, ctx) {
   const data = await body(request);
   if (path === '/profile') {
     const name = typeof data.name === 'string' ? data.name.trim() : '';
-    if (name.length < 1 || name.length > 24 || /[\x00-\x1f\x7f]/.test(name)) fail('1–24 karakterlik bir isim yaz.');
+    // Control, zero-width and bidirectional override characters could hide or spoof a name.
+    if (name.length < 1 || name.length > 24 ||
+        /[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/.test(name)) fail('1–24 karakterlik bir isim yaz.');
     await env.DB.prepare('UPDATE players SET name = ?, active = 1 WHERE id = ?').bind(name, player.id).run();
     return json(await board(env, player.id));
   }
@@ -205,6 +211,10 @@ export default {
     response.headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
     response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     response.headers.set('Vary', 'Origin');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('Referrer-Policy', 'no-referrer');
+    response.headers.set('X-Frame-Options', 'DENY');
+    response.headers.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
     return response;
   },
   scheduled(_event, env, ctx) { ctx.waitUntil(deliver(env)); },
