@@ -1,8 +1,8 @@
 {
-  "source_commit": "6c6ea7bedfc558af63638bef37c0fa4d2f5b8edb",
-  "built_at": "2026-10-14T21:19:03Z",
+  "source_commit": "47e685888c25634e39355a9c38261a7d0cbf4616",
+  "built_at": "2026-10-15T13:06:39Z",
   "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Smaller offline shell (font subset, corner photos), cached question stats, push icon fix",
+  "change": "Profile & settings redesign, nickname editing, private shared profile photos",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "45ca61cebd99a413"
+  "app_build": "afc305345b85e5cf"
 }
