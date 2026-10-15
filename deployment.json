@@ -1,8 +1,8 @@
 {
-  "source_commit": "9941d4ef7eea243e3487b5fb0aea435c72c16b8e",
-  "built_at": "2026-10-15T21:10:25Z",
-  "checks": "flutter analyze (no issues); flutter test (102 passed); backend node tests (34 passed); local wrangler + headless Chrome end-to-end avatar upload/download",
-  "change": "Full-quality profile photos, avatar editor with pixel stickers; worker 433819df",
+  "source_commit": "42172e5decd0ba1e43597beeba7ac76ea5987b32",
+  "built_at": "2026-10-15T21:15:44Z",
+  "checks": "flutter analyze (no issues); flutter test (103 passed); release build with base-href /hukuk-reels/",
+  "change": "Photo download hints visible only to Player 1",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "c3fdf747a6e4424a"
+  "app_build": "94c9e4ac8c074c96"
 }
