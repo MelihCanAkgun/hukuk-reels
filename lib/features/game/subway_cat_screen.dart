@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
@@ -574,7 +575,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('🐱', style: TextStyle(fontSize: 50)),
+            const PixelLogo(kLogoSubwaySilly, size: 64),
             const SizedBox(height: 8),
             const Text('Subway Silly',
                 style: TextStyle(

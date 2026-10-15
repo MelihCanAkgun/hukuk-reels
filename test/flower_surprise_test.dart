@@ -76,7 +76,7 @@ void main() {
     expect(find.byType(ConfidenceGateScreen), findsOneWidget);
     expect(find.textContaining('Sana bir sürprizim var'), findsOneWidget);
     expect(ProgressService.instance.flowerSurpriseSeen, isFalse);
-    expect(find.text('🌷'), findsNothing); // spoiler yok
+    expect(find.bySemanticsLabel('Çiçeğin'), findsNothing); // spoiler yok
     expect(find.textContaining('çiçek'), findsNothing);
 
     await tester.tap(find.text('Evet 🥰'));
@@ -92,8 +92,8 @@ void main() {
     // Ana menü kök rotadır: sürpriz kapanınca işe yaramaz geri oku kalmasın.
     expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
 
-    // 🌷 düğmesiyle çiçek yeniden açılır.
-    await tester.tap(find.text('🌷'));
+    // Çiçek düğmesiyle çiçek yeniden açılır.
+    await tester.tap(find.bySemanticsLabel('Çiçeğin'));
     await _play(tester, 1);
     expect(find.byType(FlowerSurpriseScreen), findsOneWidget);
     expect(tester.takeException(), isNull);

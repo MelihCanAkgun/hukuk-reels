@@ -3,6 +3,7 @@ import '../../core/services/battle_bridge.dart';
 import '../game/block_battle_lobby.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/pixel_logo.dart';
 import '../../core/services/progress_service.dart';
 import '../game/block_blast_screen.dart';
 import '../reels/screens/reels_screen.dart';
@@ -67,7 +68,7 @@ class _GamesScreenState extends State<GamesScreen> {
                         icon: const Icon(Icons.arrow_back_rounded,
                             color: AppTheme.textPrimary),
                       ),
-                    const Text('🎮', style: TextStyle(fontSize: 18)),
+                    const PixelLogo(kLogoGames, size: 24),
                     const SizedBox(width: 8),
                     const Text(
                       'Oyunlar',
@@ -98,21 +99,21 @@ class _GamesScreenState extends State<GamesScreen> {
                     ),
                     const SizedBox(height: 14),
                     _gameTile(
-                      emoji: '🧩',
+                      logo: kLogoBlockBlast,
                       title: 'Block Blast',
                       subtitle: 'Rekor: ${_progress.blockHigh}',
                       screen: const BlockBlastScreen(),
                     ),
                     const SizedBox(height: 10),
                     _gameTile(
-                      imageAsset: 'assets/images/SHINY_Cuh.png',
+                      logo: kLogoFlappyCat,
                       title: 'Flappy Silly Cat',
                       subtitle: 'Rekor: ${_progress.flappyHigh}',
                       screen: const FlappyCatScreen(),
                     ),
                     const SizedBox(height: 10),
                     _gameTile(
-                      imageAsset: 'assets/images/SHINY_Cuh.png',
+                      logo: kLogoSubwaySilly,
                       title: 'Subway Silly',
                       subtitle: 'Rekor: ${_progress.subwayHigh}',
                       screen: const SubwayCatScreen(),
@@ -120,7 +121,7 @@ class _GamesScreenState extends State<GamesScreen> {
                     const SizedBox(height: 24),
                     const Divider(),
                     ListTile(
-                      leading: const Icon(Icons.school_outlined),
+                      leading: const PixelLogo(kLogoQuestionBank, size: 30),
                       title: const Text('Soru bankası'),
                       subtitle: Text(ReelsScreen.maintenance
                           ? 'Bakımda · çok yakında 🛠️'
@@ -163,7 +164,8 @@ class _GamesScreenState extends State<GamesScreen> {
           await _progress.setFlowerSurpriseSeen(false);
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Sürpriz sıfırlandı: uygulama yeniden açılınca gösterilecek.'),
+            content: Text(
+                'Sürpriz sıfırlandı: uygulama yeniden açılınca gösterilecek.'),
           ));
         },
         child: Container(
@@ -175,15 +177,14 @@ class _GamesScreenState extends State<GamesScreen> {
             color: AppTheme.accent.withValues(alpha: 0.12),
             border: Border.all(color: AppTheme.accent.withValues(alpha: 0.45)),
           ),
-          child: const Text('🌷', style: TextStyle(fontSize: 20)),
+          child: const PixelLogo(kLogoTulip, size: 24),
         ),
       ),
     );
   }
 
   Widget _gameTile({
-    String? imageAsset,
-    String? emoji,
+    required List<String> logo,
     required String title,
     required String subtitle,
     required Widget screen,
@@ -215,14 +216,8 @@ class _GamesScreenState extends State<GamesScreen> {
                 shape: BoxShape.circle,
                 color: AppTheme.surfaceHigh,
                 border: Border.all(color: AppTheme.accent, width: 2),
-                image: imageAsset != null
-                    ? DecorationImage(
-                        image: AssetImage(imageAsset), fit: BoxFit.cover)
-                    : null,
               ),
-              child: emoji != null
-                  ? Text(emoji, style: const TextStyle(fontSize: 22))
-                  : null,
+              child: PixelLogo(logo, size: 28),
             ),
             const SizedBox(width: 13),
             Expanded(

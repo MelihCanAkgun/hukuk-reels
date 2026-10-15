@@ -11,6 +11,7 @@ import 'combo_hud.dart';
 import 'block_battle_life_fx.dart';
 import '../../core/services/social_bridge.dart';
 import 'package:flutter/material.dart';
+import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -595,7 +596,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
             }
           }),
           const SizedBox(width: 6),
-          const Text('🧩', style: TextStyle(fontSize: 18)),
+          PixelLogo(_battle == null ? kLogoBlockBlast : kLogoBattle, size: 22),
           const SizedBox(width: 6),
           Expanded(
               child: Text(
@@ -645,7 +646,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                     Navigator.of(context).push(MaterialPageRoute<void>(
                         builder: (_) => const BlockBattleLobby()));
                   },
-                  icon: const Icon(Icons.sports_mma_rounded, size: 16),
+                  icon: const PixelLogo(kLogoBattle, size: 18),
                   label: const Text('1v1 Battle'),
                 ),
               ]),

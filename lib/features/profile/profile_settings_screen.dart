@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
@@ -115,8 +116,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     final pct = totA == 0 ? 0 : (totC / totA * 100).round();
 
     final solved = _progress.solvedIds;
-    final solvedInPool =
-        kQuestions.where((q) => solved.contains(q.id)).length;
+    final solvedInPool = kQuestions.where((q) => solved.contains(q.id)).length;
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -167,8 +167,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     ),
                     _sectionTitle('SES', Icons.graphic_eq_rounded),
                     _soundGroup(),
-                    _sectionTitle('SIRALAMA VE BİLDİRİMLER',
-                        Icons.emoji_events_rounded),
+                    _sectionTitle(
+                        'SIRALAMA VE BİLDİRİMLER', Icons.emoji_events_rounded),
                     _group([_leaderboardRow()]),
                     _sectionTitle('VERİ', Icons.storage_rounded),
                     _group([
@@ -914,7 +914,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Widget _practiceRow(List<QuizQuestion> wrong) {
     Widget button({
       required String label,
-      required IconData icon,
+      IconData? icon,
+      Widget? logo,
       required bool primary,
       required VoidCallback onTap,
     }) =>
@@ -933,9 +934,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon,
-                      size: 18,
-                      color: primary ? Colors.white : AppTheme.textPrimary),
+                  logo ??
+                      Icon(icon,
+                          size: 18,
+                          color: primary ? Colors.white : AppTheme.textPrimary),
                   const SizedBox(width: 7),
                   Flexible(
                     child: Text(
@@ -966,7 +968,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         const SizedBox(width: 10),
         button(
           label: 'Yanlışları döv',
-          icon: Icons.sports_cricket_rounded,
+          logo: const PixelBatIcon(size: 20),
           primary: false,
           onTap: () => Navigator.of(context).push(MaterialPageRoute(
               builder: (_) => BeatModeScreen(questions: wrong))),
@@ -1043,8 +1045,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             if (items.length > _previewCount)
               InkWell(
                 onTap: onToggle,
-                borderRadius: const BorderRadius.vertical(
-                    bottom: Radius.circular(18)),
+                borderRadius:
+                    const BorderRadius.vertical(bottom: Radius.circular(18)),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Row(
@@ -1267,9 +1269,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           : 'Bildirimler kapalı';
       final me = _me;
       final best = me?['best'];
-      subtitle = best is num
-          ? 'Rekorun ${_formatScore(best.toInt())} · $bell'
-          : bell;
+      subtitle =
+          best is num ? 'Rekorun ${_formatScore(best.toInt())} · $bell' : bell;
     }
     final partner = _connected ? _partner : null;
     return _actionRow(
