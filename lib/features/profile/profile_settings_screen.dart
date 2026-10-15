@@ -606,11 +606,29 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         // Tam kalite yüklenemedi: görüntü kopyası sonra eşitlensin.
         final ok = await _progress.setAvatarDataUrl(thumb);
         if (!mounted) return;
-        _toast(!ok
-            ? 'Bu fotoğraf kaydedilemedi.'
-            : _isAdmin
-                ? 'Tam kalite yüklenemedi ($error). Fotoğraf küçük boyutla kaydedildi.'
-                : 'Profil fotoğrafı kaydedildi; sunucuya gönderilemedi ($error).');
+        if (ok && _isAdmin) {
+          // Yönetici için gözden kaçmasın: tam kalite indirmeyi etkiliyor.
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              backgroundColor: AppTheme.bgElevated,
+              title: const Text('Tam kalite yüklenemedi'),
+              content: Text('$error\n\nFotoğraf şimdilik küçük boyutla '
+                  'kaydedildi. Bağlantını kontrol edip fotoğrafı yeniden seçebilirsin.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Tamam'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          _toast(ok
+              ? 'Profil fotoğrafı kaydedildi; sunucuya gönderilemedi ($error).'
+              : 'Bu fotoğraf kaydedilemedi.');
+        }
+        if (!mounted) return;
         if (ok) await _syncAvatar();
         return;
       }

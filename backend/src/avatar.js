@@ -17,7 +17,7 @@ export const FULL_MAX_BYTES = 12 * 1024 * 1024;
 const FULL_MAX_CHARS = Math.ceil(FULL_MAX_BYTES / 3) * 4;
 const FULL_MAX_SIDE = 8192;
 const PART_CHARS = 1_000_000; // D1 values are limited to ~2 MB.
-// Only the header is decoded and inspected: scanning a multi-megabyte body
+// Only the header is decoded and cleaned: scanning a multi-megabyte body
 // in JS would exceed the Free plan's CPU budget.
 const FULL_HEAD_CHARS = 64 * 1024; // canvas JPEG headers are a few KB
 const MAX_BODY_CHARS = Math.ceil(AVATAR_MAX_BYTES * 4 / 3) + 512;
@@ -92,39 +92,45 @@ async function version(bytes) {
 const BASE64_TAIL = /^[A-Za-z0-9+/]{2}(?:[A-Za-z0-9+/]{2}|[A-Za-z0-9+/]=|==)$/;
 
 /**
- * Checks a base64 full-quality JPEG without decoding all of it: the decoded
- * header must reach the first scan with no metadata (EXIF/XMP/comment; only an ICC colour profile)
- * segments, and the data must end with EOI. Returns {width, height, size}.
+ * Cleans a base64 full-quality JPEG without decoding all of it. Only the
+ * header (up to the first scan) is decoded: metadata segments (EXIF/XMP/
+ * Photoshop-IPTC/comment; Safari's encoder adds EXIF + APP13) are removed,
+ * the colour profile (APP2 "ICC_PROFILE") and Adobe APP14 are kept. The rest
+ * of the base64 text is reused as-is; to keep it aligned, JPEG fill bytes
+ * (0xFF before a marker) make the removed length a multiple of 3.
+ * Returns {text, width, height, size}.
  */
-export function inspectFullJpeg(text) {
+export function cleanFullJpeg(text) {
   const bad = () => err('Fotoğraf geçersiz. Lütfen başka bir fotoğraf seç.');
   if (typeof text !== 'string' || text.length < 88 || text.length % 4) throw bad();
   if (text.length > FULL_MAX_CHARS) throw err('Fotoğraf çok büyük.', 413);
-  const headText = text.slice(0, Math.min(text.length - 4, FULL_HEAD_CHARS));
-  if (!/^[A-Za-z0-9+/]+$/.test(headText) || !BASE64_TAIL.test(text.slice(-4))) throw bad();
+  if (!BASE64_TAIL.test(text.slice(-4))) throw bad();
+  const whole = text.length <= FULL_HEAD_CHARS + 4;
+  const headText = whole ? text : text.slice(0, FULL_HEAD_CHARS);
+  if (!(whole ? /^[A-Za-z0-9+/]+={0,2}$/ : /^[A-Za-z0-9+/]+$/).test(headText)) throw bad();
   const decode = t => {
     const raw = atob(t), out = new Uint8Array(raw.length);
     for (let k = 0; k < raw.length; k++) out[k] = raw.charCodeAt(k);
     return out;
   };
-  const head = decode(headText.slice(0, headText.length - headText.length % 4));
+  const head = decode(headText);
   const tail = decode(text.slice(-8));
   if (tail[tail.length - 2] !== 0xFF || tail[tail.length - 1] !== 0xD9) throw bad();
   if (head[0] !== 0xFF || head[1] !== 0xD8) throw bad();
+  const kept = [head.subarray(0, 2)];
   let i = 2, width = 0, height = 0;
   for (;;) {
     if (i + 4 > head.length || head[i] !== 0xFF) throw bad();
     const marker = head[i + 1];
     if (marker === 0xFF) { i++; continue; }
     if (marker === 0xD8 || marker === 0xD9 || marker === 0x01 || (marker >= 0xD0 && marker <= 0xD7)) throw bad();
+    if (marker === 0xDA) break;
     const length = (head[i + 2] << 8) | head[i + 3];
     if (length < 2 || i + 2 + length > head.length) throw bad();
-    // Browsers embed an sRGB/P3 colour profile (APP2 "ICC_PROFILE"); it holds no
-    // personal data and keeps colours right. Any other metadata is refused.
     const icc = marker === 0xE2 && length > 14 &&
       String.fromCharCode(...head.subarray(i + 4, i + 16)) === 'ICC_PROFILE\0';
-    if (((marker >= 0xE1 && marker <= 0xEF) && !icc) || marker === 0xFE) throw bad();
-    if (marker === 0xDA) break;
+    const metadata = (marker >= 0xE1 && marker <= 0xEF && !icc && marker !== 0xEE) || marker === 0xFE;
+    if (!metadata) kept.push(head.subarray(i, i + 2 + length));
     if (marker >= 0xC0 && marker <= 0xCF && ![0xC4, 0xC8, 0xCC].includes(marker)) {
       if (length < 8) throw bad();
       height = (head[i + 5] << 8) | head[i + 6];
@@ -133,8 +139,16 @@ export function inspectFullJpeg(text) {
     i += 2 + length;
   }
   if (!width || !height || width > FULL_MAX_SIDE || height > FULL_MAX_SIDE) throw bad();
-  const pad = text.endsWith('==') ? 2 : text.endsWith('=') ? 1 : 0;
-  return {width, height, size: text.length / 4 * 3 - pad};
+  const keptLength = kept.reduce((n, p) => n + p.length, 0);
+  const fill = whole ? 0 : (i - keptLength) % 3;
+  const rebuilt = new Uint8Array(keptLength + fill + head.length - i);
+  let o = 0;
+  for (const p of kept) { rebuilt.set(p, o); o += p.length; }
+  rebuilt.fill(0xFF, o, o + fill);
+  rebuilt.set(head.subarray(i), o + fill);
+  const out = toBase64(rebuilt) + (whole ? '' : text.slice(FULL_HEAD_CHARS));
+  const pad = out.endsWith('==') ? 2 : out.endsWith('=') ? 1 : 0;
+  return {text: out, width, height, size: out.length / 4 * 3 - pad};
 }
 
 /** Removes the full-quality copy (when only a display photo is uploaded or the photo is deleted). */
@@ -195,8 +209,8 @@ export async function avatarFullRoute(request, env, player, board, json) {
   const nl = text.indexOf('\n');
   if (nl < 0) throw err('Geçersiz istek.');
   const thumb = sanitizeJpeg(fromBase64(text.slice(0, nl)));
-  const full = text.slice(nl + 1);
-  const info = inspectFullJpeg(full);
+  const info = cleanFullJpeg(text.slice(nl + 1));
+  const full = info.text;
   const now = Math.floor(Date.now() / 1000);
   await checkCooldown(env, player.id, now);
   const ver = await version(thumb);

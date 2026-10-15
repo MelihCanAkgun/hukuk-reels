@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
 import worker, {tokenHash} from '../src/worker.js';
-import {sanitizeJpeg, inspectFullJpeg} from '../src/avatar.js';
+import {sanitizeJpeg, cleanFullJpeg} from '../src/avatar.js';
 
 const tokens = ['a'.repeat(43), 'b'.repeat(43), 'c'.repeat(43)];
 async function setup() {
@@ -159,12 +159,12 @@ test('full-quality upload is stored in parts and only Player 1 can download it',
 test('full-quality uploads are validated and deletable', async () => {
   const {db, call} = await setup();
   const ok = jpeg({width: 2000, height: 2000, exif: false});
-  // A browser colour profile is accepted; other APP2 payloads are not.
-  assert.equal(inspectFullJpeg(b64(jpeg({width: 2000, height: 2000, exif: false, icc: true}))).width, 2000);
-  assert.throws(() => inspectFullJpeg(b64(jpeg({exif: false, app2: 'MPF\0 hidden data here'}))));
-  // Metadata, oversize sides, truncated data, missing separator, non-JPEG.
+  // A browser colour profile is kept; EXIF, comments and other APP2 payloads are removed.
+  const cleaned = Buffer.from(cleanFullJpeg(b64(jpeg({width: 2000, height: 2000, icc: true, app2: 'MPF\0 hidden data here'}))).text, 'base64').toString('latin1');
+  assert.ok(cleaned.includes('ICC_PROFILE') && cleaned.includes('JFIF'));
+  assert.ok(!cleaned.includes('Exif') && !cleaned.includes('GPS') && !cleaned.includes('secret') && !cleaned.includes('MPF'));
+  // Oversize sides, truncated data, missing separator, non-JPEG.
   for (const raw of [
-    fullBody(jpeg(), jpeg({width: 2000, height: 2000})),
     fullBody(jpeg(), jpeg({width: 9000, height: 100, exif: false})),
     fullBody(jpeg(), ok.slice(0, -2)),
     b64(ok),
@@ -172,7 +172,7 @@ test('full-quality uploads are validated and deletable', async () => {
     b64(jpeg()) + '\n' + b64(ok).slice(0, -1),
   ]) assert.equal((await call('/avatar/full', undefined, 0, {raw})).status, 400, raw.slice(-30));
   assert.equal(db.prepare('SELECT COUNT(*) n FROM avatars').get().n, 0);
-  assert.throws(() => inspectFullJpeg('A'.repeat(17_000_000)), e => e.status === 413);
+  assert.throws(() => cleanFullJpeg('A'.repeat(17_000_000)), e => e.status === 413);
   assert.equal((await call('/avatar/full', undefined, 0, {raw: fullBody(jpeg(), ok)})).status, 200);
   assert.equal((await call('/avatar/full', undefined, 0, {raw: fullBody(jpeg({pad: 300}), ok)})).status, 429);
   assert.equal((await call('/avatar/delete', {})).status, 200);
@@ -180,10 +180,50 @@ test('full-quality uploads are validated and deletable', async () => {
     assert.equal(db.prepare(`SELECT COUNT(*) n FROM ${t}`).get().n, 0, t);
 });
 
-test('full-quality validation stays cheap for large photos', () => {
-  const text = b64(jpeg({width: 4096, height: 4096, exif: false, pad: 9_000_000}));
-  inspectFullJpeg(text); // warm up
+test('full-quality cleaning stays cheap for large photos', () => {
+  const text = b64(jpeg({width: 4096, height: 4096, pad: 9_000_000}));
+  cleanFullJpeg(text); // warm up
   const t = performance.now();
-  for (let i = 0; i < 5; i++) inspectFullJpeg(text);
-  assert.ok((performance.now() - t) / 5 < 3, 'inspect should not scan the whole body');
+  for (let i = 0; i < 5; i++) cleanFullJpeg(text);
+  assert.ok((performance.now() - t) / 5 < 3, 'cleaning should not scan the whole body');
+});
+
+// Safari/ImageIO-style header: JFIF, EXIF, Photoshop (APP13), then tables and a scan.
+function appleJpeg(exifLen, scanBytes) {
+  const seg = (m, payload) => Buffer.from([0xFF, m, (payload.length + 2) >> 8, (payload.length + 2) & 255, ...payload]);
+  const scan = Buffer.alloc(scanBytes);
+  for (let i = 0; i < scanBytes; i++) scan[i] = (i * 7919) % 255; // never 0xFF
+  return Buffer.concat([
+    Buffer.from([0xFF, 0xD8]),
+    seg(0xE0, [...Buffer.from('JFIF\0'), 1, 1, 0, 0, 72, 0, 72, 0, 0]),
+    seg(0xE1, [...Buffer.from('Exif\0\0MM'), ...new Array(exifLen).fill(1)]),
+    seg(0xED, [...Buffer.from('Photoshop 3.0\0'), ...new Array(30).fill(2)]),
+    seg(0xDB, new Array(65).fill(3)),
+    seg(0xC0, [8, 0x0B, 0xD0, 0x0B, 0xD0, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]),
+    seg(0xDA, [3, 1, 0, 2, 0x11, 3, 0x11, 0, 63, 0]),
+    scan,
+    Buffer.from([0xFF, 0xD9]),
+  ]);
+}
+
+test('Safari-style metadata is stripped and the scan data is kept byte for byte', () => {
+  for (const exifLen of [60, 61, 62]) { // removed length ≡ 0, 1, 2 (mod 3)
+    for (const scanBytes of [5000, 2_000_000]) { // whole-file and header-only paths
+      const src = appleJpeg(exifLen, scanBytes);
+      const {text, width, height, size} = cleanFullJpeg(src.toString('base64'));
+      const out = Buffer.from(text, 'base64');
+      assert.equal(width, 3024); assert.equal(height, 3024); assert.equal(size, out.length);
+      const latin = out.subarray(0, 400).toString('latin1');
+      assert.ok(!latin.includes('Exif') && !latin.includes('Photoshop') && latin.includes('JFIF'));
+      // Everything from the scan marker on is identical; only 0xFF fill bytes precede it.
+      const sos = src.indexOf(Buffer.from([0xFF, 0xDA]));
+      const outSos = out.length - (src.length - sos);
+      assert.ok(out.subarray(outSos).equals(src.subarray(sos)));
+      const sof = out.indexOf(Buffer.from([0xFF, 0xC0]));
+      const fill = outSos - (sof + 19);
+      const removed = (4 + 8 + exifLen) + (4 + 14 + 30); // APP1 + APP13
+      assert.equal(fill, scanBytes > 100_000 ? removed % 3 : 0);
+      for (let k = sof + 19; k < outSos; k++) assert.equal(out[k], 0xFF);
+    }
+  }
 });
