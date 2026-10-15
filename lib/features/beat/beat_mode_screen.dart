@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
@@ -119,7 +120,7 @@ class _BeatPagerState extends State<_BeatPager> {
                   icon: const Icon(Icons.arrow_back_rounded,
                       color: AppTheme.textPrimary),
                 ),
-                const _BatIcon(size: 22),
+                const PixelBatIcon(size: 22),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -181,7 +182,8 @@ class _Sprites {
           if (ch == '.') continue;
           paint.color = kSpritePalette[ch]!;
           // Komşu karelerin arasında ince boşluk kalmasın diye hafif taşır.
-          c.drawRect(Rect.fromLTWH(x * px, y * px, px + 0.35, px + 0.35), paint);
+          c.drawRect(
+              Rect.fromLTWH(x * px, y * px, px + 0.35, px + 0.35), paint);
         }
       }
       return rec.endRecording();
@@ -190,34 +192,6 @@ class _Sprites {
 
   static Size sizeOf(List<String> rows, double px) =>
       Size(rows.first.length * px, rows.length * px);
-}
-
-/// Üst bardaki küçük piksel sopa.
-class _BatIcon extends StatelessWidget {
-  const _BatIcon({required this.size});
-  final double size;
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-        width: size,
-        height: size,
-        child: CustomPaint(painter: _BatIconPainter()),
-      );
-}
-
-class _BatIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final px = size.height / kBatSprite.length * 1.25;
-    final s = _Sprites.sizeOf(kBatSprite, px);
-    canvas.translate(size.width / 2, size.height / 2);
-    canvas.rotate(0.75);
-    canvas.translate(-s.width / 2, -s.height / 2);
-    canvas.drawPicture(_Sprites.of('bat', kBatSprite, px));
-  }
-
-  @override
-  bool shouldRepaint(_BatIconPainter old) => false;
 }
 
 // ───────────────────────── Kart ─────────────────────────
@@ -584,7 +558,8 @@ class _BeatCardState extends State<_BeatCard>
             height: 11,
             margin: const EdgeInsets.only(right: 3),
             decoration: BoxDecoration(
-              color: i < left ? _accent : AppTheme.border.withValues(alpha: 0.6),
+              color:
+                  i < left ? _accent : AppTheme.border.withValues(alpha: 0.6),
               border: Border.all(
                 color: i < left
                     ? Colors.white.withValues(alpha: 0.35)
@@ -699,11 +674,11 @@ class _BeatCardState extends State<_BeatCard>
     }
     return Row(
       children: [
-        Icon(
-          _defeated ? Icons.emoji_events_rounded : Icons.sports_cricket_rounded,
-          color: _defeated ? AppTheme.success : AppTheme.textMuted,
-          size: 15,
-        ),
+        if (_defeated)
+          const Icon(Icons.emoji_events_rounded,
+              color: AppTheme.success, size: 15)
+        else
+          const PixelBatIcon(size: 15),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -795,8 +770,8 @@ class _HitFxPainter extends CustomPainter {
 
     if (!animating) {
       // Bekleme: sağ alt köşede yaslanmış sopa.
-      _drawBat(canvas, bat, batSize,
-          Offset(size.width - 22, size.height - 14), -0.42);
+      _drawBat(canvas, bat, batSize, Offset(size.width - 22, size.height - 14),
+          -0.42);
       return;
     }
 

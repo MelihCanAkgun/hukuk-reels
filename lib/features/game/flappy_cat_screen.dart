@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme.dart';
@@ -337,7 +338,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
                           _circleBtn(Icons.arrow_back_rounded,
                               () => Navigator.of(context).maybePop()),
                           const SizedBox(width: 6),
-                          const Text('🐱', style: TextStyle(fontSize: 18)),
+                          const PixelLogo(kLogoFlappyCat, size: 24),
                           const SizedBox(width: 6),
                           const Expanded(
                               child: Text(

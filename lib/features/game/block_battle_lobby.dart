@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
 import '../../core/services/social_bridge.dart';
 import 'block_leaderboard.dart';
@@ -85,8 +86,7 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
                 child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
           child: ListView(padding: const EdgeInsets.all(24), children: [
-            const Icon(Icons.sports_mma_rounded,
-                size: 48, color: Color(0xFFFFD36A)),
+            const Center(child: PixelLogo(kLogoBattle, size: 64)),
             const SizedBox(height: 16),
             const Text('Aynı parçalar. İki tahta. Beş can.',
                 textAlign: TextAlign.center,

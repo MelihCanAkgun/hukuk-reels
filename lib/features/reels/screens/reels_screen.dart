@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
 import '../../../app/theme.dart';
 import '../../../core/config/app_config.dart';
@@ -33,8 +34,7 @@ class ReelsScreen extends StatefulWidget {
   State<ReelsScreen> createState() => _ReelsScreenState();
 }
 
-class _ReelsScreenState extends State<ReelsScreen>
-    with WidgetsBindingObserver {
+class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
   final _audio = AudioService.instance;
   final _progress = ProgressService.instance;
   final _rng = Random();
@@ -459,8 +459,7 @@ class _ReelsScreenState extends State<ReelsScreen>
                             borderRadius: BorderRadius.circular(15),
                             boxShadow: [
                               BoxShadow(
-                                color:
-                                    AppTheme.accent.withValues(alpha: 0.4),
+                                color: AppTheme.accent.withValues(alpha: 0.4),
                                 blurRadius: 18,
                                 offset: const Offset(0, 6),
                               ),
@@ -498,11 +497,13 @@ class _ReelsScreenState extends State<ReelsScreen>
 
 /// Üst bardaki küçük yuvarlak ikon butonu.
 class _CircleIconButton extends StatelessWidget {
-  final IconData icon;
+  final IconData? icon;
+  final Widget? logo;
   final Color color;
   final VoidCallback onTap;
   const _CircleIconButton({
-    required this.icon,
+    this.icon,
+    this.logo,
     required this.color,
     required this.onTap,
   });
@@ -519,7 +520,8 @@ class _CircleIconButton extends StatelessWidget {
           shape: BoxShape.circle,
           border: Border.all(color: AppTheme.border),
         ),
-        child: Icon(icon, color: color, size: 18),
+        alignment: Alignment.center,
+        child: logo ?? Icon(icon, color: color, size: 18),
       ),
     );
   }
@@ -619,7 +621,7 @@ class _TopBar extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _CircleIconButton(
-                icon: Icons.sports_esports_rounded,
+                logo: const PixelLogo(kLogoGames, size: 22),
                 color: AppTheme.accent,
                 onTap: onGames,
               ),
@@ -714,8 +716,9 @@ class _SummaryCard extends StatelessWidget {
             >= 40 => ('📚', 'Eksikler var, açıklamaları çalış.'),
             _ => ('🔁', 'Baştan tur atmakta fayda var.'),
           };
-    final nextSize =
-        remaining < ProgressService.testSize ? remaining : ProgressService.testSize;
+    final nextSize = remaining < ProgressService.testSize
+        ? remaining
+        : ProgressService.testSize;
 
     return Stack(
       children: [
@@ -746,8 +749,8 @@ class _SummaryCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 28, vertical: 20),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
                   decoration: BoxDecoration(
                     color: AppTheme.surface,
                     borderRadius: BorderRadius.circular(20),
@@ -808,7 +811,7 @@ class _SummaryCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   _button(
                     label: 'Yanlış Soruları Döv 🏏 ($wrongCount)',
-                    icon: Icons.sports_cricket_rounded,
+                    logo: const PixelBatIcon(size: 22),
                     onTap: onBeatWrong,
                     primary: false,
                   ),
@@ -838,7 +841,8 @@ class _SummaryCard extends StatelessWidget {
 
   Widget _button({
     required String label,
-    required IconData icon,
+    IconData? icon,
+    Widget? logo,
     required VoidCallback onTap,
     required bool primary,
   }) {
@@ -866,8 +870,9 @@ class _SummaryCard extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon,
-                color: primary ? Colors.white : AppTheme.accent, size: 20),
+            logo ??
+                Icon(icon,
+                    color: primary ? Colors.white : AppTheme.accent, size: 20),
             const SizedBox(width: 8),
             Text(
               label,
