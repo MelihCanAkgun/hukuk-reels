@@ -39,11 +39,15 @@ class AvatarEditorScreen extends StatefulWidget {
     required this.preview,
     required this.srcWidth,
     required this.srcHeight,
+    this.admin = false,
   });
 
   final Uint8List preview;
   final int srcWidth;
   final int srcHeight;
+
+  /// Oyuncu 1: indirme / çözünürlük bilgileri yalnız ona gösterilir.
+  final bool admin;
 
   @override
   State<AvatarEditorScreen> createState() => _AvatarEditorScreenState();
@@ -235,8 +239,11 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
               child: Text(
                 sel != null
                     ? 'Çıkartmayı sürükle, iki parmakla ya da kaydırıcıyla boyutlandır.'
-                    : 'Fotoğrafı sürükle ve iki parmakla yakınlaştır. Daire profilde '
-                        'görünür; köşeler indirilen fotoğrafta kalır. ($out×$out px)',
+                    : widget.admin
+                        ? 'Fotoğrafı sürükle ve iki parmakla yakınlaştır. Daire profilde '
+                            'görünür; köşeler indirilen fotoğrafta kalır. ($out×$out px)'
+                        : 'Fotoğrafı sürükle ve iki parmakla yakınlaştır. Daire içi '
+                            'profilde görünür.',
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 12, color: AppTheme.textMuted),
               ),
