@@ -31,3 +31,9 @@ BEGIN
  FROM players
  WHERE id != NEW.id AND active = 1 AND OLD.best <= best AND NEW.best > best;
 END;
+CREATE TABLE IF NOT EXISTS avatars (
+ player_id INTEGER PRIMARY KEY REFERENCES players(id),
+ data TEXT NOT NULL,
+ version TEXT NOT NULL,
+ updated INTEGER NOT NULL
+);

@@ -8,6 +8,12 @@
   let verifiedSubscription = '';
   let scoreTimer;
   const persist = () => localStorage.setItem(storageKey, JSON.stringify(config));
+  // Profile photos of the two players, keyed by server version. Only fetched
+  // with this device's player code; removed when the player leaves.
+  const avatarKey = 'hukuk_avatar_cache_v1';
+  let avatars = {};
+  try { avatars = JSON.parse(localStorage.getItem(avatarKey) || '{}') || {}; } catch (_) { avatars = {}; }
+  const persistAvatars = () => { try { localStorage.setItem(avatarKey, JSON.stringify(avatars)); } catch (_) {} };
   async function api(path, data, token = config.token) {
     if (!config.url) throw new Error('İki kişilik servis henüz etkinleştirilmedi.');
     const response = await fetch(config.url + path, {
@@ -123,6 +129,7 @@
       }
       if (action === 'leave') {
         config.token = ''; config.best = 0; verifiedSubscription = ''; lastBoard = null; persist();
+        avatars = {}; persistAvatars();
       }
       return state(false);
     }
@@ -130,6 +137,26 @@
       if (!config.token) throw new Error('Önce sıralamaya oyuncu kodunla katıl.');
       lastBoard = await api('/profile', {name: String(data.name || '').trim()});
       return state(false);
+    }
+    if (action === 'avatarPut') {
+      const m = /^data:image\/jpeg;base64,([A-Za-z0-9+/]+={0,2})$/.exec(String(data.data || ''));
+      if (!m) throw new Error('Fotoğraf geçersiz. Lütfen başka bir fotoğraf seç.');
+      lastBoard = await api('/avatar', {data: m[1]});
+      return state(false);
+    }
+    if (action === 'avatarDelete') {
+      lastBoard = await api('/avatar/delete', {});
+      return state(false);
+    }
+    if (action === 'avatarGet') {
+      const id = Number(data.id);
+      if (id !== 1 && id !== 2) throw new Error('Geçersiz oyuncu.');
+      const cached = avatars[id];
+      if (cached && cached.version === data.version) return {id, version: cached.version, data: cached.data};
+      const result = await api('/avatar?id=' + id);
+      avatars[id] = {version: result.version, data: result.data};
+      persistAvatars();
+      return result;
     }
     if (action === 'message') return api('/message', {message: data.message});
     throw new Error('İşlem bulunamadı.');

@@ -18,6 +18,24 @@ An atomic SQLite trigger inserts an overtake event only when the submitting play
 
 Only browser push hosts are accepted as subscription endpoints; requests are authenticated and restricted to the frontend origin. CORS is additional protection, not authentication. Subscription expiry (404/410) removes the invalid device. Up to five devices per player. “Bildirimleri kapat” removes the current device subscription.
 
+## Profile photos
+
+Each registered player may store one profile photo; only the two players (with their own Bearer code) can read them. Photos live in the D1 `avatars` table (migration `0002_avatars.sql`), never in the GitHub Pages bundle or repository.
+
+- `GET /avatar?id=1|2` returns `{id, version, data}` as JSON with `Cache-Control: no-store` and `nosniff`; it is never served with an image/HTML type. `/board` exposes only a 20-hex-digit version tag per player.
+- `POST /avatar {data}` accepts a base64 JPEG up to 96 KB and 1024×1024. The server re-checks the JPEG structure and drops APP1–APP15 (EXIF/GPS/XMP/ICC) and comment segments before storing; the client has already re-encoded the photo to a 320 px square through a canvas. Uploads are limited to one per 10 seconds per player.
+- `POST /avatar/delete` removes only the caller's own photo.
+- The battle-only test identity and inactive players are refused (403). Foreign origins are refused as for every endpoint.
+- The browser photo picker (`<input type=file accept=image/*>`) hands over only the photo the user selects; the app never requests photo-library or camera permission.
+
+Deployment: apply the additive migration **before** deploying the Worker (the board query joins `avatars`):
+
+```sh
+cd backend
+npx wrangler d1 migrations apply hukuk-games-social --remote
+npm run deploy
+```
+
 ## Development / deployment
 
 - `npm ci && npm test` (Node 22+, tests use SQLite in memory, no real push recipients).
