@@ -23,6 +23,10 @@ export function validSubscription(s) {
       /^[A-Za-z0-9_-]{22}$/.test(s.keys.auth);
   } catch { return false; }
 }
+// Comparison key for names: dotted/dotless i, accents, case, spaces,
+// punctuation and emoji are ignored ("ARIFE" == "arife 🌷", "mqcän" == "mqcan").
+export const nameKey = name => String(name || '').normalize('NFKD').replace(/\p{M}/gu, '')
+  .replace(/[İIı]/g, 'i').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
 async function body(request) {
   if (Number(request.headers.get('Content-Length') || 0) > 4096) fail('İstek çok büyük.', 413);
   const value = await request.text();
@@ -45,6 +49,13 @@ async function board(env, playerId) {
 export async function route(request, env, ctx) {
   const path = new URL(request.url).pathname;
   if (path === '/health' && request.method === 'GET') return json({ok: true});
+  // Per-IP limit before any token/database work: blocks code guessing and
+  // keeps the Free plan quota from being burned. Normal play stays far below.
+  if (env.REQUEST_LIMIT) {
+    const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+    const {success} = await env.REQUEST_LIMIT.limit({key: ip});
+    if (!success) fail('Çok fazla istek. Biraz bekleyip tekrar dene.', 429);
+  }
   if (path.startsWith('/battle/socket/')) {
     const room = path.split('/').at(-1);
     if (!validRoom(room) || request.headers.get('Upgrade')?.toLowerCase() !== 'websocket' ||
@@ -85,6 +96,10 @@ export async function route(request, env, ctx) {
     // Control, zero-width and bidirectional override characters could hide or spoof a name.
     if (name.length < 1 || name.length > 24 ||
         /[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/.test(name)) fail('1–24 karakterlik bir isim yaz.');
+    // No impersonation: a name may not match the other player's, ignoring
+    // case, spaces, punctuation and emoji ("mqcan 😎" == "MQCAN").
+    const other = await env.DB.prepare('SELECT name FROM players WHERE id != ?').bind(player.id).first();
+    if (other && nameKey(other.name) && nameKey(other.name) === nameKey(name)) fail('Bu isim diğer oyuncuya ait.');
     await env.DB.prepare('UPDATE players SET name = ?, active = 1 WHERE id = ?').bind(name, player.id).run();
     return json(await board(env, player.id));
   }

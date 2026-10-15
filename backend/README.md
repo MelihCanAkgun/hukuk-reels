@@ -104,3 +104,11 @@ Publish `build/web/` using the existing `gh-pages` checkout/rsync/commit/push fl
 Deployment order: build/publish the compatible frontend with the existing gh-pages workflow, then `cd backend && npm run deploy`. The latter rebuilds the shared Dart rules automatically. No D1 migration, new binding, WebSocket protocol operation or paid service is added.
 
 Candidate ranking also lightly prefers multiple playable pieces and at least two current placements per piece on both boards, while keeping the bounded fallback. It does not promise a rescue. Old snapshots without `damageStep:500` rebase the processed counter to current score / 500 on restore, without retroactive damage; future 500 crossings apply normally.
+
+## Security model (2026-10)
+
+- Everything except `/health` needs one of the two player codes (43-char random, stored only as SHA-256 in D1; `players.id` is constrained to 1 and 2). The leaderboard and all profile photos are served only to those codes; nothing user-specific is in the public repo or the GitHub Pages bundle.
+- Player 1 is the creator/admin (mqcan): only that id can send manual notifications, see delivery status and download full-quality photos. These checks are server-side; the app UI only mirrors them.
+- Requests are rate limited per IP (`REQUEST_LIMIT`, 120/min) before any token or database work. A name may not match the other player's name (case, dotted/dotless i, accents, spaces, punctuation and emoji ignored).
+- `TEST_PLAYER_HASH` must stay unset in production. Never commit `backend/.secrets/`.
+- Note: every GitHub Pages site of the account shares the `melihcanakgun.github.io` origin (and its localStorage). Do not publish untrusted pages under that account while the player code is stored in the app.

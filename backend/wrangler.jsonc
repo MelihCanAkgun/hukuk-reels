@@ -42,5 +42,15 @@
   "build": {
     "command": "python3 ../tools/build_battle.py"
   },
+  "ratelimits": [
+    {
+      "name": "REQUEST_LIMIT",
+      "namespace_id": "4401",
+      "simple": {
+        "limit": 120,
+        "period": 60
+      }
+    }
+  ],
   "keep_names": true
 }
