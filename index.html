@@ -3,6 +3,10 @@
 <head>
   <base href="/hukuk-reels/">
   <meta charset="UTF-8">
+  <!-- Güvenlik: yalnızca kendi dosyalarımız ve iki kişilik sunucu. Sunucu adresi
+       değişirse (SOCIAL_API_URL) buradaki connect-src de güncellenmeli. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://hukuk-games-social.hukuk-games-social.workers.dev wss://hukuk-games-social.hukuk-games-social.workers.dev https://fonts.gstatic.com; media-src 'self' blob:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
   <!-- ── PWA Temel ── -->
@@ -48,7 +52,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon.png">
 
-  <meta name="app-build" content="afc305345b85e5cf">
+  <meta name="app-build" content="a21608b29d539d8a">
   <title>Hukuk Reels</title>
 
   <style>
@@ -115,37 +119,7 @@
   <link rel="stylesheet" href="update.css">
   <script src="update.js"></script>
   <script src="audio.js"></script>
-  <script>
-    // ── Android Chrome PWA Install Prompt ──
-    let _deferredInstallPrompt = null;
-
-    window.addEventListener('beforeinstallprompt', function(e) {
-      e.preventDefault();
-      _deferredInstallPrompt = e;
-      console.log('[PWA] Install prompt yakalandı');
-    });
-
-    // Flutter'dan çağrılabilir: Chrome'un native install dialog'unu göster
-    async function triggerInstallPrompt() {
-      if (!_deferredInstallPrompt) return false;
-      _deferredInstallPrompt.prompt();
-      const result = await _deferredInstallPrompt.userChoice;
-      _deferredInstallPrompt = null;
-      return result.outcome === 'accepted';
-    }
-
-    // PWA modunda mı çalışıyor kontrolü
-    function isRunningStandalone() {
-      return window.matchMedia('(display-mode: standalone)').matches
-          || window.navigator.standalone === true;
-    }
-
-    window.addEventListener('appinstalled', function() {
-      console.log('[PWA] Uygulama yüklendi!');
-      _deferredInstallPrompt = null;
-    });
-
-  </script>
+  <script src="pwa.js"></script>
 
   <script src="avatar.js"></script>
   <script src="social.js"></script>
