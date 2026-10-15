@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +17,7 @@ import '../beat/beat_mode_screen.dart';
 import '../game/block_leaderboard.dart';
 import '../games/games_screen.dart';
 import '../reels/screens/reels_screen.dart';
+import 'avatar_editor_screen.dart';
 import 'profile_avatar.dart';
 
 /// Profil (takma ad, fotoğraf, ilerleme, sorular) + Ayarlar (ses, sıralama,
@@ -33,6 +36,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   Map<String, dynamic> _social = const {};
   bool _socialLoaded = false;
   bool _renaming = false;
+  bool _avatarBusy = false;
   bool _showAllWrong = false;
   bool _showAllRight = false;
 
@@ -284,11 +288,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     button: true,
                     label: 'Profil fotoğrafını değiştir',
                     child: GestureDetector(
-                      onTap: _onAvatarTap,
+                      onTap: _avatarBusy ? null : _onAvatarTap,
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
                           const ProfileAvatar(size: 84),
+                          if (_avatarBusy)
+                            const Positioned.fill(
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 3, color: AppTheme.accent),
+                            ),
                           Positioned(
                             right: -2,
                             bottom: -2,
@@ -533,18 +542,81 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         ),
       );
 
+  /// Seç → düzenle (boyut, piksel çıkartmalar) → tam çözünürlükte çiz →
+  /// bağlıysa tam kalite + görüntü kopyasını birlikte yükle.
   Future<void> _pickAvatar() async {
-    final result = await pickAvatarDataUrl();
-    if (!mounted || result.isEmpty) return;
-    if (result.startsWith('error:')) {
-      _toast(result.substring(6));
+    final picked = await pickAvatarSource();
+    if (!mounted || picked.isEmpty) return;
+    if (picked.startsWith('error:')) {
+      _toast(picked.substring(6));
       return;
     }
-    final ok = await _progress.setAvatarDataUrl(result);
-    if (!mounted) return;
-    HapticFeedback.lightImpact();
-    _toast(ok ? 'Profil fotoğrafı güncellendi.' : 'Bu fotoğraf kaydedilemedi.');
-    if (ok) await _syncAvatar();
+    final Map<String, dynamic> src;
+    final Uint8List preview;
+    try {
+      src = jsonDecode(picked) as Map<String, dynamic>;
+      preview = base64Decode((src['preview'] as String).split(',').last);
+    } catch (_) {
+      forgetAvatarSource();
+      _toast('Bu fotoğraf açılamadı.');
+      return;
+    }
+    final spec = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => AvatarEditorScreen(
+          preview: preview,
+          srcWidth: src['w'] as int,
+          srcHeight: src['h'] as int,
+        ),
+      ),
+    );
+    if (spec == null || !mounted) {
+      forgetAvatarSource();
+      return;
+    }
+    setState(() => _avatarBusy = true);
+    try {
+      final rendered = await renderAvatar(jsonEncode(spec));
+      if (!mounted) return;
+      if (rendered.startsWith('error:')) {
+        _toast(rendered.substring(6));
+        return;
+      }
+      final r = jsonDecode(rendered) as Map<String, dynamic>;
+      final thumb = r['thumb'] as String;
+      final side = r['side'];
+      if (_connected) {
+        final result = await socialCall('avatarPutFull', {'data': thumb});
+        if (!mounted) return;
+        final error = result['error'] as String?;
+        if (error == null) {
+          setState(() => _social = result);
+          await _progress.setAvatarFromServer(
+              thumb.split(',').last, _me?['avatar'] as String? ?? '');
+          HapticFeedback.lightImpact();
+          _toast('Profil fotoğrafı tam kalitede yüklendi ($side×$side).');
+          return;
+        }
+        // Tam kalite yüklenemedi: görüntü kopyası sonra eşitlensin.
+        final ok = await _progress.setAvatarDataUrl(thumb);
+        if (!mounted) return;
+        _toast(ok
+            ? 'Tam kalite yüklenemedi ($error). Fotoğraf küçük boyutla kaydedildi.'
+            : 'Bu fotoğraf kaydedilemedi.');
+        if (ok) await _syncAvatar();
+        return;
+      }
+      final ok = await _progress.setAvatarDataUrl(thumb);
+      if (!mounted) return;
+      HapticFeedback.lightImpact();
+      _toast(ok
+          ? 'Profil fotoğrafı bu cihazda güncellendi. Tam kalite yükleme için '
+              'sıralamaya oyuncu kodunla katıl.'
+          : 'Bu fotoğraf kaydedilemedi.');
+    } finally {
+      forgetAvatarSource();
+      if (mounted) setState(() => _avatarBusy = false);
+    }
   }
 
   Future<void> _onEditNick() async {
@@ -865,7 +937,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   Widget _recordsCard() {
-    Widget record(String emoji, String name, int value) => Expanded(
+    Widget record(List<String> logo, String name, int value) => Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             decoration: BoxDecoration(
@@ -875,7 +947,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
             child: Column(
               children: [
-                Text(emoji, style: const TextStyle(fontSize: 20)),
+                PixelLogo(logo, size: 26),
                 const SizedBox(height: 6),
                 Text(
                   _formatScore(value),
@@ -900,11 +972,11 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         );
     return Row(
       children: [
-        record('🧩', 'Block Blast', _progress.blockHigh),
+        record(kLogoBlockBlast, 'Block Blast', _progress.blockHigh),
         const SizedBox(width: 8),
-        record('🐱', 'Flappy Cat', _progress.flappyHigh),
+        record(kLogoFlappyCat, 'Flappy Cat', _progress.flappyHigh),
         const SizedBox(width: 8),
-        record('🏃', 'Subway Silly', _progress.subwayHigh),
+        record(kLogoSubwaySilly, 'Subway Silly', _progress.subwayHigh),
       ],
     );
   }
