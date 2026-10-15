@@ -54,13 +54,15 @@ void main() {
   testWidgets('stickers land in free corners and can be resized or deleted',
       (tester) async {
     final spec = await _edit(tester, () async {
+      await tester.tap(find.text('Sevimli'));
+      await tester.pump();
       final tray = find.bySemanticsLabel('Çıkartma ekle');
       await tester.tap(tray.at(0));
       await tester.pump();
       await tester.tap(tray.at(1));
       await tester.pump();
       // Seçili (ikinci) çıkartmayı kaydırıcıyla büyüt, sonra ilkini sil.
-      await tester.drag(find.byType(Slider), const Offset(120, 0));
+      await tester.drag(find.byType(Slider).first, const Offset(120, 0));
       await tester.pump();
       await tester.tap(tray.at(2));
       await tester.pump();
@@ -88,5 +90,25 @@ void main() {
       expect(find.textContaining('indirilen fotoğrafta kalır'), findsOneWidget);
       expect(find.textContaining('3024×3024 px'), findsOneWidget);
     }, admin: true);
+  });
+
+  testWidgets('selected stickers rotate with the slider and the 90° button',
+      (tester) async {
+    final spec = await _edit(tester, () async {
+      expect(find.byType(Slider), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Çıkartma ekle').first);
+      await tester.pump();
+      // Seçiliyken boyut + döndürme kaydırıcıları görünür.
+      expect(find.byType(Slider), findsNWidgets(2));
+      await tester.tap(find.byTooltip('90° döndür'));
+      await tester.pump();
+      expect(find.text('90°'), findsOneWidget);
+      await tester.tap(find.text('Oyun'));
+      await tester.pump();
+      expect(find.bySemanticsLabel('Çıkartma ekle'),
+          findsNWidgets(kAvatarStickerGroups[1].$2.length.clamp(0, 6)));
+    });
+    final st = (spec!['stickers'] as List).single as Map<String, dynamic>;
+    expect(st['rot'], closeTo(1.5707963, 1e-6));
   });
 }

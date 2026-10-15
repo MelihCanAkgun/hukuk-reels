@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,20 +7,53 @@ import '../../app/theme.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../surprise/pixel_sprites.dart';
 
-/// Fotoğrafa eklenebilen piksel-art çıkartmalar (uygulamanın logoları).
-final List<(List<String>, Map<String, Color>)> kAvatarStickers = [
-  (kLogoHeart, kLogoPalette),
-  (kLogoStar, kLogoPalette),
-  (kLogoTulip, kLogoPalette),
-  (kLogoFlappyCat, kLogoPalette),
-  (kLogoSubwaySilly, kLogoPalette),
-  (kLogoBlockBlast, kLogoPalette),
-  (kLogoBattle, kLogoPalette),
-  (kLogoGames, kLogoPalette),
-  (kLogoQuestionBank, kLogoPalette),
-  (kLoveFaceSprite, kSpritePalette),
-  (kBurstSprite, kSpritePalette),
-  (kBatSprite, kSpritePalette),
+typedef _Sticker = (List<String>, Map<String, Color>);
+
+/// Fotoğrafa eklenebilen piksel-art çıkartmalar, gruplar hâlinde.
+final List<(String, List<_Sticker>)> kAvatarStickerGroups = [
+  (
+    'Hukuk',
+    [
+      (kLogoQuestionBank, kLogoPalette),
+      (kLogoGavel, kLogoPalette),
+      (kLogoLawBook, kLogoPalette),
+      (kLogoCourthouse, kLogoPalette),
+      (kLogoPetition, kLogoPalette),
+      (kLogoBriefcase, kLogoPalette),
+      (kLogoQuill, kLogoPalette),
+    ]
+  ),
+  (
+    'Oyun',
+    [
+      (kLogoTrophy, kLogoPalette),
+      (kLogoCrown, kLogoPalette),
+      (kLogoCoin, kLogoPalette),
+      (kLogoGem, kLogoPalette),
+      (kLogoJoystick, kLogoPalette),
+      (kLogoArcade, kLogoPalette),
+      (kLogoGames, kLogoPalette),
+      (kLogoDice, kLogoPalette),
+      (kLogoSword, kLogoPalette),
+      (kLogoPotion, kLogoPalette),
+      (kLogoAlien, kLogoPalette),
+      (kLogoBlockBlast, kLogoPalette),
+      (kLogoBattle, kLogoPalette),
+      (kLogoFlappyCat, kLogoPalette),
+      (kLogoSubwaySilly, kLogoPalette),
+    ]
+  ),
+  (
+    'Sevimli',
+    [
+      (kLogoHeart, kLogoPalette),
+      (kLogoStar, kLogoPalette),
+      (kLogoTulip, kLogoPalette),
+      (kLoveFaceSprite, kSpritePalette),
+      (kBurstSprite, kSpritePalette),
+      (kBatSprite, kSpritePalette),
+    ]
+  ),
 ];
 
 class _Placed {
@@ -28,6 +62,7 @@ class _Placed {
   final Map<String, Color> palette;
   Offset center; // çerçeveye göre 0..1
   double size; // çerçeve kenarına oranla kutu kenarı
+  double angle = 0; // radyan, saat yönünde
 }
 
 /// Profil fotoğrafı düzenleyici: fotoğrafı kare çerçevede kaydır /
@@ -73,7 +108,8 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
   // Hareket başlangıcı
   int? _target; // çıkartma indeksi; -1 = fotoğraf
   Offset _focal0 = Offset.zero;
-  double _zoom0 = 1, _size0 = 0;
+  double _zoom0 = 1, _size0 = 0, _angle0 = 0;
+  int _group = 0;
   Offset _center0 = Offset.zero;
 
   double get _minSide =>
@@ -97,8 +133,11 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
     for (var i = _stickers.length - 1; i >= 0; i--) {
       final s = _stickers[i];
       final half = s.size / 2 + 0.02;
-      if ((p.dx - s.center.dx).abs() <= half &&
-          (p.dy - s.center.dy).abs() <= half) {
+      // Noktayı çıkartmanın kendi (döndürülmemiş) eksenine çevir.
+      final d = p - s.center;
+      final c = math.cos(-s.angle), sn = math.sin(-s.angle);
+      final lx = d.dx * c - d.dy * sn, ly = d.dx * sn + d.dy * c;
+      if (lx.abs() <= half && ly.abs() <= half) {
         return i;
       }
     }
@@ -116,6 +155,7 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
       _target = _stickers.length - 1;
       _center0 = s.center;
       _size0 = s.size;
+      _angle0 = s.angle;
       setState(() => _sel = _target);
     } else {
       _target = -1;
@@ -133,6 +173,8 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
       if (t >= 0) {
         final s = _stickers[t];
         s.size = (_size0 * d.scale).clamp(_minSticker, _maxSticker).toDouble();
+        // İki parmakla çevirince döner.
+        if (d.pointerCount > 1) s.angle = _wrap(_angle0 + d.rotation);
         final c = _center0 + delta;
         s.center = Offset(c.dx.clamp(0.0, 1.0), c.dy.clamp(0.0, 1.0));
       } else {
@@ -144,8 +186,25 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
     });
   }
 
-  void _addSticker(int i) {
-    final (rows, palette) = kAvatarStickers[i];
+  static double _wrap(double a) {
+    while (a > math.pi) {
+      a -= 2 * math.pi;
+    }
+    while (a < -math.pi) {
+      a += 2 * math.pi;
+    }
+    return a;
+  }
+
+  void _setAngle(double a) {
+    final sel = _sel;
+    if (sel == null) return;
+    // Düz konuma yakınsa tam düz yap.
+    setState(() => _stickers[sel].angle = a.abs() < 0.06 ? 0 : _wrap(a));
+  }
+
+  void _addSticker(_Sticker sticker) {
+    final (rows, palette) = sticker;
     final used = _stickers.map((s) => s.center).toSet();
     final spot = _corners.firstWhere((c) => !used.contains(c),
         orElse: () => const Offset(0.5, 0.5));
@@ -195,6 +254,7 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
             'x': st.center.dx - st.size / 2,
             'y': st.center.dy - st.size / 2,
             'size': st.size,
+            'rot': st.angle,
           }
       ],
     };
@@ -238,7 +298,8 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
               child: Text(
                 sel != null
-                    ? 'Çıkartmayı sürükle, iki parmakla ya da kaydırıcıyla boyutlandır.'
+                    ? 'Çıkartmayı sürükle; iki parmakla ya da kaydırıcılarla '
+                        'boyutlandır ve döndür.'
                     : widget.admin
                         ? 'Fotoğrafı sürükle ve iki parmakla yakınlaştır. Daire profilde '
                             'görünür; köşeler indirilen fotoğrafta kalır. ($out×$out px)'
@@ -295,18 +356,71 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
                 ],
               ),
             ),
+            if (sel != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.rotate_right_rounded,
+                        color: AppTheme.textSecondary, size: 20),
+                    Expanded(
+                      child: Slider(
+                        value: _stickers[sel].angle,
+                        min: -math.pi,
+                        max: math.pi,
+                        onChanged: _setAngle,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 44,
+                      child: Text(
+                        '${(_stickers[sel].angle * 180 / math.pi).round()}°',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppTheme.textSecondary),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '90° döndür',
+                      icon: const Icon(Icons.rotate_90_degrees_cw_rounded,
+                          color: AppTheme.textSecondary),
+                      onPressed: () =>
+                          _setAngle(_stickers[sel].angle + math.pi / 2),
+                    ),
+                  ],
+                ),
+              ),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.fromLTRB(14, 2, 14, 0),
+              child: Row(
+                children: [
+                  for (var g = 0; g < kAvatarStickerGroups.length; g++) ...[
+                    ChoiceChip(
+                      label: Text(kAvatarStickerGroups[g].$1),
+                      selected: _group == g,
+                      onSelected: (_) => setState(() => _group = g),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                ],
+              ),
+            ),
             SizedBox(
               height: 76,
               child: ListView.separated(
+                key: ValueKey(_group),
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
-                itemCount: kAvatarStickers.length,
+                padding: const EdgeInsets.fromLTRB(14, 6, 14, 10),
+                itemCount: kAvatarStickerGroups[_group].$2.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 8),
                 itemBuilder: (_, i) => Semantics(
                   button: true,
                   label: 'Çıkartma ekle',
                   child: GestureDetector(
-                    onTap: () => _addSticker(i),
+                    onTap: () =>
+                        _addSticker(kAvatarStickerGroups[_group].$2[i]),
                     child: Container(
                       width: 60,
                       alignment: Alignment.center,
@@ -315,8 +429,9 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: AppTheme.border),
                       ),
-                      child: PixelLogo(kAvatarStickers[i].$1,
-                          size: 40, palette: kAvatarStickers[i].$2),
+                      child: PixelLogo(kAvatarStickerGroups[_group].$2[i].$1,
+                          size: 40,
+                          palette: kAvatarStickerGroups[_group].$2[i].$2),
                     ),
                   ),
                 ),
@@ -367,16 +482,19 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
                   top: (_stickers[i].center.dy - _stickers[i].size / 2) * side,
                   width: _stickers[i].size * side,
                   height: _stickers[i].size * side,
-                  child: DecoratedBox(
-                    position: DecorationPosition.foreground,
-                    decoration: BoxDecoration(
-                      border: i == _sel
-                          ? Border.all(color: AppTheme.accent, width: 1.5)
-                          : null,
+                  child: Transform.rotate(
+                    angle: _stickers[i].angle,
+                    child: DecoratedBox(
+                      position: DecorationPosition.foreground,
+                      decoration: BoxDecoration(
+                        border: i == _sel
+                            ? Border.all(color: AppTheme.accent, width: 1.5)
+                            : null,
+                      ),
+                      child: PixelLogo(_stickers[i].rows,
+                          size: _stickers[i].size * side,
+                          palette: _stickers[i].palette),
                     ),
-                    child: PixelLogo(_stickers[i].rows,
-                        size: _stickers[i].size * side,
-                        palette: _stickers[i].palette),
                   ),
                 ),
               // Profilde görünen daire (yalnız kılavuz, kaydedilmez).

@@ -135,8 +135,8 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
           rows.add(ListTile(
             contentPadding: EdgeInsets.zero,
             leading: id == _data['me']
-                ? const ProfileAvatar(size: 40)
-                : PeerAvatar(id: id, name: name, size: 40),
+                ? const ProfileAvatar(size: 48)
+                : PeerAvatar(id: id, name: name, size: 48),
             title: Text(name),
             subtitle: Text(bytes == null
                 ? 'Fotoğraf yüklenmemiş'
@@ -293,9 +293,10 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                 color: players[i]['id'] == _data['me']
                     ? const Color(0xFF294573)
                     : const Color(0xFF203252),
-                child: ListTile(
-                  leading: Row(
-                    mainAxisSize: MainAxisSize.min,
+                // ListTile öndeki öğeyi ~48 px'e sıkıştırdığı için kendi düzenimiz.
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 18, 10),
+                  child: Row(
                     children: [
                       SizedBox(
                         width: 22,
@@ -306,24 +307,44 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                                 fontWeight: FontWeight.w900,
                                 color: Color(0xFFFFD76A))),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       players[i]['id'] == _data['me']
-                          ? const ProfileAvatar(size: 40)
+                          ? const ProfileAvatar(size: 68)
                           : PeerAvatar(
                               id: players[i]['id'] as int,
                               name: players[i]['name'] as String?,
-                              size: 40),
+                              size: 68),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                                '${players[i]['name']}${players[i]['id'] == _data['me'] ? ' · Sen' : ''}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700)),
+                            const SizedBox(height: 2),
+                            Text(
+                                players[i]['active'] == 1
+                                    ? 'En yüksek skor'
+                                    : 'Henüz katılmadı',
+                                style: const TextStyle(
+                                    color: Color(0xFFD5DEEE), fontSize: 13.5)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('${players[i]['best']}',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 23,
+                              fontWeight: FontWeight.w800)),
                     ],
                   ),
-                  title: Text(
-                      '${players[i]['name']}${players[i]['id'] == _data['me'] ? ' · Sen' : ''}',
-                      style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(players[i]['active'] == 1
-                      ? 'En yüksek skor'
-                      : 'Henüz katılmadı'),
-                  trailing: Text('${players[i]['best']}',
-                      style: const TextStyle(
-                          fontSize: 23, fontWeight: FontWeight.w800)),
                 ),
               ),
             if (_data['pending'] == true)
