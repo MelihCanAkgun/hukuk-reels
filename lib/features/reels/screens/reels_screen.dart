@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../app/theme.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/models/quiz_question.dart';
 import '../../../core/services/audio_service.dart';
 import '../../../core/services/progress_service.dart';
@@ -11,6 +12,7 @@ import '../../games/games_screen.dart';
 import '../../profile/profile_settings_screen.dart';
 import '../widgets/music_control_panel.dart';
 import '../widgets/question_card.dart';
+import 'reels_maintenance_screen.dart';
 
 /// Dikey kaydırmalı soru çözme ekranı (reels formatı).
 ///
@@ -23,6 +25,9 @@ import '../widgets/question_card.dart';
 class ReelsScreen extends StatefulWidget {
   final List<QuizQuestion>? retryQuestions;
   const ReelsScreen({super.key, this.retryQuestions});
+
+  /// Bölüm bakımda mı? Testler (ve ileride bir yönetici anahtarı) değiştirir.
+  static bool maintenance = AppConfig.reelsMaintenance;
 
   @override
   State<ReelsScreen> createState() => _ReelsScreenState();
@@ -49,6 +54,9 @@ class _ReelsScreenState extends State<ReelsScreen>
 
   bool get _isRetry => widget.retryQuestions != null;
 
+  /// Ekran açıldığı andaki bakım durumu (açıkken hiçbir şey yüklenmez).
+  final bool _maintenance = ReelsScreen.maintenance;
+
   int get _correct {
     var c = 0;
     _answers.forEach((i, sel) {
@@ -65,6 +73,8 @@ class _ReelsScreenState extends State<ReelsScreen>
   @override
   void initState() {
     super.initState();
+    // Bakımda: oturum açılmaz, yeni test yazılmaz, ilerleme olduğu gibi kalır.
+    if (_maintenance) return;
     WidgetsBinding.instance.addObserver(this);
     _init();
   }
@@ -253,6 +263,7 @@ class _ReelsScreenState extends State<ReelsScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_maintenance) return const ReelsMaintenanceScreen();
     if (_loading) {
       return Scaffold(
         backgroundColor: AppTheme.bg,

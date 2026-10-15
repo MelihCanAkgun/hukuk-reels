@@ -122,7 +122,9 @@ class _GamesScreenState extends State<GamesScreen> {
                     ListTile(
                       leading: const Icon(Icons.school_outlined),
                       title: const Text('Soru bankası'),
-                      subtitle: const Text('Hukuk testlerine devam et'),
+                      subtitle: Text(ReelsScreen.maintenance
+                          ? 'Bakımda · çok yakında 🛠️'
+                          : 'Hukuk testlerine devam et'),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(
                           builder: (_) => const ReelsScreen())),
                     ),

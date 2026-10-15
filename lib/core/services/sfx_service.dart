@@ -43,6 +43,9 @@ class SfxService {
     'combo': 'assets/sfx/combo.wav',
     'over': 'assets/sfx/over.wav',
     'chime': 'assets/sfx/chime.wav',
+    'bonk': 'assets/sfx/bonk.wav',
+    'ko': 'assets/sfx/ko.wav',
+    'nope': 'assets/sfx/nope.wav',
   };
 
   Future<void> init() =>
@@ -141,4 +144,14 @@ class SfxService {
 
   /// Bukete dokunma: tatlı "bıling"; her seferinde perdesi biraz değişir.
   void chime() => _play('chime', rate: 0.92 + _rng.nextDouble() * 0.2);
+
+  /// Soru dövme: her vuruşta biraz tizleşen 8-bit "bonk".
+  void bonk(int hits) => _play('bonk',
+      rate: 0.9 + hits.clamp(0, 10) * 0.035 + _rng.nextDouble() * 0.06);
+
+  /// Soru pes etti: 8-bit zafer melodisi.
+  void ko() => _play('ko');
+
+  /// Pes etmeden şık seçilmeye çalışıldı.
+  void nope() => _play('nope');
 }

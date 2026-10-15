@@ -6,6 +6,12 @@
 class AppConfig {
   AppConfig._();
 
+  /// ───── SORU BÖLÜMÜ BAKIMI ─────
+  ///
+  /// true iken soru bölümüne (reels) girişte "Bakımda" ekranı gösterilir;
+  /// kayıtlı test ve istatistikler olduğu gibi korunur. Açmak için false yap.
+  static const bool reelsMaintenance = true;
+
   /// ───── ARKA PLAN MÜZİKLERİ ─────
   ///
   /// 1) Müzik dosyanı (.mp3 / .m4a / .wav) `assets/audio/` klasörüne at.

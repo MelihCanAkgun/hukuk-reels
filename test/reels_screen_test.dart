@@ -5,6 +5,8 @@ import 'package:hukuk_reels/core/services/progress_service.dart';
 import 'package:hukuk_reels/features/reels/screens/reels_screen.dart';
 
 void main() {
+  // Bu testler soru ekranının kendisini sınar; bakım ekranı ayrıca test edilir.
+  ReelsScreen.maintenance = false;
   testWidgets('reel swipes update the header and persist the latest page',
       (tester) async {
     SharedPreferences.setMockInitialValues({'flower_surprise_seen_v2': true});
