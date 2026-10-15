@@ -61,6 +61,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   bool get _connected => _social['connected'] == true;
 
+  /// Oyuncu 1 (yönetici): fotoğraf indirme ile ilgili bilgiler yalnız ona.
+  bool get _isAdmin => _connected && _social['me'] == 1;
+
   Map<String, dynamic>? get _me {
     final players = _social['players'];
     if (players is! List) return null;
@@ -567,6 +570,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           preview: preview,
           srcWidth: src['w'] as int,
           srcHeight: src['h'] as int,
+          admin: _isAdmin,
         ),
       ),
     );
@@ -594,15 +598,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           await _progress.setAvatarFromServer(
               thumb.split(',').last, _me?['avatar'] as String? ?? '');
           HapticFeedback.lightImpact();
-          _toast('Profil fotoğrafı tam kalitede yüklendi ($side×$side).');
+          _toast(_isAdmin
+              ? 'Profil fotoğrafı tam kalitede yüklendi ($side×$side).'
+              : 'Profil fotoğrafı güncellendi.');
           return;
         }
         // Tam kalite yüklenemedi: görüntü kopyası sonra eşitlensin.
         final ok = await _progress.setAvatarDataUrl(thumb);
         if (!mounted) return;
-        _toast(ok
-            ? 'Tam kalite yüklenemedi ($error). Fotoğraf küçük boyutla kaydedildi.'
-            : 'Bu fotoğraf kaydedilemedi.');
+        _toast(!ok
+            ? 'Bu fotoğraf kaydedilemedi.'
+            : _isAdmin
+                ? 'Tam kalite yüklenemedi ($error). Fotoğraf küçük boyutla kaydedildi.'
+                : 'Profil fotoğrafı kaydedildi; sunucuya gönderilemedi ($error).');
         if (ok) await _syncAvatar();
         return;
       }
@@ -610,8 +618,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       if (!mounted) return;
       HapticFeedback.lightImpact();
       _toast(ok
-          ? 'Profil fotoğrafı bu cihazda güncellendi. Tam kalite yükleme için '
-              'sıralamaya oyuncu kodunla katıl.'
+          ? 'Profil fotoğrafı bu cihazda güncellendi. Diğer oyuncunun da '
+              'görmesi için sıralamaya oyuncu kodunla katıl.'
           : 'Bu fotoğraf kaydedilemedi.');
     } finally {
       forgetAvatarSource();

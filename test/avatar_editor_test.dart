@@ -8,8 +8,9 @@ import 'package:hukuk_reels/features/profile/avatar_editor_screen.dart';
 final _png = base64Decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==');
 
-Future<Map<String, dynamic>?> _edit(WidgetTester tester,
-    Future<void> Function() actions) async {
+Future<Map<String, dynamic>?> _edit(
+    WidgetTester tester, Future<void> Function() actions,
+    {bool admin = false}) async {
   Map<String, dynamic>? result;
   await tester.binding.setSurfaceSize(const Size(390, 844));
   await tester.pumpWidget(MaterialApp(
@@ -19,7 +20,10 @@ Future<Map<String, dynamic>?> _edit(WidgetTester tester,
           result = await Navigator.of(context).push<Map<String, dynamic>>(
               MaterialPageRoute(
                   builder: (_) => AvatarEditorScreen(
-                      preview: _png, srcWidth: 4032, srcHeight: 3024)));
+                      preview: _png,
+                      srcWidth: 4032,
+                      srcHeight: 3024,
+                      admin: admin)));
         },
         child: const Text('open'),
       ),
@@ -72,5 +76,17 @@ void main() {
     expect(stickers[1]['size'], greaterThan(0.24));
     expect((stickers[0]['palette'] as Map)['r'], '#ed343d');
     expect(stickers[0]['rows'], isA<List>());
+  });
+
+  testWidgets('download hints are shown only to Player 1', (tester) async {
+    await _edit(tester, () async {
+      expect(find.textContaining('indirilen'), findsNothing);
+      expect(find.textContaining('px'), findsNothing);
+      expect(find.textContaining('profilde görünür'), findsOneWidget);
+    });
+    await _edit(tester, () async {
+      expect(find.textContaining('indirilen fotoğrafta kalır'), findsOneWidget);
+      expect(find.textContaining('3024×3024 px'), findsOneWidget);
+    }, admin: true);
   });
 }
