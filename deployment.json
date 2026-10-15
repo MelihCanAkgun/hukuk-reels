@@ -1,8 +1,8 @@
 {
-  "source_commit": "046ad3b4591f8feb11958ca72731559d880f34e5",
-  "built_at": "2026-10-15T13:16:44Z",
+  "source_commit": "79773b04d0d87ecd27a21be83afee2835608ed3c",
+  "built_at": "2026-10-15T14:24:38Z",
   "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Security hardening: test backdoor closed, CSP, headers, name validation",
+  "change": "Reels maintenance screen; pixel-art bat, SFX and faster beat mode",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "a21608b29d539d8a"
+  "app_build": "6e53d13e0bfd2dbb"
 }
