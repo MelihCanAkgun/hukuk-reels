@@ -1,8 +1,8 @@
 {
-  "source_commit": "19bf537bcfb68b9528dd14bf9d67d54d54f21af5",
-  "built_at": "2026-10-15T21:42:40Z",
-  "checks": "flutter analyze (no issues); flutter test (104 passed); backend tests (35 passed); ImageIO-encoded JPEG cleaned and decoded identically by ImageIO/PIL/Chrome",
-  "change": "Safari full-quality avatar fix (worker 4625a3bf); admin dialog on full upload failure",
+  "source_commit": "4f851d3e83daf054b26ed105c96670dc54008375",
+  "built_at": "2026-10-15T21:59:11Z",
+  "checks": "flutter analyze (no issues); flutter test (104 passed); backend tests (38 passed); bundle scanned for secrets (none)",
+  "change": "Security hardening (worker 7b77b568): per-IP rate limit, no name impersonation, admin crown",
   "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "b020cb52486fd9f5"
+  "app_build": "46f88b5d405a56f4"
 }
