@@ -27427,11 +27427,12 @@ _.a=a
 _.b=b
 _.c=c
 _.d=d},
-pp:function pp(a,b,c,d){var _=this
+pp:function pp(a,b,c,d,e){var _=this
 _.c=a
 _.d=b
 _.e=c
-_.a=d},
+_.f=d
+_.a=e},
 FK:function FK(a,b,c,d){var _=this
 _.d=$
 _.e=1
@@ -27536,7 +27537,8 @@ axe:function axe(a,b){this.a=a
 this.b=b},
 axf:function axf(a,b){this.a=a
 this.b=b},
-axn:function axn(a){this.a=a},
+axn:function axn(a,b){this.a=a
+this.b=b},
 axo:function axo(a){this.a=a},
 axp:function axp(a,b){this.a=a
 this.b=b},
@@ -96644,8 +96646,9 @@ l=m/2
 f.push(A.aa(["rows",p.a,"palette",o,"x",n.a-l,"y",n.b-l,"size",m],d,r))}return A.aa(["out",i,"bg",h,"img",e,"stickers",f],d,t.z)},
 K(a){var s,r,q,p,o,n=this,m=null,l=n.w,k=B.f.aU(B.c.aF(n.gAM()/n.e),320,4096),j=t.p,i=A.aEX(A.b([new A.b0(B.Na,A.Nt(B.aao,new A.apb(n,a)),m)],j),B.bB,B.aa9),h=A.c5(A.vj(new A.apc(n)),1),g=l!=null
 if(g)s="\xc7\u0131kartmay\u0131 s\xfcr\xfckle, iki parmakla ya da kayd\u0131r\u0131c\u0131yla boyutland\u0131r."
-else{s=""+k
-s="Foto\u011fraf\u0131 s\xfcr\xfckle ve iki parmakla yak\u0131nla\u015ft\u0131r. Daire profilde g\xf6r\xfcn\xfcr; k\xf6\u015feler indirilen foto\u011frafta kal\u0131r. ("+s+"\xd7"+s+" px)"}s=A.a4(s,m,m,m,m,m,B.a94,B.aa,m)
+else if(n.a.f){s=""+k
+s="Foto\u011fraf\u0131 s\xfcr\xfckle ve iki parmakla yak\u0131nla\u015ft\u0131r. Daire profilde g\xf6r\xfcn\xfcr; k\xf6\u015feler indirilen foto\u011frafta kal\u0131r. ("+s+"\xd7"+s+" px)"}else s="Foto\u011fraf\u0131 s\xfcr\xfckle ve iki parmakla yak\u0131nla\u015ft\u0131r. Daire i\xe7i profilde g\xf6r\xfcn\xfcr."
+s=A.a4(s,m,m,m,m,m,B.a94,B.aa,m)
 r=A.ds(g?B.Pd:B.Po,B.a6,m,20)
 q=g?n.r[l].d:n.e
 p=g?0.06:0.4
@@ -96938,7 +96941,7 @@ break}a=m.c
 a.toString
 a0=t.a
 s=4
-return A.l(A.bW(a,!1).eH(A.i3(new A.axn(a1),null,a0)),$async$ja)
+return A.l(A.bW(a,!1).eH(A.i3(new A.axn(a1,m),null,a0)),$async$ja)
 case 4:l=a5
 if(l==null||m.c==null){A.aHs()
 s=1
@@ -96973,7 +96976,7 @@ if(a==null)a=""
 s=14
 return A.l(m.d.r4(a1,a),$async$ja)
 case 14:A.jk()
-m.l3("Profil foto\u011fraf\u0131 tam kalitede y\xfcklendi ("+A.o(h)+"\xd7"+A.o(h)+").")
+m.l3(J.c(m.e.h(0,"connected"),!0)&&J.c(m.e.h(0,"me"),1)?"Profil foto\u011fraf\u0131 tam kalitede y\xfcklendi ("+A.o(h)+"\xd7"+A.o(h)+").":"Profil foto\u011fraf\u0131 g\xfcncellendi.")
 n=[1]
 s=6
 break
@@ -96982,7 +96985,9 @@ return A.l(m.d.oT(i),$async$ja)
 case 15:e=a5
 if(m.c==null){n=[1]
 s=6
-break}m.l3(e?"Tam kalite y\xfcklenemedi ("+f+"). Foto\u011fraf k\xfc\xe7\xfck boyutla kaydedildi.":"Bu foto\u011fraf kaydedilemedi.")
+break}if(!e)a1="Bu foto\u011fraf kaydedilemedi."
+else a1=J.c(m.e.h(0,"connected"),!0)&&J.c(m.e.h(0,"me"),1)?"Tam kalite y\xfcklenemedi ("+f+"). Foto\u011fraf k\xfc\xe7\xfck boyutla kaydedildi.":"Profil foto\u011fraf\u0131 kaydedildi; sunucuya g\xf6nderilemedi ("+f+")."
+m.l3(a1)
 s=e?16:17
 break
 case 16:s=18
@@ -96996,7 +97001,7 @@ case 19:d=a5
 if(m.c==null){n=[1]
 s=6
 break}A.jk()
-m.l3(d?"Profil foto\u011fraf\u0131 bu cihazda g\xfcncellendi. Tam kalite y\xfckleme i\xe7in s\u0131ralamaya oyuncu kodunla kat\u0131l.":"Bu foto\u011fraf kaydedilemedi.")
+m.l3(d?"Profil foto\u011fraf\u0131 bu cihazda g\xfcncellendi. Di\u011fer oyuncunun da g\xf6rmesi i\xe7in s\u0131ralamaya oyuncu kodunla kat\u0131l.":"Bu foto\u011fraf kaydedilemedi.")
 n.push(7)
 s=6
 break
@@ -97263,8 +97268,10 @@ case 3:return A.r(null,r)}})
 return A.t($async$$0,r)},
 $S:8}
 A.axn.prototype={
-$1(a){var s=this.a
-return new A.pp(s.a,A.bX(s.b.h(0,"w")),A.bX(s.b.h(0,"h")),null)},
+$1(a){var s,r=this.a,q=r.a,p=A.bX(r.b.h(0,"w"))
+r=A.bX(r.b.h(0,"h"))
+s=this.b
+return new A.pp(q,p,r,J.c(s.e.h(0,"connected"),!0)&&J.c(s.e.h(0,"me"),1),null)},
 $S:617}
 A.axo.prototype={
 $0(){return this.a.w=!0},
