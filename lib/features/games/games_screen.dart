@@ -7,6 +7,7 @@ import '../../core/services/progress_service.dart';
 import '../game/block_blast_screen.dart';
 import '../reels/screens/reels_screen.dart';
 import '../profile/profile_settings_screen.dart';
+import '../profile/profile_avatar.dart';
 import '../game/flappy_cat_screen.dart';
 import '../game/subway_cat_screen.dart';
 import '../reels/widgets/music_button.dart';
@@ -59,7 +60,8 @@ class _GamesScreenState extends State<GamesScreen> {
                 padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
                 child: Row(
                   children: [
-                    if (Navigator.of(context).canPop())
+                    // Rotanın kendisi geri alınabiliyorsa (üstteki rotalar değil).
+                    if (ModalRoute.of(context)?.canPop ?? false)
                       IconButton(
                         onPressed: () => Navigator.of(context).maybePop(),
                         icon: const Icon(Icons.arrow_back_rounded,
@@ -125,8 +127,12 @@ class _GamesScreenState extends State<GamesScreen> {
                           builder: (_) => const ReelsScreen())),
                     ),
                     ListTile(
-                      leading: const Icon(Icons.person_outline),
+                      leading: const ProfileAvatar(size: 36),
                       title: const Text('Profil ve ayarlar'),
+                      subtitle: _progress.nick == null
+                          ? null
+                          : Text(_progress.nick!,
+                              maxLines: 1, overflow: TextOverflow.ellipsis),
                       onTap: () async {
                         await Navigator.of(context).push(MaterialPageRoute(
                             builder: (_) => const ProfileSettingsScreen()));

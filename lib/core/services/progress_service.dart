@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/questions_data.dart';
 import '../models/quiz_question.dart';
@@ -48,6 +49,8 @@ class ProgressService {
   int _blockHighMemory = 0;
   static const _kSubwayHigh = 'subway_high_v1';
   // v2: bildirim öncesi sürpriz herkeste yeniden açılsın diye yenilendi.
+  static const _kNick = 'profile_nick_v1';
+  static const _kAvatar = 'profile_avatar_v1';
   static const kFlowerSurpriseSeenKey = 'flower_surprise_seen_v2';
   bool _flowerSeenMemory = false;
 
@@ -189,6 +192,79 @@ class ProgressService {
   Future<bool> submitSubwayScore(int score) async {
     if (score <= subwayHigh) return false;
     await _prefs?.setInt(_kSubwayHigh, score);
+    return true;
+  }
+
+  // ───────────────────────── Profil ─────────────────────────
+  // Takma ad sıralamadaki oyuncu adının çevrimdışı kopyasıdır; fotoğraf
+  // yalnızca bu cihazda (localStorage) tutulur ve "Her şeyi sıfırla" ile
+  // silinmez.
+
+  /// Profil fotoğrafı/adı değişince artar (menüdeki küçük avatar dinler).
+  final ValueNotifier<int> profileChanges = ValueNotifier(0);
+  Uint8List? _avatar;
+  bool _avatarLoaded = false;
+
+  String? get nick {
+    final v = _prefs?.getString(_kNick)?.trim();
+    return (v == null || v.isEmpty) ? null : v;
+  }
+
+  Future<void> setNick(String? name) async {
+    final v = name?.trim() ?? '';
+    if (v == (nick ?? '')) return;
+    try {
+      if (v.isEmpty) {
+        await _prefs?.remove(_kNick);
+      } else {
+        await _prefs?.setString(_kNick, v);
+      }
+    } catch (_) {}
+    profileChanges.value++;
+  }
+
+  Uint8List? get avatar {
+    if (!_avatarLoaded) {
+      _avatarLoaded = true;
+      try {
+        final raw = _prefs?.getString(_kAvatar);
+        _avatar = raw == null ? null : base64Decode(raw);
+      } catch (_) {
+        _avatar = null;
+      }
+    }
+    return _avatar;
+  }
+
+  /// [dataUrl] bir `data:image/...;base64,` adresi olmalı; null kaldırır.
+  /// Geçersiz veride false döner ve mevcut fotoğraf korunur.
+  Future<bool> setAvatarDataUrl(String? dataUrl) async {
+    Uint8List? bytes;
+    String? b64;
+    if (dataUrl != null) {
+      final m = RegExp(r'^data:image/(jpeg|png|webp);base64,(.+)$')
+          .firstMatch(dataUrl);
+      if (m == null) return false;
+      b64 = m.group(2)!;
+      try {
+        bytes = base64Decode(b64);
+      } catch (_) {
+        return false;
+      }
+      if (bytes.isEmpty || bytes.length > 1024 * 1024) return false;
+    }
+    try {
+      if (b64 == null) {
+        await _prefs?.remove(_kAvatar);
+      } else {
+        await _prefs?.setString(_kAvatar, b64);
+      }
+    } catch (_) {
+      return false;
+    }
+    _avatar = bytes;
+    _avatarLoaded = true;
+    profileChanges.value++;
     return true;
   }
 

@@ -89,6 +89,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.byType(FlowerSurpriseScreen), findsNothing);
     expect(find.text('Block Blast'), findsOneWidget);
+    // Ana menü kök rotadır: sürpriz kapanınca işe yaramaz geri oku kalmasın.
+    expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
 
     // 🌷 düğmesiyle çiçek yeniden açılır.
     await tester.tap(find.text('🌷'));

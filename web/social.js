@@ -126,6 +126,11 @@
       }
       return state(false);
     }
+    if (action === 'rename') {
+      if (!config.token) throw new Error('Önce sıralamaya oyuncu kodunla katıl.');
+      lastBoard = await api('/profile', {name: String(data.name || '').trim()});
+      return state(false);
+    }
     if (action === 'message') return api('/message', {message: data.message});
     throw new Error('İşlem bulunamadı.');
   }
