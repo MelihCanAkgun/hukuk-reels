@@ -19,6 +19,7 @@ import '../game/flappy_cat_screen.dart';
 import '../game/tower_screen.dart';
 import '../game/subway_cat_screen.dart';
 import '../reels/widgets/music_button.dart';
+import '../summaries/summaries_screen.dart';
 import '../surprise/flower_surprise_flow.dart';
 import '../../core/widgets/pressable.dart';
 
@@ -175,6 +176,14 @@ class _GamesScreenState extends State<GamesScreen> {
                           : 'Hukuk testlerine devam et'),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(
                           builder: (_) => const ReelsScreen())),
+                    ),
+                    ListTile(
+                      leading: const PixelLogo(kLogoLawBook, size: 30),
+                      title: const Text('Özetler'),
+                      subtitle:
+                          const Text('Şema özetler · iPad\'de kalemle not al'),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                          builder: (_) => const SummariesScreen())),
                     ),
                     ListTile(
                       leading: const ProfileAvatar(size: 36),
