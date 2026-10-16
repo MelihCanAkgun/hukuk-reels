@@ -1,8 +1,8 @@
 {
-  "source_commit": "4f851d3e83daf054b26ed105c96670dc54008375",
-  "built_at": "2026-10-15T21:59:11Z",
-  "checks": "flutter analyze (no issues); flutter test (104 passed); backend tests (38 passed); bundle scanned for secrets (none)",
-  "change": "Security hardening (worker 7b77b568): per-IP rate limit, no name impersonation, admin crown",
-  "pubspec_lock_sha256": "263a9787e23d3a7d00def1506b87afa66e9284a514e313022b3357df02aee9bc",
-  "app_build": "46f88b5d405a56f4"
+  "source_commit": "c9d26acf3a372fd1b7b5cb561695786690a5a375",
+  "built_at": "2026-10-16T00:14:43Z",
+  "checks": "flutter analyze (no issues); flutter test (109 passed); backend tests (43 passed); local wrangler + headless Chrome countdown add/list check",
+  "change": "Reunion countdown (worker ca97e82a, D1 migration 0004)",
+  "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
+  "app_build": "710650c287593e47"
 }
