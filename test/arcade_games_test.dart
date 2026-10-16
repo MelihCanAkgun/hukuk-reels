@@ -167,11 +167,17 @@ void main() {
       await tester.tap(find.text('Hayır, bitir'));
       await _run(tester, const Duration(seconds: 6));
       expect(state.landT as double, greaterThan(0));
+      // Önce tahta düşer, kız tahtın minderine oturur.
+      expect(state.throneLandT as double, greaterThan(state.landT as double));
+      expect(state.throneY as double, closeTo(state.topY as double, 0.01));
+      expect(state.girlY as double, closeTo((state.topY as double) + 6, 0.01));
       expect(find.text('Tekrar Oyna'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Tekrar Oyna'));
       await _run(tester, const Duration(milliseconds: 300));
       expect(state.score as int, 0);
+      expect(state.throneSpawned as bool, isFalse);
+      expect(state.girlSpawned as bool, isFalse);
       await tester.pumpWidget(const SizedBox());
     });
   }
