@@ -638,6 +638,22 @@ def potion():
     ])
 
 
+def plane():
+    # Sağa uçan pembe uçak (kavuşma sayacı).
+    return outlined([
+        '.Pp...............',
+        '.Ppp..............',
+        '.pppp.............',
+        'PPPPPPPPPPPPPPPP..',
+        'pppBBpBBpBBpBBppb.',
+        'ppppppppppppppppbb',
+        'qqqqqqqqqqqqqqqqq.',
+        '.qqqqqqqqqqqqqqq..',
+        '........PPPq......',
+        '......PPPq........',
+    ])
+
+
 SPRITES = {
     'blockBlast': block_blast(),
     'flappyCat': flappy_cat(),
@@ -664,6 +680,7 @@ SPRITES = {
     'gem': gem(),
     'alien': alien(),
     'potion': potion(),
+    'plane': plane(),
 }
 
 

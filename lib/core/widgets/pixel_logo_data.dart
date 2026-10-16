@@ -460,3 +460,18 @@ const List<String> kLogoPotion = [
   '..kCCCCCk..',
   '...kkkkk...',
 ];
+
+const List<String> kLogoPlane = [
+  '..kk................',
+  '.kPpk...............',
+  '.kPppk..............',
+  '.kppppkkkkkkkkkkk...',
+  'kPPPPPPPPPPPPPPPPk..',
+  'kpppBBpBBpBBpBBppbk.',
+  'kppppppppppppppppbbk',
+  'kqqqqqqqqqqqqqqqqqk.',
+  '.kqqqqqqqqqqqqqqqk..',
+  '..kkkkkkkPPPqkkkk...',
+  '......kPPPqkk.......',
+  '.......kkkk.........',
+];

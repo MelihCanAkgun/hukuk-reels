@@ -14,6 +14,9 @@
   let avatars = {};
   try { avatars = JSON.parse(localStorage.getItem(avatarKey) || '{}') || {}; } catch (_) { avatars = {}; }
   const persistAvatars = () => { try { localStorage.setItem(avatarKey, JSON.stringify(avatars)); } catch (_) {} };
+  // Flight countdowns: last list kept so the countdown also shows offline.
+  const tripsKey = 'hukuk_trips_v1';
+  const saveTrips = (r) => { try { localStorage.setItem(tripsKey, JSON.stringify(r)); } catch (_) {} return r; };
   async function api(path, data, token = config.token) {
     if (!config.url) throw new Error('İki kişilik servis henüz etkinleştirilmedi.');
     const response = await fetch(config.url + path, {
@@ -149,6 +152,7 @@
         config.token = ''; config.best = 0; verifiedSubscription = ''; lastBoard = null; persist();
         avatars = {}; persistAvatars();
         for (const k of Object.keys(fullCache)) delete fullCache[k];
+        try { localStorage.removeItem(tripsKey); } catch (_) {}
       }
       return state(false);
     }
@@ -196,6 +200,18 @@
       persistAvatars();
       return result;
     }
+    if (action === 'trips') {
+      if (!config.token) return {trips: [], connected: false};
+      try { return {...saveTrips(await api('/trips')), connected: true}; }
+      catch (e) {
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(tripsKey) || 'null'); } catch (_) {}
+        if (cached) return {...cached, connected: true, offline: true, error: e.message};
+        throw e;
+      }
+    }
+    if (action === 'tripAdd') return {...saveTrips(await api('/trips', {destination: data.destination, arrival: data.arrival})), connected: true};
+    if (action === 'tripDelete') return {...saveTrips(await api('/trips/delete', {id: data.id})), connected: true};
     if (action === 'message') return api('/message', {message: data.message});
     throw new Error('İşlem bulunamadı.');
   }

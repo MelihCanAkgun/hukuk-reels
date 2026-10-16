@@ -46,6 +46,15 @@ async function board(env, playerId) {
     otherRegisteredDevices: other.count, publicKey: env.VAPID_PUBLIC_KEY};
 }
 
+async function trips(env) {
+  const now = Math.floor(Date.now() / 1000);
+  // A trip stays visible for a day after arrival ("vardı!"), then is dropped.
+  await env.DB.prepare('DELETE FROM trips WHERE arrival < ?').bind(now - 86400).run();
+  const {results} = await env.DB.prepare(`SELECT t.id, t.player_id AS player, p.name, t.destination, t.arrival, t.created
+    FROM trips t JOIN players p ON p.id = t.player_id ORDER BY t.arrival, t.id LIMIT 20`).all();
+  return {trips: results, now};
+}
+
 export async function route(request, env, ctx) {
   const path = new URL(request.url).pathname;
   if (path === '/health' && request.method === 'GET') return json({ok: true});
@@ -81,6 +90,11 @@ export async function route(request, env, ctx) {
   const isTestPlayer = player.id === 0;
   if (path === '/message' && player.id !== 1) fail('Bildirim gönderme yetkisi yalnızca Oyuncu 1\u2019e aittir.', 403);
   if (path === '/board' && request.method === 'GET') return json(await board(env, player.id));
+  if (path === '/trips' || path === '/trips/delete') {
+    if (isTestPlayer) fail('Kavuşma sayacı yalnız kayıtlı oyunculara açıktır.', 403);
+    if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
+    if (path === '/trips' && request.method === 'GET') return json(await trips(env));
+  }
   if (isTestPlayer && ['/profile', '/score', '/subscribe', '/unsubscribe'].includes(path))
     return json({ok: true, players: [], me: 0});
   if (path === '/avatar' || path === '/avatar/delete' || path === '/avatar/full') {
@@ -111,6 +125,25 @@ export async function route(request, env, ctx) {
     return env.BATTLES.get(env.BATTLES.idFromName(room)).fetch(new Request(
       'https://room/'+(path.endsWith('/create')?'create':'join'),
       {method:'POST',body:JSON.stringify({room,id:player.id,name:player.name})}));
+  }
+  if (path === '/trips') {
+    const destination = typeof data.destination === 'string' ? data.destination.trim() : '';
+    if (destination.length < 1 || destination.length > 40 ||
+        /[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/.test(destination)) fail('1–40 karakterlik bir varış yeri yaz.');
+    const now = Math.floor(Date.now() / 1000);
+    if (!Number.isSafeInteger(data.arrival) || data.arrival < now - 300) fail('Varış zamanı gelecekte olmalı.');
+    if (data.arrival > now + 2 * 365 * 86400) fail('Varış en fazla iki yıl sonrası olabilir.');
+    const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM trips WHERE player_id = ? AND arrival > ?').bind(player.id, now).first();
+    if (count.count >= 10) fail('En fazla 10 yaklaşan uçuş eklenebilir.');
+    await env.DB.prepare('INSERT INTO trips(player_id, destination, arrival, created) VALUES (?, ?, ?, ?)')
+      .bind(player.id, destination, data.arrival, now).run();
+    return json(await trips(env));
+  }
+  if (path === '/trips/delete') {
+    // Everyone removes their own flights; Player 1 (admin) can remove any.
+    if (!Number.isSafeInteger(data.id)) fail('Geçersiz uçuş.');
+    await env.DB.prepare('DELETE FROM trips WHERE id = ? AND (player_id = ? OR ? = 1)').bind(data.id, player.id, player.id).run();
+    return json(await trips(env));
   }
   if (path === '/score') {
     if (!Number.isSafeInteger(data.score) || data.score < 0 || data.score > 100000000) fail('Geçersiz skor.');

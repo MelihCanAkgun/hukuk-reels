@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../../core/services/social_bridge.dart';
+import '../countdown/countdown_screen.dart';
+import '../countdown/countdown_text.dart';
 import '../../core/services/battle_bridge.dart';
 import '../game/block_battle_lobby.dart';
 
@@ -26,10 +31,33 @@ class GamesScreen extends StatefulWidget {
 
 class _GamesScreenState extends State<GamesScreen> {
   final _progress = ProgressService.instance;
+  // Kavuşma sayacı (yalnız oyuncu koduyla bağlıyken görünür).
+  bool _tripsConnected = false;
+  List<Trip> _trips = [];
+  Timer? _tick;
+
+  Future<void> _loadTrips() async {
+    final r = await socialCall('trips');
+    if (!mounted) return;
+    setState(() {
+      _tripsConnected = r['connected'] == true;
+      if (r['trips'] != null) _trips = parseTrips(r);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
     super.initState();
+    _loadTrips();
+    _tick = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && _trips.isNotEmpty) setState(() {});
+    });
     // A refresh returns directly to the saved room, within its reconnect window.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final saved = await battleCall('inspect');
@@ -92,6 +120,10 @@ class _GamesScreenState extends State<GamesScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
+                    if (_tripsConnected) ...[
+                      _countdownCard(),
+                      const SizedBox(height: 16),
+                    ],
                     const Text(
                       'Canın mı sıkıldı? Birini seç 👇',
                       style: TextStyle(
@@ -147,6 +179,75 @@ class _GamesScreenState extends State<GamesScreen> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _countdownCard() {
+    final now = DateTime.now();
+    final next = _trips.isEmpty ? null : _trips.first;
+    final left =
+        next == null ? null : remainingText(next.arrival.difference(now));
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const CountdownScreen()));
+        await _loadTrips();
+      },
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF4A2340), Color(0xFF2A1521)],
+          ),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.55)),
+        ),
+        child: Row(
+          children: [
+            const PixelLogo(kLogoPlane, size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              child: next == null
+                  ? const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Kavuşma Sayacı',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.textPrimary)),
+                        SizedBox(height: 2),
+                        Text('Bileti alınca uçuşunu ekle ✈️',
+                            style: TextStyle(
+                                fontSize: 12.5, color: AppTheme.textSecondary)),
+                      ],
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            left == null
+                                ? '${next.name} ${dative(next.destination)} vardı!'
+                                : next.sentence,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 12.5, color: AppTheme.textSecondary)),
+                        const SizedBox(height: 2),
+                        Text(left == null ? 'Kavuştunuz 💞' : '$left kaldı 💕',
+                            style: const TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                                color: AppTheme.accent)),
+                      ],
+                    ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
+          ],
         ),
       ),
     );

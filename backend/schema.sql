@@ -52,3 +52,11 @@ CREATE TABLE IF NOT EXISTS avatar_full_parts (
  data TEXT NOT NULL,
  PRIMARY KEY (player_id, version, part)
 );
+CREATE TABLE IF NOT EXISTS trips (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ player_id INTEGER NOT NULL REFERENCES players(id),
+ destination TEXT NOT NULL,
+ arrival INTEGER NOT NULL,
+ created INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS trips_arrival ON trips(arrival);

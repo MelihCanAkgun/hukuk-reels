@@ -49,6 +49,7 @@ final List<(String, List<_Sticker>)> kAvatarStickerGroups = [
       (kLogoHeart, kLogoPalette),
       (kLogoStar, kLogoPalette),
       (kLogoTulip, kLogoPalette),
+      (kLogoPlane, kLogoPalette),
       (kLoveFaceSprite, kSpritePalette),
       (kBurstSprite, kSpritePalette),
       (kBatSprite, kSpritePalette),
