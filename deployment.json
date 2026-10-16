@@ -1,8 +1,8 @@
 {
-  "source_commit": "c9d26acf3a372fd1b7b5cb561695786690a5a375",
-  "built_at": "2026-10-16T00:14:43Z",
-  "checks": "flutter analyze (no issues); flutter test (109 passed); backend tests (43 passed); local wrangler + headless Chrome countdown add/list check",
-  "change": "Reunion countdown (worker ca97e82a, D1 migration 0004)",
+  "source_commit": "715b4d9c5268767d9793e1cb0a76bb550b6635d0",
+  "built_at": "2026-10-16T00:25:31Z",
+  "checks": "flutter analyze (no issues); flutter test (110 passed); backend tests (43 passed); local request count check",
+  "change": "Quota-friendly countdown refresh (worker cda02048)",
   "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
-  "app_build": "710650c287593e47"
+  "app_build": "ecd8e7543af23bbe"
 }
