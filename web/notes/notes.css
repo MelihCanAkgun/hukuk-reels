@@ -119,6 +119,8 @@
   background-size: 22px 22px;
   border-top: 1px dashed rgba(90, 70, 120, 0.2);
 }
+.hn-inkwrap { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; }
+.hn-inkwrap.hn-hidden { display: none; }
 .hn-ink { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .hn-ink .hn-hl { mix-blend-mode: multiply; }
 .hn-ink.hn-hidden { display: none; }
@@ -162,6 +164,19 @@
   background: rgba(30, 22, 40, 0.86); display: none;
 }
 .hn-selbar.hn-show { display: flex; }
+.hn-notice {
+  position: absolute; z-index: 4; left: 50%; transform: translateX(-50%);
+  top: calc(var(--hn-bar) + env(safe-area-inset-top) + 10px);
+  width: min(620px, calc(100% - 24px));
+  display: none; align-items: center; gap: 6px;
+  padding: 8px 8px 8px 14px; border-radius: 14px;
+  background: #fff7e0; border: 1px solid #f0d488; color: #4a3a10;
+  font: 500 13.5px/1.4 'HNInter', -apple-system, sans-serif;
+  box-shadow: 0 6px 20px rgba(30, 10, 40, .12);
+}
+.hn-notice.hn-show { display: flex; }
+.hn-notice span { flex: 1 1 auto; }
+.hn-notice .hn-btn { height: 34px; font-size: 13.5px; font-weight: 700; color: #7a5a00; }
 .hn-selbar .hn-btn { color: #fff; height: 36px; font-size: 13.5px; }
 .hn-selbar span { padding: 0 8px; opacity: .75; font-size: 13px; }
 
