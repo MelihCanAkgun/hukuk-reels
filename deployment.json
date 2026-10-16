@@ -1,8 +1,8 @@
 {
-  "source_commit": "9abaec3cc7b4b4926f9136e62acaaf1081af1f82",
-  "built_at": "2026-10-16T10:39:34Z",
-  "checks": "flutter analyze (no issues); flutter test (121); release build with base-href /hukuk-reels/",
-  "change": "Visible rooftop items in Subway; arcade stickers in the photo editor",
+  "source_commit": "a1cbd7c2be1ec47b9770b485f78d4afdd7f4bfc4",
+  "built_at": "2026-10-16T12:56:59Z",
+  "checks": "flutter analyze (no issues); flutter test (121); web runtime test; release build with base-href /hukuk-reels/",
+  "change": "Nicer Flappy/Subway environments, clipped game scenes on back navigation, lighter painting",
   "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
-  "app_build": "0036ff57aff4af1b"
+  "app_build": "7d4147cdeaf6fcfa"
 }
