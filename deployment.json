@@ -1,1 +1,9 @@
-{"source_commit":"665fa38f3b3f39e9591c071e147ce90ef8fd0b97","built_at":"2026-10-16T16:30:03Z","checks":["flutter analyze","flutter test (126)","web_runtime_test"],"change":"Adliye Kulesi: avukat finalde kraliçe tahtına oturur","pubspec_lock_sha256":"8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437","app_build":"3c692cca97068d57"}
+{
+  "source_commit": "497fcf212bed3573c5905fb267473ee846371f66",
+  "built_at": "2026-10-16T19:49:09Z",
+  "checks": "flutter analyze (no issues); flutter test (140); backend node tests (50); web runtime/update checks; release build with base-href /hukuk-reels/",
+  "change": "Separate leaderboards for every game; native icons and maintenance",
+  "backend_version": "7fb800b5-9635-4e13-b670-148db4e2a16d",
+  "pubspec_lock_sha256": "fded44df6063fcea317b8ec06d7175e2992bb2467385200438407562ac9d23e7",
+  "app_build": "af5b9be408d95337"
+}

@@ -1,8 +1,11 @@
 'use strict';
 (() => {
   const storageKey = 'hukuk_social_v1';
-  let config = {url: '', token: '', best: 0};
+  // best: Block Blast; bests: the arcade games' personal bests (own leaderboards).
+  const games = ['flappy', 'subway', 'tower'];
+  let config = {url: '', token: '', best: 0, bests: {}};
   try { Object.assign(config, JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch (_) {}
+  if (!config.bests || typeof config.bests !== 'object') config.bests = {};
   let lastBoard = null;
   let sending = false;
   let verifiedSubscription = '';
@@ -48,15 +51,26 @@
     }
     return response;
   }
+  // Server copy of this player's best for a game (Block Blast lives in players).
+  function serverBest(game) {
+    if (!lastBoard) return null;
+    if (game === 'block') return lastBoard.players?.find(p => p.id === lastBoard.me)?.best ?? null;
+    return lastBoard.scores?.find(r => r.id === lastBoard.me && r.game === game)?.best ?? 0;
+  }
+  const localBest = game => game === 'block' ? config.best : (config.bests[game] || 0);
+  const pendingGames = () => ['block', ...games].filter(g => localBest(g) > (serverBest(g) ?? 0));
   async function flush() {
     if (sending || !config.token || !config.url || document.hidden) return;
-    const mine = lastBoard?.players?.find(p => p.id === lastBoard.me);
-    if (mine && config.best <= mine.best) return;
+    const due = ['block', ...games].filter(g => localBest(g) > 0 && !(serverBest(g) !== null && localBest(g) <= serverBest(g)));
+    if (!due.length) return;
     sending = true;
     const token = config.token;
     try {
-      const next = await api('/score', {score: config.best}, token);
-      if (token === config.token) lastBoard = next;
+      for (const game of due) {
+        const next = await api('/score', game === 'block' ? {score: config.best} : {game, score: localBest(game)}, token);
+        if (token !== config.token) break;
+        lastBoard = next;
+      }
     } catch (_) { /* The local maximum is retained for online/resume/timer retry. */ }
     finally { sending = false; }
   }
@@ -85,7 +99,7 @@
       catch (e) { error = e.message; }
     }
     return {configured: !!config.url, connected: !!config.token, ...lastBoard,
-      ...(await pushState()), pending: config.best > (lastBoard?.players?.find(p=>p.id===lastBoard.me)?.best || 0), error};
+      ...(await pushState()), pending: pendingGames().length > 0, pendingGames: pendingGames(), error};
   }
   async function call(action, data) {
     if (action === 'init') {
@@ -103,14 +117,21 @@
       const result = await api('/profile', {name: data.name}, token);
       config.token = token;
       config.best = Math.max(0, Number(data.score) || 0);
+      config.bests = {};
+      for (const game of games) {
+        const value = Number(data.scores?.[game]);
+        if (Number.isSafeInteger(value) && value > 0) config.bests[game] = value;
+      }
       persist();
       lastBoard = result;
       await flush();
       return state(false);
     }
     if (action === 'score') {
-      if (config.token && Number.isSafeInteger(data.score) && data.score > config.best) {
-        config.best = data.score;
+      const game = data.game || 'block';
+      if (game !== 'block' && !games.includes(game)) throw new Error('Geçersiz oyun.');
+      if (config.token && Number.isSafeInteger(data.score) && data.score > localBest(game)) {
+        if (game === 'block') config.best = data.score; else config.bests[game] = data.score;
         persist();
         clearTimeout(scoreTimer);
         scoreTimer = setTimeout(flush, 600);
@@ -150,7 +171,7 @@
         config.endpoint = ''; verifiedSubscription = ''; persist();
       }
       if (action === 'leave') {
-        config.token = ''; config.best = 0; verifiedSubscription = ''; lastBoard = null; persist();
+        config.token = ''; config.best = 0; config.bests = {}; verifiedSubscription = ''; lastBoard = null; persist();
         avatars = {}; persistAvatars();
         for (const k of Object.keys(fullCache)) delete fullCache[k];
         try { localStorage.removeItem(tripsKey); } catch (_) {}
