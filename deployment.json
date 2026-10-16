@@ -1,8 +1,8 @@
 {
-  "source_commit": "05109f5b9b99fedad9608c563a3036ddcb071f48",
-  "built_at": "2026-10-16T10:25:43Z",
-  "checks": "flutter analyze (no issues); flutter test (120); web runtime/update tests; backend tests (48); release build with base-href /hukuk-reels/",
-  "change": "Pixel-art Flappy/Subway remake, original-size avatar downloads, 3 new songs",
+  "source_commit": "bf54f169fd40b46c59c9826697a17f1f706f3767",
+  "built_at": "2026-10-16T10:32:24Z",
+  "checks": "flutter analyze (no issues); flutter test (120); release build with base-href /hukuk-reels/",
+  "change": "Opaque Subway ramps, tighter Flappy jump",
   "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
-  "app_build": "1db5f4436838a27f"
+  "app_build": "5d658774b3c5d179"
 }
