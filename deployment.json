@@ -1,8 +1,8 @@
 {
-  "source_commit": "bf54f169fd40b46c59c9826697a17f1f706f3767",
-  "built_at": "2026-10-16T10:32:24Z",
-  "checks": "flutter analyze (no issues); flutter test (120); release build with base-href /hukuk-reels/",
-  "change": "Opaque Subway ramps, tighter Flappy jump",
+  "source_commit": "9abaec3cc7b4b4926f9136e62acaaf1081af1f82",
+  "built_at": "2026-10-16T10:39:34Z",
+  "checks": "flutter analyze (no issues); flutter test (121); release build with base-href /hukuk-reels/",
+  "change": "Visible rooftop items in Subway; arcade stickers in the photo editor",
   "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
-  "app_build": "5d658774b3c5d179"
+  "app_build": "0036ff57aff4af1b"
 }
