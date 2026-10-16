@@ -111,4 +111,28 @@ void main() {
     final st = (spec!['stickers'] as List).single as Map<String, dynamic>;
     expect(st['rot'], closeTo(1.5707963, 1e-6));
   });
+
+  testWidgets('arcade game sprites are available as stickers', (tester) async {
+    final arcade = kAvatarStickerGroups.firstWhere((g) => g.$1 == 'Arcade');
+    expect(arcade.$2.length, greaterThanOrEqualTo(20));
+    for (final (rows, palette) in arcade.$2) {
+      // Kırpılmış: kenar satır/sütunlarında en az bir dolu piksel
+      expect(rows.first.contains(RegExp(r'[^.]')), isTrue);
+      expect(rows.last.contains(RegExp(r'[^.]')), isTrue);
+      expect(rows.any((r) => r[0] != '.'), isTrue);
+      for (final r in rows) {
+        for (final c in r.split('')) {
+          if (c != '.') expect(palette.containsKey(c), isTrue);
+        }
+      }
+    }
+    final spec = await _edit(tester, () async {
+      await tester.tap(find.text('Arcade'));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel('Çıkartma ekle').first);
+      await tester.pump();
+    });
+    final st = (spec!['stickers'] as List).single as Map<String, dynamic>;
+    expect((st['rows'] as List).first, arcade.$2.first.$1.first);
+  });
 }

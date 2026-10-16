@@ -1579,11 +1579,28 @@ class _RunnerPainter extends CustomPainter {
   void _entities(Canvas canvas) {
     // Oyuncunun yanından geçen trenler oyuncudan önce çizilir (önündeymiş
     // gibi sıralanır); kameraya oyuncudan yakın nesneler ondan sonra.
-    double key(_Ob o) => o.isTrain && o.z < 0 && o.z + o.len > 0 ? 0.001 : o.z;
-    final list = g.obs
+    double trainKey(_Ob t) => t.z < 0 && t.z + t.len > 0 ? 0.001 : t.z;
+    final visible = g.obs
         .where((o) => !o.dead && o.z < _SubwayCatScreenState.zFar)
-        .toList()
-      ..sort((a, b) => key(b).compareTo(key(a)));
+        .toList();
+    final trains = visible.where((o) => o.isTrain).toList();
+    // Çatıdaki coin / güçlendirmeler bulundukları trenden hemen SONRA
+    // çizilir; yoksa trenin ön yüzü ve çatısı onları örter.
+    final keys = <_Ob, double>{};
+    for (final o in visible) {
+      var k = o.isTrain ? trainKey(o) : o.z;
+      if (!o.isTrain && o.z >= 0 && o.y >= _SubwayCatScreenState.trainH * 0.8) {
+        for (final t in trains) {
+          if ((t.x - o.x).abs() < 0.3 && o.z >= t.z && o.z <= t.z + t.len) {
+            k = trainKey(t) - 1e-4;
+            break;
+          }
+        }
+      }
+      keys[o] = k;
+    }
+    double key(_Ob o) => keys[o]!;
+    final list = visible..sort((a, b) => key(b).compareTo(key(a)));
     var playerDrawn = false;
     for (final o in list) {
       if (!playerDrawn && key(o) < 0) {
