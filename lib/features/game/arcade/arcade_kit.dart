@@ -171,11 +171,9 @@ void drawOutlinedText(Canvas canvas, String text, Offset center, double size,
       textDirection: TextDirection.ltr,
     )..layout();
     pair = (strokeTp, fillTp);
-    if (_textCache.length >= 48) {
-      final old = _textCache.remove(_textCache.keys.first)!;
-      old.$1.dispose();
-      old.$2.dispose();
-    }
+    // Çıkarılan düzenler dispose edilmez (web'de önceki kare hâlâ
+    // kullanıyor olabilir); çöp toplayıcıya bırakılır.
+    if (_textCache.length >= 48) _textCache.remove(_textCache.keys.first);
   }
   _textCache[key] = pair; // en sona: en yeni
   final o = center - Offset(pair.$2.width / 2, pair.$2.height / 2);

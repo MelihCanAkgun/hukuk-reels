@@ -1347,6 +1347,12 @@ class _QuadBatch {
 
   void flush(Canvas canvas, Paint paint) {
     if (_n == 0) return;
+    // Köşe renkleri boya alfasıyla çarpılır: önceki çizimden kalan yarı
+    // saydam renk sahneyi titretmesin.
+    paint
+      ..color = const Color(0xFFFFFFFF)
+      ..shader = null
+      ..colorFilter = null;
     final v = ui.Vertices.raw(
       ui.VertexMode.triangles,
       Float32List.sublistView(_pos, 0, _n * 12),
@@ -1639,7 +1645,7 @@ class _RunnerPainter extends CustomPainter {
           }
         }
         // Neon tabela (bazı binalarda; pembe / turkuaz, yumuşak halelı)
-        if (hash % 5 == 1 && z0 + 1.2 > nearZ) {
+        if (hash % 5 == 1 && z0 + 1.05 > nearZ + 0.1) {
           final neon = (hash >> 5).isEven
               ? const Color(0xFFFF6FB5)
               : const Color(0xFF5FF2E4);
@@ -1716,14 +1722,19 @@ class _RunnerPainter extends CustomPainter {
       final idx = lampIdx0 + ((z + lampOff) / lStep).round();
       final sd = idx.isEven ? -1.0 : 1.0;
       final lx = sd * 1.95;
-      final ft = _fogT(z);
-      // ışık havuzu
-      _batch.quad(
-          _pt(sd * 1.1, 0.006, z - 1.1),
-          _pt(sd * 2.1, 0.006, z - 1.1),
-          _pt(sd * 2.1, 0.006, z + 1.1),
-          _pt(sd * 1.1, 0.006, z + 1.1),
-          const Color(0xFFFFC98A).withValues(alpha: 0.16 * (1 - ft)));
+      // ışık havuzu: kameraya yaklaşırken söner ve asla yakın düzlemin
+      // arkasına taşmaz (taşarsa izdüşüm patlar, ekranı dev bir ışık
+      // huzmesi kaplar).
+      final glow = _lampGlow(z);
+      if (glow > 0.01) {
+        final pz0 = math.max(z - 1.1, nearZ + 0.6);
+        _batch.quad(
+            _pt(sd * 1.1, 0.006, pz0),
+            _pt(sd * 2.1, 0.006, pz0),
+            _pt(sd * 2.1, 0.006, z + 1.1),
+            _pt(sd * 1.1, 0.006, z + 1.1),
+            const Color(0xFFFFC98A).withValues(alpha: 0.16 * glow));
+      }
       final c = _fogged(metal, z);
       _batch.quad(_pt(lx - 0.035, 0, z), _pt(lx + 0.035, 0, z),
           _pt(lx + 0.035, 2.5, z), _pt(lx - 0.035, 2.5, z), c);
@@ -1742,11 +1753,17 @@ class _RunnerPainter extends CustomPainter {
       final idx = lampIdx0 + ((z + lampOff) / lStep).round();
       final sd = idx.isEven ? -1.0 : 1.0;
       final c = _pt(sd * 1.95 - sd * 0.385, 2.36, z);
-      _p.color =
-          const Color(0xFFFFD9A0).withValues(alpha: 0.22 * (1 - _fogT(z)));
+      final glow = _lampGlow(z);
+      if (glow <= 0.01) continue;
+      _p.color = const Color(0xFFFFD9A0).withValues(alpha: 0.22 * glow);
       canvas.drawCircle(c, 0.32 * f / _d(z), _p);
     }
   }
+
+  /// Lamba ışığının görünürlüğü: uzakta sis, yakında (kameraya ~3 birim
+  /// kala) yumuşakça söner.
+  double _lampGlow(double z) =>
+      (1 - _fogT(z)) * ((_d(z) - 1.2) / 2.5).clamp(0.0, 1.0);
 
   // ── Varlıklar (uzaktan yakına) ──
   void _entities(Canvas canvas) {
