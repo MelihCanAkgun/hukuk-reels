@@ -46,14 +46,17 @@ async function board(env, playerId) {
     otherRegisteredDevices: other.count, publicKey: env.VAPID_PUBLIC_KEY};
 }
 
+// A trip stays visible for a day after arrival ("vardı!"). Reads only filter
+// (one query per GET); old rows are deleted when a trip is added or removed.
 async function trips(env) {
   const now = Math.floor(Date.now() / 1000);
-  // A trip stays visible for a day after arrival ("vardı!"), then is dropped.
-  await env.DB.prepare('DELETE FROM trips WHERE arrival < ?').bind(now - 86400).run();
   const {results} = await env.DB.prepare(`SELECT t.id, t.player_id AS player, p.name, t.destination, t.arrival, t.created
-    FROM trips t JOIN players p ON p.id = t.player_id ORDER BY t.arrival, t.id LIMIT 20`).all();
+    FROM trips t JOIN players p ON p.id = t.player_id WHERE t.arrival >= ? ORDER BY t.arrival, t.id LIMIT 20`)
+    .bind(now - 86400).all();
   return {trips: results, now};
 }
+const pruneTrips = env => env.DB.prepare('DELETE FROM trips WHERE arrival < ?')
+  .bind(Math.floor(Date.now() / 1000) - 86400).run();
 
 export async function route(request, env, ctx) {
   const path = new URL(request.url).pathname;
@@ -137,12 +140,14 @@ export async function route(request, env, ctx) {
     if (count.count >= 10) fail('En fazla 10 yaklaşan uçuş eklenebilir.');
     await env.DB.prepare('INSERT INTO trips(player_id, destination, arrival, created) VALUES (?, ?, ?, ?)')
       .bind(player.id, destination, data.arrival, now).run();
+    await pruneTrips(env);
     return json(await trips(env));
   }
   if (path === '/trips/delete') {
     // Everyone removes their own flights; Player 1 (admin) can remove any.
     if (!Number.isSafeInteger(data.id)) fail('Geçersiz uçuş.');
     await env.DB.prepare('DELETE FROM trips WHERE id = ? AND (player_id = ? OR ? = 1)').bind(data.id, player.id, player.id).run();
+    await pruneTrips(env);
     return json(await trips(env));
   }
   if (path === '/score') {

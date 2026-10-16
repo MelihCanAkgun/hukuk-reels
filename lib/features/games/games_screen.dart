@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../core/services/social_bridge.dart';
 import '../countdown/countdown_screen.dart';
 import '../countdown/countdown_text.dart';
+import '../countdown/trips_store.dart';
 import '../../core/services/battle_bridge.dart';
 import '../game/block_battle_lobby.dart';
 
@@ -32,31 +32,32 @@ class GamesScreen extends StatefulWidget {
 class _GamesScreenState extends State<GamesScreen> {
   final _progress = ProgressService.instance;
   // Kavuşma sayacı (yalnız oyuncu koduyla bağlıyken görünür).
-  bool _tripsConnected = false;
-  List<Trip> _trips = [];
+  final _tripsStore = TripsStore.instance;
   Timer? _tick;
 
-  Future<void> _loadTrips() async {
-    final r = await socialCall('trips');
-    if (!mounted) return;
-    setState(() {
-      _tripsConnected = r['connected'] == true;
-      if (r['trips'] != null) _trips = parseTrips(r);
-    });
+  void _tripsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _tick?.cancel();
+    _tripsStore
+      ..changes.removeListener(_tripsChanged)
+      ..stop();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
-    _loadTrips();
+    _tripsStore
+      ..changes.addListener(_tripsChanged)
+      ..start()
+      ..refresh(force: true);
+    // Yalnız kart yazısı (gün/saat); sunucuya istek atmaz.
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted && _trips.isNotEmpty) setState(() {});
+      if (mounted && _tripsStore.trips.isNotEmpty) setState(() {});
     });
     // A refresh returns directly to the saved room, within its reconnect window.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -120,7 +121,7 @@ class _GamesScreenState extends State<GamesScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
                   children: [
-                    if (_tripsConnected) ...[
+                    if (_tripsStore.connected) ...[
                       _countdownCard(),
                       const SizedBox(height: 16),
                     ],
@@ -186,14 +187,15 @@ class _GamesScreenState extends State<GamesScreen> {
 
   Widget _countdownCard() {
     final now = DateTime.now();
-    final next = _trips.isEmpty ? null : _trips.first;
+    final trips = _tripsStore.trips;
+    final next = trips.isEmpty ? null : trips.first;
     final left =
         next == null ? null : remainingText(next.arrival.difference(now));
     return GestureDetector(
       onTap: () async {
+        // Liste ortak depoda; dönüşte ayrıca istek gerekmez.
         await Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const CountdownScreen()));
-        await _loadTrips();
       },
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
