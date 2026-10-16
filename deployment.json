@@ -1,9 +1,9 @@
 {
-  "source_commit": "502b2bf991790869e7cb568a18455dfec9bb9d93",
-  "built_at": "2026-10-16T21:50:54Z",
-  "checks": "flutter analyze (no issues); flutter test (142); notes ink/content test; web runtime/update checks; headless Chrome render and simulated pen checks; release build with base-href /hukuk-reels/",
-  "change": "Özetler with Apple Pencil note mode and the İcra Hukuku schema summary",
+  "source_commit": "ad147c41a4d2d19465a63df2c5807cb389389008",
+  "built_at": "2026-10-16T22:07:12Z",
+  "checks": "flutter test (142); notes ink/content test; headless Chrome mid-stroke live render, lasso and pressure checks; release build with base-href /hukuk-reels/",
+  "change": "Notes: live stroke rendered with SVG (follows the pencil on iPad Safari); wider pressure range",
   "backend_version": "7fb800b5-9635-4e13-b670-148db4e2a16d",
   "pubspec_lock_sha256": "fded44df6063fcea317b8ec06d7175e2992bb2467385200438407562ac9d23e7",
-  "app_build": "b034950ec2939b92"
+  "app_build": "7fda93c8d1667f8e"
 }
