@@ -33,6 +33,8 @@ Oyunlar sekmesindeki **Özetler** girişi ders özetlerini listeler (şimdilik �
 - **Girdi:** Apple Pencil (`pointerType: pen`) yazar, parmak kaydırır, iki parmak yakınlaştırır. İki parmakla dokunma geri alır, üç parmakla dokunma yineler. Kalem değerken ve büyük temas alanlı dokunuşlarda kaydırma yapılmaz (avuç içi). Masaüstünde fare de yazar.
 - **Araçlar:** basınca duyarlı kalem, fosforlu kalem, çizgi ve hassas silgi, kement (taşı, çoğalt, sil, renklendir). Çizerken kalemi bekletmek çizgiyi düzeltir.
 - **Saklama:** Notlar 1180 birimlik sabit sayfa koordinatlarında vektör olarak cihazda (IndexedDB `hukuk-notes`) tutulur; hesaba bağlı değildir. Menüden JSON yedek alınabilir ve geri yüklenebilir. Yazdır/PDF de menüdedir.
+- **Performans:** Notlar 1200 birimlik karolara (ayrı SVG'ler) bölünür; ekrandan uzak karolar gizlenir ve yolları ekrana yaklaşınca üretilir. Yollar 10x ölçekte tam sayılarla yazılır, noktalar Float32Array olarak saklanır.
+- **Yedek hatırlatması:** Not sayısı 40'ı geçince, ana ekrana eklenmemiş Safari'de 7 günde bir, uygulama olarak kullanılırken 21 günde bir yedek almayı hatırlatır (Safari ziyaret edilmeyen sitelerin verisini silebilir).
 - **Yeni özet:** `web/notes/summaries/<id>.js` içinde `window.hukukNotesRegister({id, title, version, html})` çağrılır, ardından `lib/features/summaries/summaries_screen.dart` içindeki `kSummaries` listesine eklenir. Var olan bir özetin metnini değiştirmek sayfa yüksekliğini değiştirir ve alınmış notları kaydırabilir. Bu nedenle büyük değişikliklerde `version` artırılmalı ya da yeni bir özet kimliği kullanılmalıdır.
 
 ## Apple uygulamaları

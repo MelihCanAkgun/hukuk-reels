@@ -60,39 +60,51 @@
     };
   }
 
-  function smoothInto(out, xy) {
-    // xy: [x0,y0,x1,y1,...]; mevcut konum xy[0]'dadır.
-    const m = xy.length / 2;
-    for (let k = 1; k < m - 1; k++) {
-      const x = xy[2 * k], y = xy[2 * k + 1];
-      const mx = (x + xy[2 * k + 2]) / 2, my = (y + xy[2 * k + 3]) / 2;
-      out.push(`Q${rd(x)} ${rd(y)} ${rd(mx)} ${rd(my)}`);
+  // Yollar 10 kat ölçekte tam sayılarla üretilir (SVG'de scale(0.1) ile çizilir):
+  // 0,1 birim hassasiyet 5x yakınlaştırmada bile yarım pikselden az; tam sayıyı
+  // metne çevirmek ondalığa göre çok hızlıdır ve dize kısalır.
+  const PATH_SCALE = 0.1;
+  const r1 = v => Math.round(v * 10);
+
+  /** xy kenarı boyunca orta noktalardan geçen ikinci derece eğriler. */
+  function smoothSide(xy, n, from, step) {
+    let d = '';
+    for (let k = 1; k < n - 1; k++) {
+      const i = from + k * step, j = i + step;
+      const x = xy[2 * i], y = xy[2 * i + 1];
+      d += 'Q' + r1(x) + ' ' + r1(y) + ' ' + r1((x + xy[2 * j]) / 2) + ' ' + r1((y + xy[2 * j + 1]) / 2);
     }
-    if (m > 1) out.push(`L${rd(xy[2 * m - 2])} ${rd(xy[2 * m - 1])}`);
+    const e = from + (n - 1) * step;
+    return d + 'L' + r1(xy[2 * e]) + ' ' + r1(xy[2 * e + 1]);
   }
 
   /**
-   * Değişken kalınlıklı çizginin dış hattı (SVG path). Aynı dize hem canvas'ta
-   * (Path2D) hem SVG'de kullanılır. extra: yalnız anlık çizimde tahmin noktaları.
+   * Değişken kalınlıklı çizginin dış hattı (SVG path). Aynı dize hem anlık
+   * katmanda hem kalıcı katmanda kullanılır. extra: yalnız anlık çizimde tahmin noktaları.
    */
   function outline(tool, w, pts, extra) {
-    const all = extra && extra.length ? pts.concat(extra) : pts;
-    const n = all.length / 3;
+    const base = pts.length / 3, more = extra ? extra.length / 3 : 0;
+    const n = base + more;
     if (!n) return '';
-    const xs = new Array(n), ys = new Array(n), rs = new Array(n);
+    const P = i => (i < base ? pts : extra);
+    const o = i => (i < base ? 3 * i : 3 * (i - base));
+    const xs = new Float64Array(n), ys = new Float64Array(n), rs = new Float64Array(n);
     let minx = Infinity, maxx = -Infinity, miny = Infinity, maxy = -Infinity, maxr = 0;
     for (let i = 0; i < n; i++) {
-      xs[i] = all[3 * i]; ys[i] = all[3 * i + 1];
-      rs[i] = radius(tool, w, all[3 * i + 2]);
-      if (xs[i] < minx) minx = xs[i]; if (xs[i] > maxx) maxx = xs[i];
-      if (ys[i] < miny) miny = ys[i]; if (ys[i] > maxy) maxy = ys[i];
-      if (rs[i] > maxr) maxr = rs[i];
+      const a = P(i), k = o(i);
+      const x = a[k], y = a[k + 1], r = radius(tool, w, a[k + 2]);
+      xs[i] = x; ys[i] = y; rs[i] = r;
+      if (x < minx) minx = x; if (x > maxx) maxx = x;
+      if (y < miny) miny = y; if (y > maxy) maxy = y;
+      if (r > maxr) maxr = r;
     }
     if (n === 1 || Math.max(maxx - minx, maxy - miny) < maxr * 0.25) {
-      const x = (minx + maxx) / 2, y = (miny + maxy) / 2, r = Math.max(maxr, 0.4);
-      return `M${rd(x - r)} ${rd(y)}A${rd(r)} ${rd(r)} 0 1 0 ${rd(x + r)} ${rd(y)}A${rd(r)} ${rd(r)} 0 1 0 ${rd(x - r)} ${rd(y)}Z`;
+      const x = (minx + maxx) / 2, y = (miny + maxy) / 2, rr = Math.max(maxr, 0.4), r = r1(rr);
+      return 'M' + r1(x - rr) + ' ' + r1(y) + 'A' + r + ' ' + r + ' 0 1 0 ' + r1(x + rr) + ' ' + r1(y) +
+        'A' + r + ' ' + r + ' 0 1 0 ' + r1(x - rr) + ' ' + r1(y) + 'Z';
     }
-    const L = new Array(2 * n), R = new Array(2 * n);
+    // L: sol kenar (0..n-1), R: sağ kenar; tek dizide [L..., R...].
+    const E = new Float64Array(4 * n);
     let ptx = 1, pty = 0;
     for (let i = 0; i < n; i++) {
       const a = i > 0 ? i - 1 : 0, b = i < n - 1 ? i + 1 : n - 1;
@@ -101,18 +113,14 @@
       if (len < 1e-6) { tx = ptx; ty = pty; } else { tx /= len; ty /= len; }
       ptx = tx; pty = ty;
       const r = rs[i];
-      L[2 * i] = xs[i] - ty * r; L[2 * i + 1] = ys[i] + tx * r;
-      R[2 * i] = xs[i] + ty * r; R[2 * i + 1] = ys[i] - tx * r;
+      E[2 * i] = xs[i] - ty * r; E[2 * i + 1] = ys[i] + tx * r;
+      E[2 * (n + i)] = xs[i] + ty * r; E[2 * (n + i) + 1] = ys[i] - tx * r;
     }
-    const d = [`M${rd(L[0])} ${rd(L[1])}`];
-    smoothInto(d, L);
-    const re = rd(rs[n - 1]), rs0 = rd(rs[0]);
-    d.push(`A${re} ${re} 0 0 0 ${rd(R[2 * n - 2])} ${rd(R[2 * n - 1])}`);
-    const back = new Array(2 * n);
-    for (let i = 0; i < n; i++) { back[2 * i] = R[2 * (n - 1 - i)]; back[2 * i + 1] = R[2 * (n - 1 - i) + 1]; }
-    smoothInto(d, back);
-    d.push(`A${rs0} ${rs0} 0 0 0 ${rd(L[0])} ${rd(L[1])}Z`);
-    return d.join('');
+    const re = r1(rs[n - 1]), r0 = r1(rs[0]);
+    return 'M' + r1(E[0]) + ' ' + r1(E[1]) + smoothSide(E, n, 0, 1) +
+      'A' + re + ' ' + re + ' 0 0 0 ' + r1(E[2 * (2 * n - 1)]) + ' ' + r1(E[2 * (2 * n - 1) + 1]) +
+      smoothSide(E, n, 2 * n - 1, -1) +
+      'A' + r0 + ' ' + r0 + ' 0 0 0 ' + r1(E[0]) + ' ' + r1(E[1]) + 'Z';
   }
 
   function bounds(s) {
@@ -180,8 +188,16 @@
   /** Kement: noktalarının en az yarısı çokgen içinde kalan çizgiler. */
   function lassoSelect(strokes, poly) {
     if (poly.length < 6) return [];
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < poly.length; i += 2) {
+      if (poly[i] < x0) x0 = poly[i]; if (poly[i] > x1) x1 = poly[i];
+      if (poly[i + 1] < y0) y0 = poly[i + 1]; if (poly[i + 1] > y1) y1 = poly[i + 1];
+    }
     const ids = [];
     for (const s of strokes) {
+      // Kementin dış kutusuna değmeyen çizgilerin noktaları hiç sınanmaz.
+      const b = s.b || (s.b = bounds(s));
+      if (b[2] < x0 || b[0] > x1 || b[3] < y0 || b[1] > y1) continue;
       const p = s.p;
       let inside = 0;
       const total = p.length / 3;
@@ -241,9 +257,10 @@
       if (!s || (s.t !== 'pen' && s.t !== 'hl')) continue;
       if (typeof s.c !== 'string' || !/^#[0-9a-fA-F]{6}$/.test(s.c)) continue;
       const w = Number(s.w);
-      if (!(w > 0 && w < 80) || !Array.isArray(s.p) || !s.p.length || s.p.length % 3) continue;
-      if (!s.p.every(Number.isFinite)) continue;
-      doc.strokes.push({ id: String(s.id || ''), t: s.t, c: s.c, w, p: s.p.map(rd) });
+      const pts = ArrayBuffer.isView(s.p) ? Array.from(s.p) : s.p;
+      if (!(w > 0 && w < 80) || !Array.isArray(pts) || !pts.length || pts.length % 3) continue;
+      if (!pts.every(Number.isFinite)) continue;
+      doc.strokes.push({ id: String(s.id || ''), t: s.t, c: s.c, w, p: pts.map(rd) });
     }
     let n = 0;
     const seen = new Set();
@@ -252,7 +269,7 @@
   }
 
   const G = {
-    PAGE_W, MARGIN, radius, builder, outline, bounds, hits, eraseSplit, pointInPoly,
+    PAGE_W, MARGIN, PATH_SCALE, radius, builder, outline, bounds, hits, eraseSplit, pointInPoly,
     lassoSelect, translated, lineBetween, nearlyStraight, applyOp, sanitizeDoc,
   };
   window.hukukInkGeom = G;
@@ -316,7 +333,7 @@
           tx.onabort = () => reject(tx.error);
         });
       } catch (_) {
-        localStorage.setItem('hukuk-notes:' + id, JSON.stringify(doc));
+        localStorage.setItem('hukuk-notes:' + id, JSON.stringify(doc, (k, v) => (ArrayBuffer.isView(v) ? Array.from(v) : v)));
       }
     }
     return { get, put };
@@ -397,6 +414,11 @@
         <button class="hn-btn" data-a="seldel">Sil</button>
         <button class="hn-btn" data-a="seloff">Bitti</button>
       </div>
+      <div class="hn-notice" role="status">
+        <span></span>
+        <button class="hn-btn" data-n="backup">Yedekle</button>
+        <button class="hn-btn" data-n="later">Sonra</button>
+      </div>
       <div class="hn-pop hn-toc"></div>
       <div class="hn-pop hn-menu" style="right:10px"></div>
       <div class="hn-pop hn-eopts" style="right:150px"></div>
@@ -419,6 +441,8 @@
       toc: qs(root, '.hn-toc'),
       menu: qs(root, '.hn-menu'),
       eopts: qs(root, '.hn-eopts'),
+      notice: qs(root, '.hn-notice'),
+      noticeText: qs(root, '.hn-notice span'),
       undo: qs(root, '[data-a="undo"]'),
       redo: qs(root, '[data-a="redo"]'),
     };
@@ -437,11 +461,19 @@
     u.menu.addEventListener('click', onMenuClick);
     u.eopts.addEventListener('click', onMenuClick);
     u.toc.addEventListener('click', onTocClick);
+    u.notice.addEventListener('click', e => {
+      const b = e.target.closest('button[data-n]');
+      if (!b || !S) return;
+      if (b.dataset.n === 'backup') exportNotes();
+      else { prefs.set('notice.snooze', Date.now()); u.notice.classList.remove('hn-show'); }
+    });
     attachInput(u);
     window.addEventListener('resize', () => { if (S) layout(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden && S) flushSave(); });
     window.addEventListener('pagehide', () => { if (S) flushSave(); });
     document.addEventListener('keydown', onKey, true);
+    window.addEventListener('beforeprint', preparePrint);
+    window.addEventListener('afterprint', () => { if (S) { S.printing = false; requestCull(); } });
     return u;
   }
 
@@ -498,6 +530,8 @@
       ui.scroller.scrollTop = view.y * S.z;
     } else fitWidth(false);
     refreshToolbar();
+    ui.notice.classList.remove('hn-show');
+    maybeBackupNotice();
     if (!prefs.get('hinted', false)) {
       toast('Apple Pencil ile yaz · parmakla kaydır · iki parmakla dokun: geri al', 4200);
       prefs.set('hinted', true);
@@ -513,8 +547,9 @@
     const add = old.strokes.filter(s => !have.has(s.id));
     st.doc.strokes = add.concat(st.doc.strokes);
     st.doc.extra = Math.max(st.doc.extra, old.extra);
-    for (const s of add) addEl(s);
+    for (const s of add) addEl(s, false);
     st.loadPending = false;
+    requestCull();
     updatePageHeight();
     if (st.dirty) flushSave();
   }
@@ -552,17 +587,16 @@
     content.innerHTML = S.summary.html;
     const extra = document.createElement('div'); extra.className = 'hn-extra';
     page.append(ml, mr, content, extra);
-    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.setAttribute('class', 'hn-ink');
-    const ghl = document.createElementNS(svg.namespaceURI, 'g'); ghl.setAttribute('class', 'hn-hl');
-    const gpen = document.createElementNS(svg.namespaceURI, 'g'); gpen.setAttribute('class', 'hn-pen');
-    svg.append(ghl, gpen);
-    page.appendChild(svg);
+    const ink = document.createElement('div');
+    ink.className = 'hn-inkwrap';
+    page.appendChild(ink);
     const sel = document.createElement('div'); sel.className = 'hn-sel'; sel.style.display = 'none';
     page.appendChild(sel);
-    S.content = content; S.extraEl = extra; S.svg = svg; S.ghl = ghl; S.gpen = gpen; S.selEl = sel;
+    S.content = content; S.extraEl = extra; S.ink = ink; S.selEl = sel;
+    S.tiles = []; S.tileOf = new Map();
     S.contentH = Math.ceil(content.offsetHeight);
-    for (const s of S.doc.strokes) addEl(s);
+    // Yol üretimi ve DOM, karo ekrana yaklaşınca yapılır (bkz. cull).
+    for (const s of S.doc.strokes) addEl(s, false);
     S.sections = [...content.querySelectorAll('h2.sec, .part')].map(h => ({
       part: h.classList.contains('part'),
       no: h.querySelector('.no') ? h.querySelector('.no').textContent : '',
@@ -582,9 +616,6 @@
     const h = pageHeight();
     S.pageH = h;
     ui.page.style.height = h + 'px';
-    S.svg.setAttribute('width', PAGE_W);
-    S.svg.setAttribute('height', h);
-    S.svg.setAttribute('viewBox', `0 0 ${PAGE_W} ${h}`);
     S.extraEl.style.top = S.contentH + 'px';
     S.extraEl.style.height = (h - S.contentH) + 'px';
     layout();
@@ -603,6 +634,7 @@
     ui.sizer.style.width = Math.max(viewSize().w, PAGE_W * z + ox * 2) + 'px';
     ui.sizer.style.height = (S.pageH * z + OFF_Y * 2 + 40) + 'px';
     ui.zoom.textContent = Math.round(z / fitZoom() * 100) + '%';
+    requestCull();
   }
 
   /** fx/fy: kaydırma alanına göre odak noktası; o noktadaki sayfa yeri sabit kalır. */
@@ -634,19 +666,96 @@
   function scheduleViewSave() { clearTimeout(viewTimer); viewTimer = setTimeout(rememberView, 600); }
 
 
-  // ───────── Çizim öğeleri ─────────
-  function addEl(s) {
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  // ───────── Çizim öğeleri (karolar) ─────────
+  // Notlar sayfa boyunca 1200 birimlik yatay karolara bölünür; her karo ayrı
+  // bir SVG'dir. Ekrandan uzak karolar gizlenir (çizilmez, yakınlaştırmada
+  // yeniden işlenmez) ve yolları ancak ekrana yaklaşınca üretilir. Binlerce
+  // çizgide açılış, kaydırma ve yakınlaştırma böylece hafif kalır.
+  const TILE = 1200;
+  const SVGNS = 'http://www.w3.org/2000/svg';
+  function tile(k) {
+    let t = S.tiles[k];
+    if (t) return t;
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('class', 'hn-ink');
+    svg.setAttribute('width', PAGE_W);
+    svg.setAttribute('height', TILE);
+    svg.setAttribute('viewBox', `0 ${k * TILE} ${PAGE_W} ${TILE}`);
+    svg.style.top = k * TILE + 'px';
+    svg.style.display = 'none';
+    const sc = `scale(${PATH_SCALE})`;
+    const ghl = document.createElementNS(SVGNS, 'g'); ghl.setAttribute('class', 'hn-hl'); ghl.setAttribute('transform', sc);
+    const gpen = document.createElementNS(SVGNS, 'g'); gpen.setAttribute('class', 'hn-pen'); gpen.setAttribute('transform', sc);
+    svg.append(ghl, gpen);
+    S.ink.appendChild(svg);
+    t = S.tiles[k] = { k, svg, ghl, gpen, items: new Map(), min: Infinity, max: -Infinity, shown: false, pending: 0 };
+    return t;
+  }
+  function makePath(s, t) {
+    const path = document.createElementNS(SVGNS, 'path');
     path.setAttribute('d', G.outline(s.t, s.w, s.p));
     path.setAttribute('fill', s.c);
     if (s.t === 'hl') path.setAttribute('fill-opacity', '0.42');
-    (s.t === 'hl' ? S.ghl : S.gpen).appendChild(path);
+    (s.t === 'hl' ? t.ghl : t.gpen).appendChild(path);
     S.els.set(s.id, path);
-    s.b = G.bounds(s);
+  }
+  /** now: kullanıcı işlemi; yol hemen çizilir. false: karo görünür olunca. */
+  function addEl(s, now = true) {
+    s.b = s.b || G.bounds(s);
+    const k = Math.max(0, Math.floor((s.b[1] + s.b[3]) / 2 / TILE));
+    const t = tile(k);
+    t.items.set(s.id, s);
+    S.tileOf.set(s.id, k);
+    if (s.b[1] < t.min) t.min = s.b[1];
+    if (s.b[3] > t.max) t.max = s.b[3];
+    if (now) {
+      makePath(s, t);
+      if (!t.shown) requestCull();
+    } else {
+      t.pending++;
+    }
   }
   function removeEl(id) {
+    const k = S.tileOf.get(id);
+    if (k === undefined) return;
+    const t = S.tiles[k];
+    t.items.delete(id);
+    S.tileOf.delete(id);
     const el = S.els.get(id);
-    if (el) { el.remove(); S.els.delete(id); }
+    if (el) { el.remove(); S.els.delete(id); } else if (t.pending) t.pending--;
+  }
+  function buildTile(t) {
+    if (!t.pending) return;
+    for (const s of t.items.values()) if (!S.els.has(s.id)) makePath(s, t);
+    t.pending = 0;
+  }
+  let cullQueued = false;
+  function requestCull() {
+    if (cullQueued || !S) return;
+    cullQueued = true;
+    requestAnimationFrame(cull);
+  }
+  function cull() {
+    cullQueued = false;
+    if (!S || !S.tiles) return;
+    const sc = ui.scroller, z = S.z;
+    const top = (sc.scrollTop - OFF_Y) / z, h = sc.clientHeight / z;
+    // Görünen alanın bir ekran üstü ve altı da hazır tutulur (kaydırırken boşluk görünmesin).
+    const lo = top - h, hi = top + 2 * h;
+    let built = 0;
+    const t0 = performance.now();
+    for (const t of S.tiles) {
+      if (!t) continue;
+      const want = S.printing || (t.items.size > 0 && t.max >= lo && t.min <= hi);
+      if (want && t.pending) {
+        // Bir karede çok iş yapma: ekranda olan karo hemen, kenardakiler sonraki karelerde.
+        const onScreen = t.max >= top && t.min <= top + h;
+        if (!onScreen && !S.printing && performance.now() - t0 > 8) { built++; continue; }
+        buildTile(t);
+      }
+      if (want !== t.shown) { t.svg.style.display = want ? '' : 'none'; t.shown = want; }
+    }
+    if (built) requestCull();
   }
   function commitOp(op) {
     if (!op.before.length && !op.after.length) return;
@@ -696,7 +805,9 @@
     S.dirty = false;
     const id = S.id;
     const doc = { v: 1, extra: S.doc.extra, updated: Date.now(),
-      strokes: S.doc.strokes.map(s => ({ id: s.id, t: s.t, c: s.c, w: s.w, p: s.p })) };
+      // Noktalar Float32Array olarak yazılır: düz diziye göre yarı boyut ve hızlı kopya.
+      // Çizgiler değişmez nesnelerdir (her işlem yenisini üretir); dizi bir kez oluşturulur.
+      strokes: S.doc.strokes.map(s => ({ id: s.id, t: s.t, c: s.c, w: s.w, p: s.f || (s.f = new Float32Array(s.p)) })) };
     try {
       await store.put(id, doc);
       if (S && S.id === id) flash(ui.save, 'Kaydedildi');
@@ -734,6 +845,7 @@
     if (st && st.b.pts.length) {
       const pts = st.snapped ? st.snapPts : st.b.pts;
       ui.lStroke.setAttribute('d', G.outline(st.t, st.w, pts, st.snapped ? null : st.predicted));
+      ui.lStroke.setAttribute('transform', `scale(${PATH_SCALE})`);
       ui.lStroke.setAttribute('fill', st.c);
       ui.lStroke.setAttribute('fill-opacity', st.t === 'hl' ? '0.42' : '1');
       ui.lStroke.style.mixBlendMode = st.t === 'hl' ? 'multiply' : '';
@@ -780,7 +892,7 @@
     sc.addEventListener('touchend', onTouchEnd, { passive: false });
     sc.addEventListener('touchcancel', onTouchEnd, { passive: false });
     sc.addEventListener('wheel', onWheel, { passive: false });
-    sc.addEventListener('scroll', () => { if (S) { requestLive(); scheduleViewSave(); } }, { passive: true });
+    sc.addEventListener('scroll', () => { if (S) { requestLive(); requestCull(); scheduleViewSave(); } }, { passive: true });
   }
 
   function onPointerDown(e) {
@@ -891,7 +1003,8 @@
       const [x, y] = toPage(e, pr);
       input.move.dx = x - input.move.x0;
       input.move.dy = y - input.move.y0;
-      const tr = `translate(${rd(input.move.dx)} ${rd(input.move.dy)})`;
+      // Yollar 10x ölçekli grupta; taşıma da o ölçekte.
+      const tr = `translate(${rd(input.move.dx / PATH_SCALE)} ${rd(input.move.dy / PATH_SCALE)})`;
       for (const id of S.sel.ids) { const el = S.els.get(id); if (el) el.setAttribute('transform', tr); }
       placeSelBox(input.move.dx, input.move.dy);
     }
@@ -1287,9 +1400,9 @@
     const m = b.dataset.m;
     hidePops();
     if (m === 'fit') fitWidth(true);
-    else if (m === 'hide') { S.hidden = !S.hidden; S.svg.classList.toggle('hn-hidden', S.hidden); endSelection(); toast(S.hidden ? 'Notlar gizlendi' : 'Notlar gösteriliyor'); }
+    else if (m === 'hide') { S.hidden = !S.hidden; S.ink.classList.toggle('hn-hidden', S.hidden); endSelection(); toast(S.hidden ? 'Notlar gizlendi' : 'Notlar gösteriliyor'); }
     else if (m === 'extend') { S.doc.extra += 900; changed(); updatePageHeight(); toast('Sayfa sonuna boş alan eklendi'); }
-    else if (m === 'print') { flushSave(); setTimeout(() => window.print(), 50); }
+    else if (m === 'print') { flushSave(); preparePrint(); setTimeout(() => window.print(), 50); }
     else if (m === 'export') exportNotes();
     else if (m === 'import') importNotes();
     else if (m === 'clear') {
@@ -1305,6 +1418,12 @@
     }
   }
 
+  function preparePrint() {
+    if (!S) return;
+    S.printing = true;
+    cull();
+  }
+
   async function exportNotes() {
     await flushSave();
     const data = JSON.stringify({ app: 'hukuk-notes', v: 1, summary: S.id, version: S.summary.version,
@@ -1312,13 +1431,34 @@
     const name = `notlar-${S.id}-${new Date().toISOString().slice(0, 10)}.json`;
     const file = new File([data], name, { type: 'application/json' });
     try {
-      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Özet notları' }); return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Özet notları' }); backedUp(); return; }
     } catch (err) { if (err && err.name === 'AbortError') return; }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(file);
     a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    backedUp();
+  }
+  function backedUp() {
+    prefs.set('backup.' + S.id, Date.now());
+    ui.notice.classList.remove('hn-show');
+  }
+
+  // Safari, ana ekrana eklenmemiş sitelerin verisini bir süre ziyaret
+  // edilmezse silebilir. Not birikince yedek ya da ana ekran hatırlatılır.
+  function maybeBackupNotice() {
+    const n = S.doc.strokes.length, now = Date.now();
+    if (n < 40 || now - prefs.get('notice.snooze', 0) < 3 * 864e5) return;
+    let standalone = false;
+    try { standalone = navigator.standalone === true || matchMedia('(display-mode: standalone)').matches; } catch (_) {}
+    const last = prefs.get('backup.' + S.id, 0), days = Math.floor((now - last) / 864e5);
+    let msg = '';
+    if (!standalone && days >= 7) msg = 'Safari, ana ekrana eklenmemiş sitelerin verisini silebilir. Notlarını korumak için uygulamayı ana ekrana ekle ya da yedek al.';
+    else if (days >= 21) msg = last ? `Son yedekten bu yana ${days} gün geçti.` : 'Notlarının henüz yedeği yok.';
+    if (!msg) return;
+    ui.noticeText.textContent = msg;
+    ui.notice.classList.add('hn-show');
   }
   function importNotes() {
     const inp = document.createElement('input');

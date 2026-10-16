@@ -88,6 +88,27 @@ assert.notEqual(doc.strokes[0].id, doc.strokes[1].id);
 assert.equal(doc.extra, 20000);
 assert.deepEqual(plain(G.sanitizeDoc('bozuk').strokes), []);
 
+// Yollar 10x ölçekte tam sayılarla üretilir (SVG'de scale(0.1)).
+assert.equal(G.PATH_SCALE, 0.1);
+const dl = G.outline('pen', 2.4, line.p);
+assert.ok(!/\d\.\d/.test(dl), 'yol koordinatları tam sayı');
+assert.match(dl, /^M-?\d+ -?\d+/);
+
+// Kayıt Float32Array kullanır; geri yüklerken düz diziye döner.
+const f32 = G.sanitizeDoc({ strokes: [{ id: 'f', t: 'pen', c: '#000000', w: 2, p: new Float32Array([1.25, 2.5, 0.5, 9.75, 3, 0.75]) }] });
+assert.equal(f32.strokes.length, 1);
+assert.ok(Array.isArray(f32.strokes[0].p));
+assert.deepEqual(plain(f32.strokes[0].p), [1.25, 2.5, 0.5, 9.75, 3, 0.75]);
+
+// Kement ön eleme: kutu dışındaki çizgiye hiç bakılmaz, sonuç değişmez.
+const far = { id: 'far', t: 'pen', c: '#000000', w: 2, p: G.lineBetween(0, 5000, 100, 5000, 0.5) };
+assert.deepEqual(plain(G.lassoSelect([line, other, far], box)), ['a']);
+const many = [];
+for (let i = 0; i < 3000; i++) many.push({ id: 'm' + i, t: 'pen', c: '#000000', w: 2, p: G.lineBetween(0, i * 20 + 100, 80, i * 20 + 100, 0.5) });
+const t0 = process.hrtime.bigint();
+assert.deepEqual(plain(G.lassoSelect(many.concat([line]), box)), ['a']);
+assert.ok(Number(process.hrtime.bigint() - t0) / 1e6 < 200, 'kement binlerce çizgide hızlı');
+
 // Özet içeriği: kayıt, bölüm sayısı, numaralar ve şablon kalıntısı.
 let summary = null;
 const sctx = { window: { hukukNotesRegister: s => { summary = s; } } };
