@@ -123,10 +123,11 @@
 .hn-ink .hn-hl { mix-blend-mode: multiply; }
 .hn-ink.hn-hidden { display: none; }
 .hn-live {
-  position: absolute; left: 0; right: 0; bottom: 0;
+  position: absolute; left: 0;
   top: calc(var(--hn-bar) + env(safe-area-inset-top));
+  width: 100%; height: calc(100% - var(--hn-bar) - env(safe-area-inset-top));
+  overflow: hidden;
   pointer-events: none;
-  mix-blend-mode: multiply;
   z-index: 3;
 }
 .hn-sel {
