@@ -14,6 +14,7 @@ import '../reels/widgets/music_button.dart';
 import 'arcade/arcade_kit.dart';
 import 'game_pause_overlay.dart';
 import 'revive_overlay.dart';
+import '../../core/widgets/pressable.dart';
 
 /// Subway Surfers tarzı 3 şeritli sonsuz koşu: "Subway Silly".
 ///
@@ -1032,7 +1033,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
         child: child,
       );
 
-  Widget _circleBtn(IconData icon, VoidCallback onTap) => GestureDetector(
+  Widget _circleBtn(IconData icon, VoidCallback onTap) => Pressable(
         onTap: onTap,
         child: Container(
           width: 36,
@@ -1263,7 +1264,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 
   Widget _bigBtn(String label,
       {required bool primary, required VoidCallback onTap}) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,
@@ -1621,16 +1622,89 @@ class _RunnerPainter extends CustomPainter {
         ];
         final base = palette[hash % 4];
         final cz = (za + zb) / 2;
+        // Bina dolu bir blok: derinlik [depth] kadar dışarı uzanır.
+        const depth = 2.6;
+        final xo = xw + side * depth;
+        // Kameraya bakan uç yüz (kısa komşunun üstünden / ara sokaktan
+        // görünür). Yakın düzlemin arkasındaysa çizilmez.
+        if (z0 > nearZ + 0.2) {
+          final capC = lerpColor(base, const Color(0xFF1A0A14), 0.32);
+          _batch.quad(_pt(xw, 0, z0), _pt(xo, 0, z0), _pt(xo, h, z0),
+              _pt(xw, h, z0), _fogged(capC, z0));
+          // uç yüzün pencereleri (iki sütun)
+          final lit = (hash >> 11) & 0xFF;
+          for (var r = 0; r < (h / 0.55).floor() - 1; r++) {
+            for (var k = 0; k < 2; k++) {
+              final wx0 = xw + side * (0.55 + k * 1.0);
+              final wx1 = wx0 + side * 0.5;
+              final wy0 = 0.45 + r * 0.55, wy1 = wy0 + 0.32;
+              final on = ((lit >> ((r * 2 + k) % 8)) & 1) == 1;
+              final wc = on ? const Color(0xFFE8BE78) : const Color(0xFF22142A);
+              _batch.quad(_pt(wx0, wy0, z0), _pt(wx1, wy0, z0),
+                  _pt(wx1, wy1, z0), _pt(wx0, wy1, z0), _fogged(wc, z0));
+            }
+          }
+          // uç yüzün parapet çizgisi
+          _batch.quad(
+              _pt(xw, h - 0.1, z0),
+              _pt(xo, h - 0.1, z0),
+              _pt(xo, h, z0),
+              _pt(xw, h, z0),
+              _fogged(lerpColor(base, Colors.white, 0.18), z0));
+        }
+        // Çatı (yalnız kameradan alçaksa üstten görünür)
+        if (h < camY - 0.05) {
+          _batch.quad(
+              _pt(xw, h, za),
+              _pt(xw, h, zb),
+              _pt(xo, h, zb),
+              _pt(xo, h, za),
+              _fogged(lerpColor(base, const Color(0xFF2B1220), 0.15), cz));
+          // çatı kenarı (raya bakan parapet üstü)
+          _batch.quad(
+              _pt(xw, h, za),
+              _pt(xw, h, zb),
+              _pt(xw + side * 0.18, h, zb),
+              _pt(xw + side * 0.18, h, za),
+              _fogged(lerpColor(base, Colors.white, 0.3), cz));
+          // çatı üstü kutu (su deposu / klima) bazı binalarda
+          if (hash % 3 == 0) {
+            final bz0 = math.max(z0 + 1.6, nearZ + 0.2), bz1 = z0 + 3.2;
+            if (bz1 > bz0) {
+              final bx0 = xw + side * 0.9, bx1 = xw + side * 1.6;
+              const bh = 0.45;
+              final bc = lerpColor(base, const Color(0xFF1A0A14), 0.2);
+              _batch.quad(
+                  _pt(bx0, h, bz0),
+                  _pt(bx1, h, bz0),
+                  _pt(bx1, h + bh, bz0),
+                  _pt(bx0, h + bh, bz0),
+                  _fogged(bc, bz0));
+              _batch.quad(
+                  _pt(bx0, h, bz0),
+                  _pt(bx0, h, bz1),
+                  _pt(bx0, h + bh, bz1),
+                  _pt(bx0, h + bh, bz0),
+                  _fogged(lerpColor(base, Colors.white, 0.1), bz0));
+              _batch.quad(
+                  _pt(bx0, h + bh, bz0),
+                  _pt(bx1, h + bh, bz0),
+                  _pt(bx1, h + bh, bz1),
+                  _pt(bx0, h + bh, bz1),
+                  _fogged(lerpColor(base, Colors.white, 0.22), bz0));
+            }
+          }
+        }
         // Duvar yüzü (raya bakan)
         _batch.quad(_pt(xw, 0, za), _pt(xw, 0, zb), _pt(xw, h, zb),
             _pt(xw, h, za), _fogged(base, cz));
-        // Çatı saçağı
+        // duvarın üst parapet bandı
         _batch.quad(
-            _pt(xw, h, za),
+            _pt(xw, h - 0.12, za),
+            _pt(xw, h - 0.12, zb),
             _pt(xw, h, zb),
-            _pt(xw + side * 0.6, h, zb),
-            _pt(xw + side * 0.6, h, za),
-            _fogged(lerpColor(base, Colors.white, 0.25), cz));
+            _pt(xw, h, za),
+            _fogged(lerpColor(base, Colors.white, 0.22), cz));
         // Pencereler
         final lit = (hash >> 3) & 0xFF;
         for (var r = 0; r < (h / 0.55).floor() - 1; r++) {

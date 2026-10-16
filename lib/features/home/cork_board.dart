@@ -6,6 +6,7 @@ import '../../core/widgets/fit_text.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../countdown/countdown_text.dart';
 import 'home_store.dart';
+import '../../core/widgets/pressable.dart';
 
 const _pixelFont = 'PixelifySans';
 
@@ -269,7 +270,7 @@ class NotePaper extends StatelessWidget {
               child: Semantics(
                 button: true,
                 label: 'Notu kaldır',
-                child: GestureDetector(
+                child: Pressable(
                   onTap: onDelete,
                   child: Container(
                     width: 24,

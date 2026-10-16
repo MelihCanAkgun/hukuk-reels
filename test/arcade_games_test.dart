@@ -95,6 +95,8 @@ void main() {
     // 40 kat → 5 dönem geçildi; mükemmel seriler katı tam genişlikte tutar.
     expect(state.perfects as int, greaterThan(20));
     expect((state.top.w as double), greaterThan(80));
+    // Sıradaki kayan kat en üstteki katla aynı genişlikte olmalı.
+    expect(state.mw as double, closeTo(state.top.w as double, 0.01));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -114,6 +116,20 @@ void main() {
     }
     final narrow = state.top.w as double;
     expect(narrow, lessThan(80));
+    // Daralmış kattan sonra 5 mükemmel: kat genişler, sıradaki kat da.
+    var perfect = 0;
+    frames = 0;
+    while (perfect < 5 && frames < 6000) {
+      final before = state.perfects as int;
+      state.autopilot();
+      await tester.pump(const Duration(microseconds: 16667));
+      if ((state.perfects as int) > before) perfect++;
+      frames++;
+    }
+    await _run(tester, const Duration(milliseconds: 500));
+    expect(state.top.w as double, closeTo(narrow + 12, 0.01));
+    expect(state.mw as double, closeTo(narrow + 12, 0.01));
+    final grown = state.top.w as double;
     frames = 0;
     while (find.text('Bir şansın daha!').evaluate().isEmpty && frames < 3000) {
       state.autopilot(miss: true);
@@ -122,7 +138,7 @@ void main() {
     }
     state.debugRevive();
     await _run(tester, const Duration(milliseconds: 600));
-    expect(state.top.w as double, greaterThanOrEqualTo(narrow + 24 - 0.01));
+    expect(state.top.w as double, greaterThanOrEqualTo(grown + 24 - 0.01));
     expect(state.mw as double, closeTo(state.top.w as double, 0.01));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());

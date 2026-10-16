@@ -21,6 +21,7 @@ import '../../core/models/quiz_question.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
 import '../reels/widgets/music_button.dart';
+import '../../core/widgets/pressable.dart';
 
 /// Block Blast benzeri bulmaca: 8×8 ızgaraya 3 parçayı sürükleyip yerleştir;
 /// dolan satır/sütunlar patlar. Hiçbir parça sığmazsa oyun biter.
@@ -1009,7 +1010,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector(
+      child: Pressable(
         behavior: HitTestBehavior.opaque,
         onTap: sel == null ? () => _answerRevive(i) : null,
         child: Container(
@@ -1311,7 +1312,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   Widget _bigBtn(String label,
       {required bool primary, required VoidCallback onTap}) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,

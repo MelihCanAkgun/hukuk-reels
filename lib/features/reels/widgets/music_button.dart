@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/theme.dart';
 import '../../../core/services/audio_service.dart';
 import 'music_control_panel.dart';
+import '../../../core/widgets/pressable.dart';
 
 /// Herhangi bir ekranın üst barına konulabilen müzik düğmesi. Dokununca
 /// müzik denetim masasını üstte (Overlay) açar; böylece oyun oynarken de
@@ -65,7 +66,7 @@ class _MusicButtonState extends State<MusicButton> {
   @override
   Widget build(BuildContext context) {
     if (!AudioService.instance.hasTracks) return const SizedBox.shrink();
-    return GestureDetector(
+    return Pressable(
       onTap: _toggle,
       child: Container(
         width: 44,

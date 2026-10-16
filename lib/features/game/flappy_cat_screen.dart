@@ -13,6 +13,7 @@ import '../reels/widgets/music_button.dart';
 import 'arcade/arcade_kit.dart';
 import 'game_pause_overlay.dart';
 import 'revive_overlay.dart';
+import '../../core/widgets/pressable.dart';
 
 /// Profilden açılan mini oyun: "Flappy Silly Cat".
 ///
@@ -657,7 +658,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   }
 
   Widget _circleBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: 36,
@@ -853,7 +854,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
 
   Widget _btn(String label,
       {required bool primary, required VoidCallback onTap}) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,

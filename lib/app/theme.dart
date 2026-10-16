@@ -29,6 +29,19 @@ class AppTheme {
     colors: [Color(0xFFFF8FB6), Color(0xFFFF5C95)],
   );
 
+  /// Basılıyken belirgin, üzerine gelince hafif katman rengi.
+  static WidgetStateProperty<Color?> _pressOverlay(Color c) =>
+      WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.pressed)) {
+          return c.withValues(alpha: 0.26);
+        }
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return c.withValues(alpha: 0.10);
+        }
+        return null;
+      });
+
   static ThemeData get dark => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
@@ -42,8 +55,34 @@ class AppTheme {
           onPrimary: Colors.white,
           onSurface: textPrimary,
         ),
-        splashColor: accent.withValues(alpha: 0.08),
-        highlightColor: accent.withValues(alpha: 0.04),
+        // Dokunuş geri bildirimi belirgin olsun: görünür dalga + basılı ton.
+        splashFactory: InkRipple.splashFactory,
+        splashColor: accent.withValues(alpha: 0.22),
+        highlightColor: accent.withValues(alpha: 0.12),
+        filledButtonTheme: FilledButtonThemeData(
+          style: ButtonStyle(
+            enableFeedback: true,
+            overlayColor: _pressOverlay(Colors.white),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: ButtonStyle(
+            enableFeedback: true,
+            overlayColor: _pressOverlay(accent),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: ButtonStyle(
+            enableFeedback: true,
+            overlayColor: _pressOverlay(accent),
+          ),
+        ),
+        iconButtonTheme: IconButtonThemeData(
+          style: ButtonStyle(
+            enableFeedback: true,
+            overlayColor: _pressOverlay(Colors.white),
+          ),
+        ),
         textTheme: const TextTheme(
           headlineMedium: TextStyle(
             fontSize: 26,

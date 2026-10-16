@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../app/theme.dart';
 import '../../../core/services/audio_service.dart';
 import '../../../core/services/sfx_service.dart';
+import '../../../core/widgets/pressable.dart';
 
 /// Küçük müzik denetim masası: çal/durdur, sonraki/önceki parça ve ses
 /// seviyesi. Müzik soru değiştikçe değişmez; sadece buradan yönetilir.
@@ -46,7 +47,7 @@ class MusicControlPanel extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              GestureDetector(
+              Pressable(
                 onTap: onClose,
                 child: const Icon(Icons.close_rounded,
                     color: AppTheme.textMuted, size: 18),
@@ -181,7 +182,7 @@ class MusicControlPanel extends StatelessWidget {
             builder: (context, sfxVol, _) {
               return Row(
                 children: [
-                  GestureDetector(
+                  Pressable(
                     // Hoparlöre dokun: kapat / eski seviyeye dön
                     onTap: () => SfxService.instance
                         .setVolume(sfxVol > 0.005 ? 0.0 : 0.9),
@@ -227,7 +228,7 @@ class MusicControlPanel extends StatelessWidget {
     required VoidCallback onTap,
     bool primary = false,
   }) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: primary ? 50 : 42,
