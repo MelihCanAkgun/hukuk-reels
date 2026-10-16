@@ -1,13 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hukuk_reels/features/countdown/trips_store.dart';
+import 'package:hukuk_reels/features/home/home_store.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('refreshes are throttled, single-flight and writes update the list',
       () async {
-    final store = TripsStore.instance;
+    final store = HomeStore.instance;
     final calls = <String>[];
     var now = DateTime(2026, 10, 16, 12);
     final arrival = DateTime(2026, 10, 28).millisecondsSinceEpoch ~/ 1000;
@@ -36,23 +36,23 @@ void main() {
 
     // Two refreshes at once → one request.
     await Future.wait([store.refresh(force: true), store.refresh(force: true)]);
-    expect(calls, ['trips']);
+    expect(calls, ['home']);
     expect(store.connected, isTrue);
     expect(store.trips.single.sentence, "ari'nin İstanbul'a gelmesine");
 
     // App resumes within a minute → no request; after a minute → one.
     store.didChangeAppLifecycleState(AppLifecycleState.resumed);
     await Future<void>.delayed(Duration.zero);
-    expect(calls, ['trips']);
+    expect(calls, ['home']);
     now = now.add(const Duration(seconds: 61));
     store.didChangeAppLifecycleState(AppLifecycleState.resumed);
     await Future<void>.delayed(Duration.zero);
-    expect(calls, ['trips', 'trips']);
+    expect(calls, ['home', 'home']);
 
     // Adding uses the list the server returns (no extra fetch).
     final changes = store.changes.value;
     await store.add('Ankara', DateTime(2026, 11, 1));
-    expect(calls, ['trips', 'trips', 'tripAdd']);
+    expect(calls, ['home', 'home', 'tripAdd']);
     expect(store.trips.map((t) => t.destination), ['İstanbul', 'Ankara']);
     expect(store.changes.value, greaterThan(changes));
   });

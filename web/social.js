@@ -14,8 +14,9 @@
   let avatars = {};
   try { avatars = JSON.parse(localStorage.getItem(avatarKey) || '{}') || {}; } catch (_) { avatars = {}; }
   const persistAvatars = () => { try { localStorage.setItem(avatarKey, JSON.stringify(avatars)); } catch (_) {} };
-  // Flight countdowns: last list kept so the countdown also shows offline.
-  const tripsKey = 'hukuk_trips_v1';
+  // Home data (flights + cork-board notes): last copy kept for offline use.
+  const tripsKey = 'hukuk_home_v1';
+  try { localStorage.removeItem('hukuk_trips_v1'); } catch (_) {}
   const saveTrips = (r) => { try { localStorage.setItem(tripsKey, JSON.stringify(r)); } catch (_) {} return r; };
   async function api(path, data, token = config.token) {
     if (!config.url) throw new Error('İki kişilik servis henüz etkinleştirilmedi.');
@@ -200,9 +201,9 @@
       persistAvatars();
       return result;
     }
-    if (action === 'trips') {
-      if (!config.token) return {trips: [], connected: false};
-      try { return {...saveTrips(await api('/trips')), connected: true}; }
+    if (action === 'home' || action === 'trips') {
+      if (!config.token) return {trips: [], notes: [], connected: false};
+      try { return {...saveTrips(await api('/home')), connected: true}; }
       catch (e) {
         let cached = null;
         try { cached = JSON.parse(localStorage.getItem(tripsKey) || 'null'); } catch (_) {}
@@ -212,6 +213,8 @@
     }
     if (action === 'tripAdd') return {...saveTrips(await api('/trips', {destination: data.destination, arrival: data.arrival})), connected: true};
     if (action === 'tripDelete') return {...saveTrips(await api('/trips/delete', {id: data.id})), connected: true};
+    if (action === 'noteAdd') return {...saveTrips(await api('/notes', {text: data.text})), connected: true};
+    if (action === 'noteDelete') return {...saveTrips(await api('/notes/delete', {id: data.id})), connected: true};
     if (action === 'message') return api('/message', {message: data.message});
     throw new Error('İşlem bulunamadı.');
   }

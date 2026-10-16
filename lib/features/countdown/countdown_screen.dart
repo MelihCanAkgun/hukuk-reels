@@ -9,7 +9,7 @@ import '../../core/services/social_bridge.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../profile/profile_avatar.dart';
 import 'countdown_text.dart';
-import 'trips_store.dart';
+import '../home/home_store.dart';
 
 /// Sunucudaki bir uçuş (yalnız iki oyuncu görebilir).
 class Trip {
@@ -52,7 +52,7 @@ class CountdownScreen extends StatefulWidget {
 }
 
 class _CountdownScreenState extends State<CountdownScreen> {
-  final _store = TripsStore.instance;
+  final _store = HomeStore.instance;
   int? _me;
   bool _busy = false;
   DateTime _now = DateTime.now();
@@ -393,7 +393,8 @@ class _Hero extends StatelessWidget {
   }
 }
 
-/// Kesikli yol: uçak bilet eklendiği andan varışa kadar soldan sağa ilerler.
+/// Kesikli yol: uçak bilet eklendiği andan varışa kadar soldan sağa, sarılan
+/// çifte doğru ilerler (kalan süre azaldıkça yaklaşır).
 class _FlightPath extends StatelessWidget {
   const _FlightPath({required this.progress});
   final double progress;
@@ -401,24 +402,25 @@ class _FlightPath extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 34,
+      height: 56,
       child: LayoutBuilder(builder: (context, c) {
-        const plane = 34.0, heart = 22.0;
-        final track = c.maxWidth - plane - heart;
+        const plane = 34.0, couple = 54.0;
+        // Uçağın burnu varışta çiftin yanına değer.
+        final track = c.maxWidth - plane - couple + 4;
         return Stack(children: [
           Positioned(
             left: plane / 2,
-            right: heart / 2,
-            top: 16,
+            right: couple - 6,
+            top: 38,
             child: CustomPaint(
                 size: const Size(double.infinity, 2),
                 painter: _DashPainter(progress)),
           ),
           const Positioned(
-              right: 0, top: 6, child: PixelLogo(kLogoHeart, size: heart)),
+              right: 0, bottom: 0, child: PixelLogo(kLogoCouple, size: couple)),
           Positioned(
               left: track * progress,
-              top: 0,
+              top: 22,
               child: const PixelLogo(kLogoPlane, size: plane)),
         ]);
       }),

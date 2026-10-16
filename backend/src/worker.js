@@ -46,15 +46,22 @@ async function board(env, playerId) {
     otherRegisteredDevices: other.count, publicKey: env.VAPID_PUBLIC_KEY};
 }
 
-// A trip stays visible for a day after arrival ("vardı!"). Reads only filter
-// (one query per GET); old rows are deleted when a trip is added or removed.
-async function trips(env) {
+// Home screen data in one request: flights and cork-board notes.
+// A trip stays visible for a day after arrival ("vardı!"); a note for 24 h.
+// Reads only filter; old rows are deleted on writes.
+const NOTE_TTL = 86400;
+async function home(env, me) {
   const now = Math.floor(Date.now() / 1000);
-  const {results} = await env.DB.prepare(`SELECT t.id, t.player_id AS player, p.name, t.destination, t.arrival, t.created
+  const {results: trips} = await env.DB.prepare(`SELECT t.id, t.player_id AS player, p.name, t.destination, t.arrival, t.created
     FROM trips t JOIN players p ON p.id = t.player_id WHERE t.arrival >= ? ORDER BY t.arrival, t.id LIMIT 20`)
     .bind(now - 86400).all();
-  return {trips: results, now};
+  const {results: notes} = await env.DB.prepare(`SELECT n.id, n.player_id AS player, p.name, n.text, n.created,
+    n.created + ${NOTE_TTL} AS expires FROM notes n JOIN players p ON p.id = n.player_id
+    WHERE n.deleted = 0 AND n.created > ? ORDER BY n.player_id LIMIT 2`).bind(now - NOTE_TTL).all();
+  return {trips, notes, now, me};
 }
+const pruneNotes = env => env.DB.prepare('DELETE FROM notes WHERE created <= ?')
+  .bind(Math.floor(Date.now() / 1000) - NOTE_TTL).run();
 const pruneTrips = env => env.DB.prepare('DELETE FROM trips WHERE arrival < ?')
   .bind(Math.floor(Date.now() / 1000) - 86400).run();
 
@@ -93,10 +100,10 @@ export async function route(request, env, ctx) {
   const isTestPlayer = player.id === 0;
   if (path === '/message' && player.id !== 1) fail('Bildirim gönderme yetkisi yalnızca Oyuncu 1\u2019e aittir.', 403);
   if (path === '/board' && request.method === 'GET') return json(await board(env, player.id));
-  if (path === '/trips' || path === '/trips/delete') {
-    if (isTestPlayer) fail('Kavuşma sayacı yalnız kayıtlı oyunculara açıktır.', 403);
+  if (['/home', '/trips', '/trips/delete', '/notes', '/notes/delete'].includes(path)) {
+    if (isTestPlayer) fail('Bu bölüm yalnız kayıtlı oyunculara açıktır.', 403);
     if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
-    if (path === '/trips' && request.method === 'GET') return json(await trips(env));
+    if ((path === '/home' || path === '/trips') && request.method === 'GET') return json(await home(env, player.id));
   }
   if (isTestPlayer && ['/profile', '/score', '/subscribe', '/unsubscribe'].includes(path))
     return json({ok: true, players: [], me: 0});
@@ -141,14 +148,41 @@ export async function route(request, env, ctx) {
     await env.DB.prepare('INSERT INTO trips(player_id, destination, arrival, created) VALUES (?, ?, ?, ?)')
       .bind(player.id, destination, data.arrival, now).run();
     await pruneTrips(env);
-    return json(await trips(env));
+    return json(await home(env, player.id));
   }
   if (path === '/trips/delete') {
     // Everyone removes their own flights; Player 1 (admin) can remove any.
     if (!Number.isSafeInteger(data.id)) fail('Geçersiz uçuş.');
     await env.DB.prepare('DELETE FROM trips WHERE id = ? AND (player_id = ? OR ? = 1)').bind(data.id, player.id, player.id).run();
     await pruneTrips(env);
-    return json(await trips(env));
+    return json(await home(env, player.id));
+  }
+  if (path === '/notes') {
+    const text = typeof data.text === 'string' ? data.text.trim().replace(/\r\n?/g, '\n') : '';
+    if (text.length < 1 || text.length > 200 || text.split('\n').length > 8 ||
+        /[\x00-\x09\x0b-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/.test(text)) fail('1–200 karakterlik bir not yaz.');
+    const now = Math.floor(Date.now() / 1000);
+    const active = await env.DB.prepare('SELECT id FROM notes WHERE player_id = ? AND deleted = 0 AND created > ?')
+      .bind(player.id, now - NOTE_TTL).first();
+    if (active) fail('Panoda zaten bir notun var. Yeni not için önce onu sil.', 409);
+    // Notify at most once per 10 minutes per player (delete/re-post loops).
+    const recent = await env.DB.prepare('SELECT id FROM notes WHERE player_id = ? AND created > ?')
+      .bind(player.id, now - 600).first();
+    await env.DB.prepare('INSERT INTO notes(player_id, text, created) VALUES (?, ?, ?)').bind(player.id, text, now).run();
+    await pruneNotes(env);
+    const other = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
+    if (other && !recent) {
+      await env.DB.prepare('INSERT INTO notifications(player_id, title, body) VALUES (?, ?, ?)')
+        .bind(other.id, `${player.name} sana not bıraktı! 📌`, 'Kaybolmadan görüntüle: not 24 saat sonra silinecek.').run();
+      ctx.waitUntil(deliver(env));
+    }
+    return json(await home(env, player.id));
+  }
+  if (path === '/notes/delete') {
+    // Own note; Player 1 (admin) can remove any. Kept as deleted until expiry.
+    if (!Number.isSafeInteger(data.id)) fail('Geçersiz not.');
+    await env.DB.prepare('UPDATE notes SET deleted = 1 WHERE id = ? AND (player_id = ? OR ? = 1)').bind(data.id, player.id, player.id).run();
+    return json(await home(env, player.id));
   }
   if (path === '/score') {
     if (!Number.isSafeInteger(data.score) || data.score < 0 || data.score > 100000000) fail('Geçersiz skor.');

@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../countdown/countdown_screen.dart';
 import '../countdown/countdown_text.dart';
-import '../countdown/trips_store.dart';
+import '../home/cork_board.dart';
+import '../home/home_store.dart';
 import '../../core/services/battle_bridge.dart';
 import '../game/block_battle_lobby.dart';
 
@@ -32,7 +33,7 @@ class GamesScreen extends StatefulWidget {
 class _GamesScreenState extends State<GamesScreen> {
   final _progress = ProgressService.instance;
   // Kavuşma sayacı (yalnız oyuncu koduyla bağlıyken görünür).
-  final _tripsStore = TripsStore.instance;
+  final _tripsStore = HomeStore.instance;
   Timer? _tick;
 
   void _tripsChanged() {
@@ -57,7 +58,10 @@ class _GamesScreenState extends State<GamesScreen> {
       ..refresh(force: true);
     // Yalnız kart yazısı (gün/saat); sunucuya istek atmaz.
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted && _tripsStore.trips.isNotEmpty) setState(() {});
+      if (mounted &&
+          (_tripsStore.trips.isNotEmpty || _tripsStore.notes.isNotEmpty)) {
+        setState(() {});
+      }
     });
     // A refresh returns directly to the saved room, within its reconnect window.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -175,6 +179,11 @@ class _GamesScreenState extends State<GamesScreen> {
                         if (mounted) setState(() {});
                       },
                     ),
+                    // Mantar pano: yalnız oyuncu koduyla bağlıyken.
+                    if (_tripsStore.connected) ...[
+                      const SizedBox(height: 18),
+                      const CorkBoard(),
+                    ],
                   ],
                 ),
               ),
