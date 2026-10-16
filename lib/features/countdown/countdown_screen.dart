@@ -9,6 +9,7 @@ import '../../core/services/social_bridge.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../profile/profile_avatar.dart';
 import 'countdown_text.dart';
+import 'trips_store.dart';
 
 /// Sunucudaki bir uçuş (yalnız iki oyuncu görebilir).
 class Trip {
@@ -51,18 +52,20 @@ class CountdownScreen extends StatefulWidget {
 }
 
 class _CountdownScreenState extends State<CountdownScreen> {
-  List<Trip> _trips = [];
+  final _store = TripsStore.instance;
   int? _me;
-  bool _loading = true, _connected = false, _busy = false;
-  String? _error;
+  bool _busy = false;
   DateTime _now = DateTime.now();
   Timer? _tick;
+
+  List<Trip> get _trips => _store.trips;
 
   @override
   void initState() {
     super.initState();
+    _store.changes.addListener(_changed);
     _load();
-    // Saniye gösterilmiyor; yarım dakikada bir tazelemek yeterli.
+    // Yalnız ekran yazısı; sunucuya istek atmaz. Saniye gösterilmiyor.
     _tick = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) setState(() => _now = DateTime.now());
     });
@@ -71,35 +74,28 @@ class _CountdownScreenState extends State<CountdownScreen> {
   @override
   void dispose() {
     _tick?.cancel();
+    _store.changes.removeListener(_changed);
     super.dispose();
+  }
+
+  void _changed() {
+    if (mounted) setState(() => _now = DateTime.now());
   }
 
   Future<void> _load() async {
     final results = await Future.wait([
-      socialCall('trips'),
+      _store.refresh(force: true),
       socialCall('state').then(AvatarSync.instance.sync), // fotoğraflar
     ]);
     if (!mounted) return;
-    final r = results[0], state = results[1];
-    setState(() {
-      _loading = false;
-      _connected = r['connected'] == true;
-      _me = state['me'] as int?;
-      _error = r['error'] as String?;
-      if (r['trips'] != null) _trips = parseTrips(r);
-      _now = DateTime.now();
-    });
+    setState(() => _me = (results[1] as Map<String, dynamic>)['me'] as int?);
   }
 
   Future<void> _apply(Future<Map<String, dynamic>> call, String done) async {
     setState(() => _busy = true);
     final r = await call;
     if (!mounted) return;
-    setState(() {
-      _busy = false;
-      if (r['error'] == null) _trips = parseTrips(r);
-      _now = DateTime.now();
-    });
+    setState(() => _busy = false);
     _toast((r['error'] as String?) ?? done);
   }
 
@@ -133,7 +129,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
       ),
     );
     if (ok == true) {
-      await _apply(socialCall('tripDelete', {'id': t.id}), 'Uçuş silindi.');
+      await _apply(_store.delete(t.id), 'Uçuş silindi.');
     }
   }
 
@@ -149,10 +145,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
     if (result == null || !mounted) return;
     final (destination, arrival) = result;
     await _apply(
-      socialCall('tripAdd', {
-        'destination': destination,
-        'arrival': arrival.millisecondsSinceEpoch ~/ 1000,
-      }),
+      _store.add(destination, arrival),
       'Uçuş eklendi. Geri sayım başladı ✈️',
     );
     HapticFeedback.lightImpact();
@@ -178,7 +171,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
           ],
         ),
       ),
-      floatingActionButton: _connected
+      floatingActionButton: _store.connected
           ? FloatingActionButton.extended(
               onPressed: _busy ? null : _add,
               backgroundColor: AppTheme.accent,
@@ -190,7 +183,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
           : null,
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-        child: _loading
+        child: !_store.loaded
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
                 onRefresh: _load,
@@ -198,7 +191,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
                   children: [
                     if (_busy) const LinearProgressIndicator(),
-                    if (!_connected)
+                    if (!_store.connected)
                       _info('Kavuşma sayacı yalnız oyuncu kodu olan ikiniz '
                           'içindir. "İkimizin sıralaması"na oyuncu kodunla '
                           'katılınca kullanabilirsin.')
@@ -227,7 +220,7 @@ class _CountdownScreenState extends State<CountdownScreen> {
                         for (final t in _trips.skip(1)) _tile(t),
                       ],
                     ],
-                    if (_error != null && _connected)
+                    if (_store.error != null && _store.connected)
                       const Padding(
                         padding: EdgeInsets.only(top: 12),
                         child: Text(

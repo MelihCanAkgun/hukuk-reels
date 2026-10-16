@@ -87,5 +87,8 @@ test('arrived flights stay for a day, then disappear', async () => {
   db.prepare('INSERT INTO trips(player_id, destination, arrival, created) VALUES (2, ?, ?, ?)').run('Dün', now() - 3600, now() - 86400);
   db.prepare('INSERT INTO trips(player_id, destination, arrival, created) VALUES (2, ?, ?, ?)').run('Eski', now() - 2 * 86400, now() - 9 * 86400);
   assert.deepEqual((await call('/trips')).data.trips.map(t => t.destination), ['Dün']);
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM trips').get().n, 1);
+  // Reading never writes; the old row is pruned on the next add.
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM trips').get().n, 2);
+  await call('/trips', {destination: 'Yeni', arrival: now() + 3600});
+  assert.deepEqual(db.prepare('SELECT destination FROM trips ORDER BY arrival').all().map(r => r.destination), ['Dün', 'Yeni']);
 });
