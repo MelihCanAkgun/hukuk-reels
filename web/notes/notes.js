@@ -27,7 +27,7 @@
   /** Kalemde basınca göre yarıçap; fosforlu kalem sabit genişliktedir. */
   function radius(tool, w, p) {
     if (tool === 'hl') return w / 2;
-    return (w / 2) * (0.3 + 0.95 * Math.pow(clamp(p, 0, 1), 0.72));
+    return (w / 2) * (0.22 + 1.1 * Math.pow(clamp(p, 0, 1), 0.85));
   }
 
   /** Noktaları üç bileşenli düz diziye ([x,y,p,...]) ekleyen yumuşatıcı. */
@@ -384,7 +384,10 @@
         <button class="hn-btn" data-a="more" aria-label="Diğer">${ICONS.more}</button>
       </div>
       <div class="hn-scroller"><div class="hn-sizer"><div class="hn-page"></div></div></div>
-      <canvas class="hn-live"></canvas>
+      <svg class="hn-live" aria-hidden="true"><g>
+        <path class="hn-lstroke"/><path class="hn-llasso" fill="rgba(214,51,108,0.06)" stroke="#d6336c"/>
+        <circle class="hn-lcur" r="0" stroke="rgba(40,20,60,0.55)"/>
+      </g></svg>
       <div class="hn-chip hn-zoom" role="button" aria-label="Sayfayı ekrana sığdır">100%</div>
       <div class="hn-chip hn-save">Kaydedildi</div>
       <div class="hn-chip hn-toast"></div>
@@ -419,7 +422,10 @@
       undo: qs(root, '[data-a="undo"]'),
       redo: qs(root, '[data-a="redo"]'),
     };
-    u.ctx = u.live.getContext('2d', { desynchronized: true });
+    u.liveG = qs(u.live, 'g');
+    u.lStroke = qs(u.live, '.hn-lstroke');
+    u.lLasso = qs(u.live, '.hn-llasso');
+    u.lCur = qs(u.live, '.hn-lcur');
     // Flutter'ın pencere düzeyindeki dinleyicilerine olay sızmasın.
     for (const t of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel', 'touchstart', 'touchmove',
       'touchend', 'wheel', 'mousedown', 'mouseup', 'click', 'contextmenu', 'gesturestart', 'gesturechange']) {
@@ -432,7 +438,7 @@
     u.eopts.addEventListener('click', onMenuClick);
     u.toc.addEventListener('click', onTocClick);
     attachInput(u);
-    window.addEventListener('resize', () => { if (S) { sizeCanvas(); layout(); } });
+    window.addEventListener('resize', () => { if (S) layout(); });
     document.addEventListener('visibilitychange', () => { if (document.hidden && S) flushSave(); });
     window.addEventListener('pagehide', () => { if (S) flushSave(); });
     document.addEventListener('keydown', onKey, true);
@@ -485,7 +491,6 @@
     if (S.loadPending) lateLoad(S);
     ui.title.textContent = summary.title;
     renderPage();
-    sizeCanvas();
     const view = prefs.get('view.' + id, null);
     if (view && view.v === summary.version) {
       setZoom(view.z, 0, 0, true);
@@ -628,13 +633,6 @@
   let viewTimer = 0;
   function scheduleViewSave() { clearTimeout(viewTimer); viewTimer = setTimeout(rememberView, 600); }
 
-  function sizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
-    const r = ui.live.getBoundingClientRect();
-    ui.live.width = Math.round(r.width * dpr);
-    ui.live.height = Math.round(r.height * dpr);
-    S && (S.dpr = dpr);
-  }
 
   // ───────── Çizim öğeleri ─────────
   function addEl(s) {
@@ -724,45 +722,38 @@
     const cr = ui.live.getBoundingClientRect();
     return { x: pr.left - cr.left, y: pr.top - cr.top, pr };
   }
+  // Canlı katman bir SVG'dir: canvas + mix-blend-mode, iPad Safari'de kalem
+  // kalkana kadar ekrana yansımıyordu. SVG yolu her karede normal yeniden
+  // boyamayla güncellenir ve bırakınca oluşan çizgiyle aynı dış hattı kullanır.
   function drawLive() {
     liveQueued = false;
-    const ctx = ui.ctx, c = ui.live;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, c.width, c.height);
     if (!S) return;
-    const dpr = S.dpr || 1, o = pageOrigin(), z = S.z;
-    ctx.setTransform(dpr * z, 0, 0, dpr * z, dpr * o.x, dpr * o.y);
+    const o = pageOrigin(), z = S.z;
+    ui.liveG.setAttribute('transform', `matrix(${z} 0 0 ${z} ${rd(o.x)} ${rd(o.y)})`);
     const st = input.stroke;
     if (st && st.b.pts.length) {
-      ctx.globalAlpha = st.t === 'hl' ? 0.42 : 1;
-      ctx.fillStyle = st.c;
       const pts = st.snapped ? st.snapPts : st.b.pts;
-      ctx.fill(new Path2D(G.outline(st.t, st.w, pts, st.snapped ? null : st.predicted)));
-      ctx.globalAlpha = 1;
-    }
+      ui.lStroke.setAttribute('d', G.outline(st.t, st.w, pts, st.snapped ? null : st.predicted));
+      ui.lStroke.setAttribute('fill', st.c);
+      ui.lStroke.setAttribute('fill-opacity', st.t === 'hl' ? '0.42' : '1');
+      ui.lStroke.style.mixBlendMode = st.t === 'hl' ? 'multiply' : '';
+    } else ui.lStroke.setAttribute('d', '');
     const lasso = input.lasso;
     if (lasso && lasso.length > 2) {
-      ctx.lineWidth = 1.6 / z;
-      ctx.setLineDash([6 / z, 5 / z]);
-      ctx.strokeStyle = '#d6336c';
-      ctx.fillStyle = 'rgba(214,51,108,0.06)';
-      ctx.beginPath();
-      ctx.moveTo(lasso[0], lasso[1]);
-      for (let i = 2; i < lasso.length; i += 2) ctx.lineTo(lasso[i], lasso[i + 1]);
-      ctx.closePath();
-      ctx.fill(); ctx.stroke();
-      ctx.setLineDash([]);
-    }
+      let d = `M${lasso[0]} ${lasso[1]}`;
+      for (let i = 2; i < lasso.length; i += 2) d += `L${lasso[i]} ${lasso[i + 1]}`;
+      ui.lLasso.setAttribute('d', d + 'Z');
+      ui.lLasso.setAttribute('stroke-width', rd(1.6 / z));
+      ui.lLasso.setAttribute('stroke-dasharray', `${rd(6 / z)} ${rd(5 / z)}`);
+    } else ui.lLasso.setAttribute('d', '');
     const cur = input.cursor;
     if (cur) {
-      ctx.lineWidth = 1.2 / z;
-      ctx.strokeStyle = 'rgba(40,20,60,0.55)';
-      ctx.fillStyle = cur.fill || 'transparent';
-      ctx.beginPath();
-      ctx.arc(cur.x, cur.y, cur.r, 0, Math.PI * 2);
-      if (cur.fill) ctx.fill();
-      ctx.stroke();
-    }
+      ui.lCur.setAttribute('cx', rd(cur.x));
+      ui.lCur.setAttribute('cy', rd(cur.y));
+      ui.lCur.setAttribute('r', rd(cur.r));
+      ui.lCur.setAttribute('stroke-width', rd(1.2 / z));
+      ui.lCur.setAttribute('fill', cur.fill || 'none');
+    } else ui.lCur.setAttribute('r', '0');
   }
 
   // ───────── Girdi ─────────
