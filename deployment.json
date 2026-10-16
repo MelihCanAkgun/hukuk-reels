@@ -1,8 +1,1 @@
-{
-  "source_commit": "b28937a5e99c4f050b1073d696a84c936009bb11",
-  "built_at": "2026-10-16T16:21:29Z",
-  "checks": "flutter analyze (no issues); flutter test (126); web runtime test; release build with base-href /hukuk-reels/",
-  "change": "Tower grow fix, tactile buttons, solid Subway buildings",
-  "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
-  "app_build": "27f8be4d47a12f6a"
-}
+{"source_commit":"665fa38f3b3f39e9591c071e147ce90ef8fd0b97","built_at":"2026-10-16T16:30:03Z","checks":["flutter analyze","flutter test (126)","web_runtime_test"],"change":"Adliye Kulesi: avukat finalde kraliçe tahtına oturur","pubspec_lock_sha256":"8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437","app_build":"3c692cca97068d57"}
