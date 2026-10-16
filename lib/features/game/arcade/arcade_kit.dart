@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart';
 import 'arcade_sprites.dart';
 
 export 'arcade_sprites.dart';
+export 'tower_sprites.dart';
 
 /// Piksel sprite'ları bir kez 1 piksel = 1 birim [ui.Image]'a çevirir;
 /// oyunlar onları en-yakın-komşu ölçekleme ile çizer (keskin pikseller,
@@ -15,22 +16,36 @@ class SpriteBank {
   static final SpriteBank instance = SpriteBank._();
 
   final Map<List<String>, ui.Image> _images = Map.identity();
+  final Map<Map<String, Color>, Map<List<String>, ui.Image>> _paletted =
+      Map.identity();
 
-  ui.Image of(List<String> rows) => _images.putIfAbsent(rows, () {
-        final rec = ui.PictureRecorder();
-        final c = Canvas(rec);
-        final paint = Paint()..isAntiAlias = false;
-        for (var y = 0; y < rows.length; y++) {
-          final row = rows[y];
-          for (var x = 0; x < row.length; x++) {
-            final ch = row[x];
-            if (ch == '.') continue;
-            paint.color = kArcadePalette[ch]!;
-            c.drawRect(Rect.fromLTWH(x.toDouble(), y.toDouble(), 1, 1), paint);
-          }
-        }
-        return rec.endRecording().toImageSync(rows.first.length, rows.length);
-      });
+  /// [palette] verilirse sprite o paletle (ör. Adliye Kulesi dönem
+  /// renkleriyle) boyanır; her (sprite, palet) çifti bir kez üretilir.
+  ui.Image of(List<String> rows, {Map<String, Color>? palette}) {
+    if (palette == null) {
+      return _images.putIfAbsent(rows, () => _bake(rows, kArcadePalette));
+    }
+    return _paletted
+        .putIfAbsent(palette, () => Map.identity())
+        .putIfAbsent(rows, () => _bake(rows, palette));
+  }
+
+  static ui.Image _bake(List<String> rows, Map<String, Color> palette) {
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    final paint = Paint()..isAntiAlias = false;
+    for (var y = 0; y < rows.length; y++) {
+      final row = rows[y];
+      for (var x = 0; x < row.length; x++) {
+        final ch = row[x];
+        final col = palette[ch];
+        if (ch == '.' || col == null) continue;
+        paint.color = col;
+        c.drawRect(Rect.fromLTWH(x.toDouble(), y.toDouble(), 1, 1), paint);
+      }
+    }
+    return rec.endRecording().toImageSync(rows.first.length, rows.length);
+  }
 }
 
 /// Sprite çizimi için ortak boya (yumuşatmasız).

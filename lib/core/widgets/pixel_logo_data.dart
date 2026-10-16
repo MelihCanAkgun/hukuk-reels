@@ -94,6 +94,25 @@ const List<String> kLogoSubwaySilly = [
   '...clllllllllc..',
 ];
 
+const List<String> kLogoAdliyeKulesi = [
+  '.......yy.......',
+  '....yyyyyyyy....',
+  '....y..yy..y....',
+  '...yyy.yy.yyy...',
+  '.......yy.......',
+  '...kkkkkkkkkk...',
+  '...kPpPpPpPpk...',
+  '...kpkpkkpkpk...',
+  '..kkkkkkkkkkkk..',
+  '..kBbBbBbBbBbk..',
+  '..kbnbnbnbnbbk..',
+  '.kkkkkkkkkkkkkk.',
+  '.kwLwLwLwLwLwLk.',
+  '.kLlLlLlLlLlLLk.',
+  'kkkkkkkkkkkkkkkk',
+  'kddddddddddddddk',
+];
+
 const List<String> kLogoBattle = [
   '................',
   '.......kkkk.....',

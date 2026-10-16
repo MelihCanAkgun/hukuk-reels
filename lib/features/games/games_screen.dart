@@ -16,6 +16,7 @@ import '../reels/screens/reels_screen.dart';
 import '../profile/profile_settings_screen.dart';
 import '../profile/profile_avatar.dart';
 import '../game/flappy_cat_screen.dart';
+import '../game/tower_screen.dart';
 import '../game/subway_cat_screen.dart';
 import '../reels/widgets/music_button.dart';
 import '../surprise/flower_surprise_flow.dart';
@@ -154,6 +155,13 @@ class _GamesScreenState extends State<GamesScreen> {
                       title: 'Subway Silly',
                       subtitle: 'Rekor: ${_progress.subwayHigh}',
                       screen: const SubwayCatScreen(),
+                    ),
+                    const SizedBox(height: 10),
+                    _gameTile(
+                      logo: kLogoAdliyeKulesi,
+                      title: 'Adliye Kulesi',
+                      subtitle: 'Rekor: ${_progress.towerHigh} kat',
+                      screen: const TowerScreen(),
                     ),
                     const SizedBox(height: 24),
                     const Divider(),

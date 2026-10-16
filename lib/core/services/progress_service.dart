@@ -41,6 +41,7 @@ class ProgressService {
   static const _kSolved = 'solved_v1';
   static const _kSession = 'session_v1';
   static const _kFlappyHigh = 'flappy_high_v1';
+  static const _kTowerHigh = 'tower_high_v1';
   static const _kBlockHigh = 'block_high_v1';
   static const _kBlockGame = 'block_game_v1';
   String? _blockMemory;
@@ -140,6 +141,16 @@ class ProgressService {
   Future<bool> submitFlappyScore(int score) async {
     if (score <= flappyHigh) return false;
     await _prefs?.setInt(_kFlappyHigh, score);
+    return true;
+  }
+
+  // ───────────────────────── Adliye Kulesi ─────────────────────────
+
+  int get towerHigh => _prefs?.getInt(_kTowerHigh) ?? 0;
+
+  Future<bool> submitTowerScore(int score) async {
+    if (score <= towerHigh) return false;
+    await _prefs?.setInt(_kTowerHigh, score);
     return true;
   }
 
@@ -441,5 +452,6 @@ class ProgressService {
     await _prefs?.remove(_kFlappyHigh);
     await _prefs?.remove(_kBlockHigh);
     await _prefs?.remove(_kSubwayHigh);
+    await _prefs?.remove(_kTowerHigh);
   }
 }

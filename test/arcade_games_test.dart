@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hukuk_reels/features/game/flappy_cat_screen.dart';
 import 'package:hukuk_reels/features/game/subway_cat_screen.dart';
+import 'package:hukuk_reels/features/game/tower_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> _run(WidgetTester tester, Duration d,
@@ -78,6 +79,57 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets('Tower: perfect drops climb through eras and grow the floor',
+      (tester) async {
+    await phone(tester, const TowerScreen());
+    await _run(tester, const Duration(milliseconds: 200));
+    final state = tester.state(find.byType(TowerScreen)) as dynamic;
+    var frames = 0;
+    while ((state.score as int) < 40 && frames < 60 * 120) {
+      state.autopilot();
+      await tester.pump(const Duration(microseconds: 16667));
+      frames++;
+    }
+    expect(state.score as int, greaterThanOrEqualTo(40));
+    // 40 kat → 5 dönem geçildi; mükemmel seriler katı tam genişlikte tutar.
+    expect(state.perfects as int, greaterThan(20));
+    expect((state.top.w as double), greaterThan(80));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final size in const [Size(390, 844), Size(320, 568), Size(1280, 800)]) {
+    testWidgets('Tower: miss ends with the lawyer on top at $size',
+        (tester) async {
+      await phone(tester, const TowerScreen(), size: size);
+      await _run(tester, const Duration(milliseconds: 200));
+      final state = tester.state(find.byType(TowerScreen)) as dynamic;
+      var frames = 0;
+      while ((state.score as int) < 6 && frames < 3000) {
+        state.autopilot();
+        await tester.pump(const Duration(microseconds: 16667));
+        frames++;
+      }
+      frames = 0;
+      while (
+          find.text('Bir şansın daha!').evaluate().isEmpty && frames < 3000) {
+        state.autopilot(miss: true);
+        await tester.pump(const Duration(microseconds: 16667));
+        frames++;
+      }
+      expect(find.text('Bir şansın daha!'), findsOneWidget);
+      await tester.tap(find.text('Hayır, bitir'));
+      await _run(tester, const Duration(seconds: 6));
+      expect(state.landT as double, greaterThan(0));
+      expect(find.text('Tekrar Oyna'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Tekrar Oyna'));
+      await _run(tester, const Duration(milliseconds: 300));
+      expect(state.score as int, 0);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   for (final size in const [Size(390, 844), Size(320, 568), Size(1280, 800)]) {
     testWidgets('Subway: a real run ends on the revive prompt at $size',

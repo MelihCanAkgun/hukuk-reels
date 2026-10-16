@@ -61,6 +61,14 @@ class SfxService {
     'stumble': 'assets/sfx/stumble.wav',
     'crash': 'assets/sfx/crash.wav',
     'medal': 'assets/sfx/medal.wav',
+    // Adliye Kulesi
+    'stack': 'assets/sfx/stack.wav',
+    'perfect': 'assets/sfx/perfect.wav',
+    'slice': 'assets/sfx/slice.wav',
+    'grow': 'assets/sfx/grow.wav',
+    'era': 'assets/sfx/era.wav',
+    'miss': 'assets/sfx/miss.wav',
+    'girl': 'assets/sfx/girl.wav',
   };
 
   Future<void> init() =>
@@ -177,8 +185,7 @@ class SfxService {
   void fall() => _play('fall');
 
   /// Coin: ardışık toplamalarda perde hafifçe yükselir.
-  void coin([int streak = 0]) =>
-      _play('coin', rate: 1 + (streak % 8) * 0.03);
+  void coin([int streak = 0]) => _play('coin', rate: 1 + (streak % 8) * 0.03);
   void jump() => _play('jump');
   void slide() => _play('slide');
   void swoosh() => _play('swoosh', rate: 0.9 + _rng.nextDouble() * 0.2);
@@ -188,4 +195,22 @@ class SfxService {
   void stumble() => _play('stumble');
   void crash() => _play('crash');
   void medal() => _play('medal');
+
+  // ── Adliye Kulesi ──
+  /// Kat yerleşti; yükseldikçe perde çok hafif düşer (taş ağırlaşır).
+  void stack(int floor) => _play('stack',
+      rate: 1.04 - (floor % 8) * 0.012 + _rng.nextDouble() * 0.03);
+
+  /// Mükemmel yerleşim: seri boyunca majör gamda yükselen çan.
+  void perfect(int streak) {
+    const scale = [0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19];
+    final step = scale[(streak - 1).clamp(0, scale.length - 1)];
+    _play('perfect', rate: pow(2, step / 12).toDouble());
+  }
+
+  void slice() => _play('slice', rate: 0.92 + _rng.nextDouble() * 0.16);
+  void grow() => _play('grow');
+  void era() => _play('era');
+  void miss() => _play('miss');
+  void girl() => _play('girl');
 }

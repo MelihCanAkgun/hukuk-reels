@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Flappy Silly Cat + Subway Silly için 8-bit ses efektleri üreticisi.
+"""Flappy Silly Cat, Subway Silly ve Adliye Kulesi ses efektleri üreticisi.
 
 Bağımlılıksız (yalnız standart kütüphane). Tüm efektler 44.1 kHz, mono,
 16-bit WAV olarak `assets/sfx/` içine yazılır; tekrar çalıştırmak aynı
@@ -95,6 +95,60 @@ def write(name, samples, gain=0.85):
     return path
 
 
+def bell(dur, f, vol=0.4, partials=((1, 1.0, 1.0), (2.0, 0.5, 1.6), (2.76, 0.35, 2.3),
+                                    (5.4, 0.18, 3.5), (8.93, 0.08, 5.0)), decay=5.0):
+    """Zil / çan: inharmonik kısmi seslerin üstel sönümü (yumuşak atak)."""
+    n = int(dur * SR)
+    out = []
+    for i in range(n):
+        t = i / SR
+        v = 0.0
+        for ratio, amp, dk in partials:
+            v += amp * math.sin(2 * math.pi * f * ratio * t) * math.exp(-decay * dk * t)
+        out.append(v * vol * min(1.0, t / 0.002))
+    return out
+
+
+def sine_drop(dur, f0, f1, vol=0.5, decay=12.0):
+    """Perdesi düşen sinüs (gövde darbesi)."""
+    n = int(dur * SR)
+    out, phase = [], 0.0
+    for i in range(n):
+        t = i / SR
+        f = f1 + (f0 - f1) * math.exp(-t * 30)
+        phase += f / SR
+        out.append(math.sin(2 * math.pi * phase) * vol * math.exp(-decay * t)
+                   * min(1.0, t / 0.001))
+    return out
+
+
+def grains(dur, count, vol=0.3, seed=1, lowpass=0.5):
+    """Taş ufalanması: rastgele zamanlı kısa gürültü taneleri."""
+    rng = random.Random(seed)
+    n = int(dur * SR)
+    out = [0.0] * n
+    for _ in range(count):
+        at = int(rng.random() ** 1.6 * (n - 2000))
+        ln = rng.randint(200, 900)
+        g = rng.uniform(0.4, 1.0) * vol * (1 - at / n)
+        last = 0.0
+        for i in range(ln):
+            last += (rng.uniform(-1, 1) - last) * lowpass
+            out[at + i] += last * g * (1 - i / ln)
+    return out
+
+
+def echo(samples, delay=0.11, feedback=0.32, taps=4):
+    """Basit çoklu yankı (taş salon hissi)."""
+    d = int(delay * SR)
+    out = samples + [0.0] * (d * taps)
+    for k in range(1, taps + 1):
+        g = feedback ** k
+        for i, v in enumerate(samples):
+            out[i + d * k] += v * g
+    return out
+
+
 def note(n):
     """MIDI notası → Hz."""
     return 440.0 * 2 ** ((n - 69) / 12)
@@ -154,6 +208,47 @@ EFFECTS = {
     # Güçlendirme bitiyor.
     'powerdown': lambda: seq(*[
         tone(0.06, note(n), duty=0.25, vol=0.25, release=0.02) for n in (84, 79, 76, 72)]),
+    # ── Adliye Kulesi ──
+    # Kat yerleşti: taş gövde darbesi + kısa tık + hafif salon yankısı.
+    'stack': lambda: echo(mix(
+        sine_drop(0.22, 210, 70, vol=0.6, decay=16),
+        noise(0.05, vol=0.35, decay=70, lowpass=0.55, seed=23),
+        tone(0.03, 900, 500, duty=0.5, vol=0.08)), delay=0.07, feedback=0.18, taps=2),
+    # Mükemmel: berrak çan (seri boyunca rate ile yarım ton yükselir).
+    'perfect': lambda: echo(mix(
+        bell(0.9, note(76), vol=0.42, decay=3.2),
+        bell(0.6, note(88), vol=0.10, decay=5)), delay=0.12, feedback=0.25, taps=3),
+    # Taşan parça kesildi: ufalanan taş + düşen ton.
+    'slice': lambda: mix(
+        grains(0.45, 26, vol=0.42, seed=29),
+        noise(0.08, vol=0.3, decay=40, lowpass=0.7, seed=31),
+        tone(0.3, 420, 120, wave_fn=triangle, vol=0.12, curve=0.7)),
+    # Kat genişledi: yükselen çan arpeji + parıltı.
+    'grow': lambda: echo(mix(*[
+        bell(0.5, note(n), vol=0.28, decay=4.5) for n in (72, 76, 79, 84, 88)],
+        offsets=[0, 0.06, 0.12, 0.18, 0.24]), delay=0.1, feedback=0.3, taps=3),
+    # Yeni dönem (başka ülkenin adalet sarayı): kısa pirinç fanfar.
+    'era': lambda: echo(seq(
+        mix(tone(0.11, note(67), duty=0.35, vol=0.22, release=0.04, vibrato=0.006),
+            tone(0.11, note(55), wave_fn=triangle, vol=0.25, release=0.04)),
+        mix(tone(0.11, note(72), duty=0.35, vol=0.22, release=0.04, vibrato=0.006),
+            tone(0.11, note(60), wave_fn=triangle, vol=0.25, release=0.04)),
+        mix(tone(0.42, note(76), duty=0.35, vol=0.24, release=0.3, vibrato=0.01),
+            tone(0.42, note(64), wave_fn=triangle, vol=0.25, release=0.3),
+            bell(0.42, note(88), vol=0.08, decay=4))), delay=0.13, feedback=0.25, taps=3),
+    # Kaçırılan kat düşüyor: uzun alçalan ıslık + uzaktan gümbürtü.
+    'miss': lambda: mix(
+        tone(0.75, 820, 110, wave_fn=triangle, vol=0.3, curve=0.75, vibrato=0.01),
+        sine_drop(0.5, 120, 45, vol=0.5, decay=7),
+        grains(0.5, 18, vol=0.3, seed=37),
+        offsets=[0, 0.62, 0.62]),
+    # Avukat kız kuleye kondu: yumuşak "pof" + iki parıltı notası.
+    'girl': lambda: mix(
+        sine_drop(0.16, 260, 110, vol=0.4, decay=20),
+        noise(0.12, vol=0.22, decay=30, lowpass=0.2, seed=41),
+        bell(0.5, note(91), vol=0.14, decay=5),
+        bell(0.6, note(96), vol=0.12, decay=4.5),
+        offsets=[0, 0, 0.08, 0.17]),
 }
 
 

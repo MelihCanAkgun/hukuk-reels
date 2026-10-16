@@ -706,10 +706,36 @@ def bow():
     ])
 
 
+def adliye_kulesi():
+    """Kat kat yükselen adalet sarayı: her kat başka renkte, tepede
+    altın terazi."""
+    g = grid(16, 16)
+    stamp(g, 0, 0, [
+        '.......yy.......',
+        '....yyyyyyyy....',
+        '....y..yy..y....',
+        '...yyy.yy.yyy...',
+        '.......yy.......',
+        '...kkkkkkkkkk...',
+        '...kPpPpPpPpk...',
+        '...kpkpkkpkpk...',
+        '..kkkkkkkkkkkk..',
+        '..kBbBbBbBbBbk..',
+        '..kbnbnbnbnbbk..',
+        '.kkkkkkkkkkkkkk.',
+        '.kwLwLwLwLwLwLk.',
+        '.kLlLlLlLlLlLLk.',
+        'kkkkkkkkkkkkkkkk',
+        'kddddddddddddddk',
+    ])
+    return rows_of(g)
+
+
 SPRITES = {
     'blockBlast': block_blast(),
     'flappyCat': flappy_cat(),
     'subwaySilly': subway_silly(),
+    'adliyeKulesi': adliye_kulesi(),
     'battle': battle(),
     'games': gamepad(),
     'questionBank': scales_small(),
