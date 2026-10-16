@@ -84,9 +84,9 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   static const double playH = vh - groundH;
 
   // ── Fizik ──
-  static const double gravity = 980; // birim/s²
-  static const double flapV = -285;
-  static const double maxFall = 430;
+  static const double gravity = 1250; // birim/s²
+  static const double flapV = -270; // tepe ≈ 29 birim, 0.22 s
+  static const double maxFall = 400;
   static const double catR = 7.2; // çarpışma yarıçapı
   static const double pipeW = 26;
   static const double capW = 30;
@@ -148,7 +148,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   }
 
   double get speed => 78 + math.min(score, 60) * 0.35;
-  double get gapSize => math.max(60, 76 - score * 0.35);
+  double get gapSize => math.max(58, 72 - score * 0.3);
 
   @override
   void initState() {
