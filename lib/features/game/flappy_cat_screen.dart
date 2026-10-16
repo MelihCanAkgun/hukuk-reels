@@ -990,7 +990,8 @@ class _FlappyPainter extends CustomPainter {
   void _drawBackdrop(Canvas canvas, _Sky sky, double vw) {
     final key = (g.skyT * 64).round() * 4096 + vw.round();
     if (key != _backdropKey || _backdrop == null) {
-      _backdrop?.dispose();
+      // Eski resim açıkça dispose edilmez: web'de önceki karenin katmanı
+      // hâlâ ona başvuruyor olabilir; çöp toplayıcı serbest bırakır.
       _backdropKey = key;
       final rec = ui.PictureRecorder();
       final c = Canvas(rec);
@@ -1212,6 +1213,10 @@ class _FlappyPainter extends CustomPainter {
 
   void _tiled(Canvas canvas, ui.Image img, double offset, double y, double vw,
       Color color) {
+    // Fırça rengi önceki çizimden (yıldız, kuş…) kalmış yarı saydam bir
+    // renk olabilir; görüntü onun alfasıyla çizilir ve kare kare yanıp
+    // söner. Her zaman tam opak başla.
+    _p.color = const Color(0xFFFFFFFF);
     _p.colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
     _p.filterQuality = FilterQuality.none;
     final w = img.width.toDouble();
