@@ -575,8 +575,12 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
               children: [
                 Positioned.fill(
                   child: RepaintBoundary(
-                    child: CustomPaint(
-                        painter: _FlappyPainter(this, repaint: _frame)),
+                    // Gökyüzü / zemin kenarlardan taşar; kırpılmazsa geri
+                    // dönüş kaydırmasında ana ekranın üstünde bir an görünür.
+                    child: ClipRect(
+                      child: CustomPaint(
+                          painter: _FlappyPainter(this, repaint: _frame)),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -901,7 +905,12 @@ class _FlappyPainter extends CustomPainter {
   final Paint _p = Paint()..isAntiAlias = false;
 
   // Şehir katmanları (bir kez üretilir, renkleri ColorFilter ile boyanır)
-  static ui.Image? _farCity, _nearCity, _nearWindows, _bushes;
+  static ui.Image? _farCity, _nearCity, _nearWindows, _bushes, _hills, _trees;
+
+  // Gökyüzü arka planı (bantlar, ufuk ışıltısı, güneş / ay) yalnız gökyüzü
+  // rengi ya da genişlik değişince yeniden kaydedilir.
+  static ui.Picture? _backdrop;
+  static int _backdropKey = -1;
   static const double tileW = 240;
   static final List<Offset> _stars = List.generate(46, (i) {
     final r = math.Random(i * 7919 + 3);
@@ -916,6 +925,190 @@ class _FlappyPainter extends CustomPainter {
     _nearWindows =
         _city(seed: 23, minH: 22, maxH: 64, windows: true, court: true);
     _bushes = _bushLayer();
+    _hills = _hillLayer();
+    _trees = _treeLayer();
+  }
+
+  static ui.Image _hillLayer() {
+    const h = 60.0;
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..color = const Color(0xFFFFFFFF);
+    // Döşemenin iki ucu aynı yükseklikte biter (dikişsiz tekrar).
+    for (var x = 0; x < tileW; x++) {
+      final t = x / tileW * math.pi * 2;
+      final y = 26 +
+          math.sin(t) * 12 +
+          math.sin(t * 3 + 1) * 6 +
+          math.sin(t * 5 + 2) * 2.5;
+      c.drawRect(
+          Rect.fromLTWH(x.toDouble(), y.roundToDouble(), 1, h - y), paint);
+    }
+    return rec.endRecording().toImageSync(tileW.toInt(), h.toInt());
+  }
+
+  static ui.Image _treeLayer() {
+    const h = 44.0;
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    final r = math.Random(17);
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..color = const Color(0xFFFFFFFF);
+    var x = 8.0;
+    while (x < tileW - 10) {
+      final th = 10 + r.nextInt(8).toDouble(); // gövde
+      final rad = 6 + r.nextDouble() * 5;
+      c.drawRect(Rect.fromLTWH(x - 1, h - th, 2, th), paint);
+      if (r.nextBool()) {
+        // yuvarlak taç
+        for (var dy = -rad; dy <= rad; dy++) {
+          final half =
+              math.sqrt(math.max(0, rad * rad - dy * dy)).floorToDouble();
+          c.drawRect(
+              Rect.fromLTWH(x - half, h - th - rad + dy, half * 2 + 1, 1),
+              paint);
+        }
+      } else {
+        // selvi
+        final ch = rad * 3.2;
+        for (var dy = 0.0; dy < ch; dy++) {
+          final half =
+              (math.sin(dy / ch * math.pi) * rad * 0.55).roundToDouble();
+          c.drawRect(
+              Rect.fromLTWH(x - half, h - th - dy, half * 2 + 1, 1), paint);
+        }
+      }
+      x += 18 + r.nextInt(26);
+    }
+    return rec.endRecording().toImageSync(tileW.toInt(), h.toInt());
+  }
+
+  /// Gökyüzü arka planını (önbellekli) çizer.
+  void _drawBackdrop(Canvas canvas, _Sky sky, double vw) {
+    final key = (g.skyT * 64).round() * 4096 + vw.round();
+    if (key != _backdropKey || _backdrop == null) {
+      _backdrop?.dispose();
+      _backdropKey = key;
+      final rec = ui.PictureRecorder();
+      final c = Canvas(rec);
+      final p = Paint()..isAntiAlias = false;
+      const bands = 14;
+      for (var i = 0; i < bands; i++) {
+        p.color = lerpColor(sky.top, sky.bottom, i / (bands - 1));
+        c.drawRect(
+            Rect.fromLTWH(-8, -8 + i * (playH + 16) / bands, vw + 16,
+                (playH + 16) / bands + 1),
+            p);
+      }
+      // Ufuk ışıltısı (güneş rengine doğru, aşağıda yoğunlaşan bantlar)
+      for (var i = 0; i < 6; i++) {
+        p.color = sky.sun.withValues(alpha: 0.05 + i * 0.025);
+        c.drawRect(
+            Rect.fromLTWH(-8, playH - 120 + i * 16, vw + 16, 120 - i * 16), p);
+      }
+      // Güneş / ay: iki hale + gövde
+      final bx = vw * 0.76, by = 42.0;
+      p.color = sky.sun.withValues(alpha: 0.10);
+      _circle(c, p, bx, by, 30);
+      p.color = sky.sun.withValues(alpha: 0.18);
+      _circle(c, p, bx, by, 22);
+      p.color = sky.sun;
+      _circle(c, p, bx, by, 14);
+      if (sky.moon) {
+        p.color = lerpColor(sky.top, sky.bottom, 0.15).withValues(alpha: 0.92);
+        _circle(c, p, bx + 7, by - 5, 11);
+      } else {
+        // güneş: hafif parlak çekirdek
+        p.color = const Color(0xFFFFFFFF).withValues(alpha: 0.35);
+        _circle(c, p, bx - 3, by - 3, 6);
+      }
+      _backdrop = rec.endRecording();
+    }
+    canvas.drawPicture(_backdrop!);
+  }
+
+  static void _circle(Canvas c, Paint p, double cx, double cy, double r) {
+    for (var dy = -r; dy < r; dy += 1) {
+      final half = math
+          .sqrt(math.max(0, r * r - (dy + 0.5) * (dy + 0.5)))
+          .roundToDouble();
+      c.drawRect(Rect.fromLTWH(cx - half, cy + dy, half * 2, 1), p);
+    }
+  }
+
+  /// Sahneye canlılık katan, durumsuz (zamanın fonksiyonu) küçük öğeler:
+  /// gündüz kuşlar, alacakaranlıkta uçuşan pembe yapraklar, gece kayan
+  /// yıldız ve ateş böcekleri.
+  void _ambient(Canvas canvas, _Sky sky, double vw, {required bool front}) {
+    final t = g.t;
+    final day = (1 - sky.stars).clamp(0.0, 1.0);
+    final m = g.skyT % 4;
+    final dusk = (1 - math.min(m, 4 - m)).clamp(0.0, 1.0);
+    if (!front) {
+      // Kuşlar
+      if (day > 0.05) {
+        for (var i = 0; i < 4; i++) {
+          final bx = (vw + 40) - ((t * (14 + i * 3) + i * 113) % (vw + 80));
+          final by = 26 + i * 13 + math.sin(t * 1.3 + i * 2) * 4;
+          final up = ((t * 6 + i * 0.7).floor()) % 2 == 0;
+          _p.color = const Color(0xFF3A2440).withValues(alpha: 0.55 * day);
+          canvas.drawRect(Rect.fromLTWH(bx, by, 1, 1), _p);
+          final wy = up ? by - 1 : by + 1;
+          canvas.drawRect(Rect.fromLTWH(bx - 2, wy, 2, 1), _p);
+          canvas.drawRect(Rect.fromLTWH(bx + 1, wy, 2, 1), _p);
+        }
+      }
+      // Kayan yıldız (6 saniyede bir, kısa)
+      if (sky.stars > 0.5) {
+        const period = 6.0;
+        final n = (t / period).floor();
+        final ph = (t % period) / 0.7;
+        if (ph < 1) {
+          final rr = math.Random(n * 977 + 13);
+          final sx = vw * (0.15 + rr.nextDouble() * 0.6);
+          final sy = 10 + rr.nextDouble() * 50;
+          for (var k = 0; k < 10; k++) {
+            final q = ph - k * 0.035;
+            if (q < 0) break;
+            _p.color = Colors.white
+                .withValues(alpha: sky.stars * (1 - k / 10) * (1 - ph * 0.6));
+            canvas.drawRect(
+                Rect.fromLTWH(sx - q * 70, sy + q * 32, k == 0 ? 2 : 1, 1), _p);
+          }
+        }
+      }
+      return;
+    }
+    // Ateş böcekleri (gece, çalıların üstünde)
+    if (sky.stars > 0.3) {
+      for (var i = 0; i < 9; i++) {
+        final fx =
+            (i * 53 + math.sin(t * 0.7 + i) * 14 - g.scroll * 0.55) % (vw + 10);
+        final fy = playH - 12 - (math.sin(t * 1.1 + i * 2) + 1) * 14;
+        final a = sky.stars * (0.35 + 0.65 * (0.5 + 0.5 * math.sin(t * 3 + i)));
+        _p.color = const Color(0xFFFFF59A).withValues(alpha: a * 0.25);
+        canvas.drawRect(Rect.fromLTWH(fx - 1.5, fy - 1.5, 4, 4), _p);
+        _p.color = const Color(0xFFFFF59A).withValues(alpha: a);
+        canvas.drawRect(Rect.fromLTWH(fx, fy, 1, 1), _p);
+      }
+    }
+    // Pembe yapraklar (alacakaranlık)
+    if (dusk > 0.05) {
+      for (var i = 0; i < 10; i++) {
+        final py = (i * 37 + t * (9 + (i % 4) * 3)) % (playH + 10) - 5;
+        final px = (vw + 20) -
+            ((i * 61 + t * (16 + (i % 3) * 5) + g.scroll * 0.2) % (vw + 30)) +
+            math.sin(t * 2 + i) * 5;
+        _p.color =
+            (i.isEven ? const Color(0xFFFFB3CF) : const Color(0xFFFFE3EC))
+                .withValues(alpha: 0.8 * dusk);
+        final flip = ((t * 3 + i).floor()) % 2 == 0;
+        canvas.drawRect(Rect.fromLTWH(px, py, flip ? 2 : 1, flip ? 1 : 2), _p);
+      }
+    }
   }
 
   /// Sanal birimde (1 px = 1 birim) şehir silüeti ya da yalnız pencereleri.
@@ -934,6 +1127,25 @@ class _FlappyPainter extends CustomPainter {
     final r = math.Random(seed);
     var x = 0.0;
     while (x < tileW) {
+      if (!court && x > 150 && x < 160) {
+        // Galata kulesi: gövde, seyir balkonu, konik külah
+        const cx = 156.0, cw = 13.0, ch = 70.0;
+        if (!windows) {
+          c.drawRect(const Rect.fromLTWH(cx, h - ch, cw, ch), paint);
+          c.drawRect(const Rect.fromLTWH(cx - 2, h - ch - 3, cw + 4, 3), paint);
+          c.drawRect(const Rect.fromLTWH(cx, h - ch - 9, cw, 6), paint);
+          for (var i = 0; i < 14; i++) {
+            final half = (cw / 2) * (1 - i / 14);
+            c.drawRect(
+                Rect.fromLTWH(cx + cw / 2 - half, h - ch - 10 - i, half * 2, 1),
+                paint);
+          }
+          c.drawRect(
+              const Rect.fromLTWH(cx + cw / 2 - 0.5, h - ch - 28, 1, 4), paint);
+        }
+        x = cx + cw + 3;
+        continue;
+      }
       if (court && x > 92 && x < 100) {
         // Adliye: basamaklı alınlık + sütunlar
         const cx = 96.0, cw = 52.0, ch = 40.0;
@@ -1027,14 +1239,7 @@ class _FlappyPainter extends CustomPainter {
     canvas.scale(s);
 
     // ── Gökyüzü ──
-    const bands = 12;
-    for (var i = 0; i < bands; i++) {
-      _p.color = lerpColor(sky.top, sky.bottom, i / (bands - 1));
-      canvas.drawRect(
-          Rect.fromLTWH(-8, -8 + i * (playH + 16) / bands, vw + 16,
-              (playH + 16) / bands + 1),
-          _p);
-    }
+    _drawBackdrop(canvas, sky, vw);
     // Yıldızlar
     if (sky.stars > 0.02) {
       for (var i = 0; i < _stars.length; i++) {
@@ -1048,16 +1253,7 @@ class _FlappyPainter extends CustomPainter {
             _p);
       }
     }
-    // Ay / güneş (piksel daire)
-    final bx = vw * 0.76, by = 42.0;
-    _p.color = sky.sun.withValues(alpha: 0.18);
-    _pixelCircle(canvas, bx, by, 22);
-    _p.color = sky.sun;
-    _pixelCircle(canvas, bx, by, 14);
-    if (sky.moon) {
-      _p.color = sky.top.withValues(alpha: 0.9);
-      _pixelCircle(canvas, bx + 7, by - 5, 11);
-    }
+    _ambient(canvas, sky, vw, front: false);
     // Bulutlar
     for (var i = 0; i < 4; i++) {
       final cw = 28.0 * (1 + (i % 2) * 0.4);
@@ -1067,14 +1263,20 @@ class _FlappyPainter extends CustomPainter {
       drawSprite(canvas, kSprCloud, Rect.fromLTWH(x - 30, y, cw, cw * 12 / 28),
           opacity: 0.55 + (1 - sky.stars) * 0.35);
     }
-    // Şehir
+    // Tepeler + şehir + ağaçlar
+    _tiled(canvas, _hills!, g.scroll * 0.06, playH - 74, vw,
+        lerpColor(sky.far, sky.bottom, 0.45));
     _tiled(canvas, _farCity!, g.scroll * 0.12, playH - 110 + 4, vw, sky.far);
     _tiled(canvas, _nearCity!, g.scroll * 0.3 + 60, playH - 110 + 14, vw,
         sky.near);
     _tiled(canvas, _nearWindows!, g.scroll * 0.3 + 60, playH - 110 + 14, vw,
         sky.window.withValues(alpha: 0.35 + sky.stars * 0.6));
+    _tiled(canvas, _trees!, g.scroll * 0.42 + 30, playH - 44, vw,
+        lerpColor(const Color(0xFF16704F), sky.near, 0.55));
     _tiled(canvas, _bushes!, g.scroll * 0.55, playH - 20, vw,
         lerpColor(const Color(0xFF1E8A63), sky.near, 0.35));
+
+    _ambient(canvas, sky, vw, front: true);
 
     // ── Borular ──
     for (final p in g.pipes) {

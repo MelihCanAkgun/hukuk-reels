@@ -81,6 +81,18 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
   bool _paused = false;
   double _acc = 0;
   final ValueNotifier<int> _frame = ValueNotifier<int>(0);
+
+  /// Üst çubuk / güç çubuğu yalnız gösterdikleri değerler değişince
+  /// yeniden kurulur (her karede değil).
+  final ValueNotifier<int> _hud = ValueNotifier<int>(0);
+  int _hudSig() => Object.hash(
+      finalScore,
+      coins,
+      doubleT > 0,
+      (magnetT * 4).ceil(),
+      (sneakerT * 4).ceil(),
+      (doubleT * 4).ceil(),
+      chaseT > 0 && _phase == _Phase.playing);
   late final Ticker _ticker;
   Duration? _last;
   final _rng = math.Random();
@@ -186,6 +198,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
     _frame.dispose();
+    _hud.dispose();
     _focus.dispose();
     super.dispose();
   }
@@ -204,6 +217,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
       _acc -= step;
     }
     _frame.value++;
+    _hud.value = _hudSig();
   }
 
   void _update(double dt) {
@@ -871,8 +885,13 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
             children: [
               Positioned.fill(
                 child: RepaintBoundary(
-                  child: CustomPaint(
-                    painter: _RunnerPainter(this, repaint: _frame),
+                  // Sahne kenarlardan taşar (sarsıntı payı, yakın dörtgenler);
+                  // kırpılmazsa geri dönüş kaydırmasında ana ekranın üstünde
+                  // bir an görünür.
+                  child: ClipRect(
+                    child: CustomPaint(
+                      painter: _RunnerPainter(this, repaint: _frame),
+                    ),
                   ),
                 ),
               ),
@@ -915,7 +934,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
           const SizedBox(width: 8),
           Expanded(
             child: ValueListenableBuilder<int>(
-              valueListenable: _frame,
+              valueListenable: _hud,
               builder: (_, __, ___) => FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
@@ -954,7 +973,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 
   Widget _powerBar() {
     return ValueListenableBuilder<int>(
-      valueListenable: _frame,
+      valueListenable: _hud,
       builder: (_, __, ___) {
         final items = <Widget>[
           if (magnetT > 0) _powerChip(kSprMagnet, magnetT / 10),
@@ -1297,42 +1316,45 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 // ═══════════════════════════ Çizim ═══════════════════════════
 
 /// Dörtgenleri renkleriyle biriktirip tek `drawVertices` ile çizer.
+/// Tamponlar tiplidir ve yeniden kullanılır: kare başına liste ayırmaz.
 class _QuadBatch {
-  final List<double> _pos = [];
-  final List<int> _col = [];
+  Float32List _pos = Float32List(12 * 512);
+  Int32List _col = Int32List(6 * 512);
+  int _n = 0;
 
   void quad(Offset a, Offset b, Offset c, Offset d, Color color) {
-    final v = color.toARGB32();
-    _pos.addAll([
-      a.dx,
-      a.dy,
-      b.dx,
-      b.dy,
-      c.dx,
-      c.dy,
-      a.dx,
-      a.dy,
-      c.dx,
-      c.dy,
-      d.dx,
-      d.dy
-    ]);
-    for (var i = 0; i < 6; i++) {
-      _col.add(v);
+    if ((_n + 1) * 12 > _pos.length) {
+      _pos = Float32List(_pos.length * 2)..setAll(0, _pos);
+      _col = Int32List(_col.length * 2)..setAll(0, _col);
     }
+    final p = _pos, i = _n * 12;
+    p[i] = a.dx;
+    p[i + 1] = a.dy;
+    p[i + 2] = b.dx;
+    p[i + 3] = b.dy;
+    p[i + 4] = c.dx;
+    p[i + 5] = c.dy;
+    p[i + 6] = a.dx;
+    p[i + 7] = a.dy;
+    p[i + 8] = c.dx;
+    p[i + 9] = c.dy;
+    p[i + 10] = d.dx;
+    p[i + 11] = d.dy;
+    final v = color.toARGB32(), j = _n * 6;
+    _col.fillRange(j, j + 6, v);
+    _n++;
   }
 
   void flush(Canvas canvas, Paint paint) {
-    if (_pos.isEmpty) return;
+    if (_n == 0) return;
     final v = ui.Vertices.raw(
       ui.VertexMode.triangles,
-      Float32List.fromList(_pos),
-      colors: Int32List.fromList(_col),
+      Float32List.sublistView(_pos, 0, _n * 12),
+      colors: Int32List.sublistView(_col, 0, _n * 6),
     );
     canvas.drawVertices(v, BlendMode.dst, paint);
     v.dispose();
-    _pos.clear();
-    _col.clear();
+    _n = 0;
   }
 }
 
@@ -1353,9 +1375,17 @@ class _RunnerPainter extends CustomPainter {
   static const Color gravel = Color(0xFF3B2638);
   static const Color gravelFar = Color(0xFF6B3858);
 
-  ui.Shader? _skySh;
+  ui.Shader? _skySh, _groundSh;
   Size _shSize = Size.zero;
-  static ui.Image? _skyline;
+  static ui.Image? _skyline, _midline, _midWindows;
+  static final List<Offset> _stars = List.generate(40, (i) {
+    final r = math.Random(i * 31 + 7);
+    return Offset(r.nextDouble(), r.nextDouble());
+  });
+
+  // _entities için yeniden kullanılan listeler
+  final List<_Ob> _vis = [], _trains = [];
+  final Map<_Ob, double> _keys = Map.identity();
 
   double _d(double z) => z - camZ;
   Offset _pt(double x, double y, double z) {
@@ -1409,6 +1439,8 @@ class _RunnerPainter extends CustomPainter {
   void _sky(Canvas canvas, Size size) {
     if (_shSize != size || _skySh == null) {
       _shSize = size;
+      _groundSh = ui.Gradient.linear(
+          Offset(0, horizonY), Offset(0, H), [gravelFar, gravel], [0, 0.35]);
       _skySh = ui.Gradient.linear(Offset.zero, Offset(0, horizonY + 2), [
         skyTop,
         skyMid,
@@ -1422,50 +1454,94 @@ class _RunnerPainter extends CustomPainter {
     _flat.shader = _skySh;
     canvas.drawRect(Rect.fromLTWH(-20, -20, W + 40, horizonY + 22), _flat);
     _flat.shader = null;
-    // Güneş
-    _p.color = const Color(0xFFFFD9E6).withValues(alpha: 0.25);
-    canvas.drawCircle(
-        Offset(W * 0.72 - camX * 4, horizonY * 0.62), H * 0.09, _p);
+    // Yıldızlar (göğün üst yarısında, hafif parıltı)
+    for (var i = 0; i < _stars.length; i++) {
+      final st = _stars[i];
+      final tw = 0.5 + 0.5 * math.sin(g.animT * 1.7 + i * 2.3);
+      _flat.color = Colors.white.withValues(alpha: 0.15 + 0.55 * tw);
+      final sz = i % 6 == 0 ? 2.0 : 1.2;
+      final sx = (st.dx * (W + 40) - camX * 2) % (W + 40) - 20;
+      canvas.drawRect(Rect.fromLTWH(sx, st.dy * horizonY * 0.6, sz, sz), _flat);
+    }
+    // Güneş (ufka yakın, halkalı)
+    final sun = Offset(W * 0.72 - camX * 4, horizonY * 0.66);
+    _p.color = const Color(0xFFFFB3CF).withValues(alpha: 0.16);
+    canvas.drawCircle(sun, H * 0.13, _p);
+    _p.color = const Color(0xFFFFD9E6).withValues(alpha: 0.28);
+    canvas.drawCircle(sun, H * 0.085, _p);
     _p.color = const Color(0xFFFFE3EC);
-    canvas.drawCircle(
-        Offset(W * 0.72 - camX * 4, horizonY * 0.62), H * 0.055, _p);
+    canvas.drawCircle(sun, H * 0.055, _p);
+    // Güneşin önünden geçen ince bulut şeritleri
+    _flat.color = skyMid.withValues(alpha: 0.75);
+    for (var i = 0; i < 3; i++) {
+      final cw = W * (0.22 + i * 0.08);
+      final cx = (W * (0.2 + i * 0.37) - g.dist * (0.4 + i * 0.15) - camX * 6) %
+              (W + cw) -
+          cw / 2;
+      canvas.drawRect(
+          Rect.fromLTWH(cx, horizonY * (0.52 + i * 0.12), cw, H * 0.006 + i),
+          _flat);
+    }
 
-    _skyline ??= _makeSkyline();
-    final img = _skyline!;
-    final scale = H * 0.0028;
+    _skyline ??= _makeSkyline(42, 200, 50, windows: false);
+    _midline ??= _makeSkyline(7, 160, 34, windows: false);
+    _midWindows ??= _makeSkyline(7, 160, 34, windows: true);
+    _layer(canvas, _skyline!, H * 0.0028, g.dist * 0.6 + camX * 30,
+        const Color(0xFF8E3F6E));
+    // Yakın silüet: koyu binalar + sıcak pencereler
+    final midScroll = g.dist * 1.1 + camX * 45;
+    _layer(canvas, _midline!, H * 0.0034, midScroll, const Color(0xFF5A2550));
+    _layer(canvas, _midWindows!, H * 0.0034, midScroll,
+        const Color(0xFFFFC98A).withValues(alpha: 0.75));
+  }
+
+  void _layer(
+      Canvas canvas, ui.Image img, double scale, double scroll, Color color) {
     final tw = img.width * scale;
     final th = img.height * scale;
-    kPixelPaint.color = Colors.white;
-    var x0 = -((g.dist * 0.6 + camX * 30) % tw) - tw;
-    _flat.colorFilter =
-        const ColorFilter.mode(Color(0xFF8E3F6E), BlendMode.srcIn);
+    final src =
+        Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+    var x0 = -(scroll % tw) - tw;
+    _flat.colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
     _flat.filterQuality = FilterQuality.none;
+    _flat.color = Colors.white;
     while (x0 < W) {
       canvas.drawImageRect(
-          img,
-          Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
-          Rect.fromLTWH(x0, horizonY - th + 1, tw + 0.5, th),
-          _flat);
+          img, src, Rect.fromLTWH(x0, horizonY - th + 1, tw + 0.5, th), _flat);
       x0 += tw;
     }
     _flat.colorFilter = null;
   }
 
-  static ui.Image _makeSkyline() {
-    const w = 200, h = 50;
+  /// Beyaz bina silüeti ya da ([windows]) yalnız aynı binaların pencereleri;
+  /// aynı tohumla iki katman birebir örtüşür.
+  static ui.Image _makeSkyline(int seed, int w, int h,
+      {required bool windows}) {
     final rec = ui.PictureRecorder();
     final c = Canvas(rec);
     final paint = Paint()
       ..isAntiAlias = false
       ..color = Colors.white;
-    final r = math.Random(42);
+    final r = math.Random(seed);
+    final rw = math.Random(seed * 13 + 1); // pencereler ayrı: silüet aynı kalır
     var x = 0.0;
     while (x < w) {
       final bw = 8 + r.nextInt(14).toDouble();
-      final bh = 12 + r.nextDouble() * 34;
-      c.drawRect(Rect.fromLTWH(x, h - bh, bw, bh), paint);
-      if (r.nextDouble() < 0.25) {
-        c.drawRect(Rect.fromLTWH(x + bw / 2 - 0.5, h - bh - 6, 1, 6), paint);
+      final bh = 12 + r.nextDouble() * (h - 16);
+      final antenna = r.nextDouble() < 0.25;
+      if (!windows) {
+        c.drawRect(Rect.fromLTWH(x, h - bh, bw, bh), paint);
+        if (antenna) {
+          c.drawRect(Rect.fromLTWH(x + bw / 2 - 0.5, h - bh - 6, 1, 6), paint);
+        }
+      } else {
+        for (var wy = h - bh + 3; wy < h - 3; wy += 4) {
+          for (var wx = x + 2; wx < x + bw - 2; wx += 3) {
+            if (rw.nextDouble() < 0.3) {
+              c.drawRect(Rect.fromLTWH(wx, wy, 1, 2), paint);
+            }
+          }
+        }
       }
       x += bw + r.nextInt(3);
     }
@@ -1474,8 +1550,7 @@ class _RunnerPainter extends CustomPainter {
 
   // ── Zemin, raylar, traversler ──
   void _ground(Canvas canvas) {
-    _flat.shader = ui.Gradient.linear(
-        Offset(0, horizonY), Offset(0, H), [gravelFar, gravel], [0, 0.35]);
+    _flat.shader = _groundSh;
     canvas.drawRect(
         Rect.fromLTWH(-20, horizonY, W + 40, H - horizonY + 20), _flat);
     _flat.shader = null;
@@ -1563,6 +1638,34 @@ class _RunnerPainter extends CustomPainter {
                 _pt(xw, wy1, wz0), _fogged(wc, wz0));
           }
         }
+        // Neon tabela (bazı binalarda; pembe / turkuaz, yumuşak halelı)
+        if (hash % 5 == 1 && z0 + 1.2 > nearZ) {
+          final neon = (hash >> 5).isEven
+              ? const Color(0xFFFF6FB5)
+              : const Color(0xFF5FF2E4);
+          final blink = (hash % 3 == 0) && ((g.animT * 2.5 + idx) % 4) < 0.35;
+          final ny0 = h - 0.78, ny1 = h - 0.38;
+          final nz0 = z0 + 1.2, nz1 = z0 + 4.4;
+          _batch.quad(
+              _pt(xw, ny0 - 0.12, nz0 - 0.15),
+              _pt(xw, ny0 - 0.12, nz1 + 0.15),
+              _pt(xw, ny1 + 0.12, nz1 + 0.15),
+              _pt(xw, ny1 + 0.12, nz0 - 0.15),
+              _fogged(neon, cz).withValues(alpha: blink ? 0.08 : 0.28));
+          _batch.quad(
+              _pt(xw, ny0, nz0),
+              _pt(xw, ny0, nz1),
+              _pt(xw, ny1, nz1),
+              _pt(xw, ny1, nz0),
+              _fogged(blink ? const Color(0xFF3A2440) : neon, cz));
+          _batch.quad(
+              _pt(xw, ny0 + 0.1, nz0 + 0.3),
+              _pt(xw, ny0 + 0.1, nz1 - 0.3),
+              _pt(xw, ny1 - 0.1, nz1 - 0.3),
+              _pt(xw, ny1 - 0.1, nz0 + 0.3),
+              _fogged(blink ? const Color(0xFF2B1A33) : Colors.white, cz)
+                  .withValues(alpha: 0.7));
+        }
         // Peron kenarı (sarı şerit)
         _batch.quad(
             _pt(side * 1.62, 0.01, za),
@@ -1573,6 +1676,76 @@ class _RunnerPainter extends CustomPainter {
       }
     }
     _batch.flush(canvas, _flat);
+    _lampsAndGantries(canvas);
+  }
+
+  /// Peron lambaları (zemine sıcak ışık havuzu) ve raylar üzerinde
+  /// katener direkleri + teller. Hepsi trenlerin dışında / üstünde
+  /// kaldığı için varlıklardan önce çizilir.
+  void _lampsAndGantries(Canvas canvas) {
+    const zf = _SubwayCatScreenState.zFar;
+    const metal = Color(0xFF3A2440);
+    // Teller (her şeridin üstünde, kameraya çok yakın kısım ekran dışında)
+    final wz0 = camZ + 1.2;
+    for (final l in const [-1.0, 0.0, 1.0]) {
+      _batch.quad(_pt(l - 0.012, 4.15, wz0), _pt(l + 0.012, 4.15, wz0),
+          _pt(l + 0.012, 4.15, zf), _pt(l - 0.012, 4.15, zf), metal);
+    }
+    // Katener direkleri (24 birimde bir)
+    const gStep = 24.0;
+    for (var z = zf - (zf % gStep) - g.dist % gStep;
+        z > nearZ + 0.4;
+        z -= gStep) {
+      final c = _fogged(metal, z);
+      for (final sd in const [-1.0, 1.0]) {
+        _batch.quad(_pt(sd * 1.85 - 0.06, 0, z), _pt(sd * 1.85 + 0.06, 0, z),
+            _pt(sd * 1.85 + 0.06, 4.45, z), _pt(sd * 1.85 - 0.06, 4.45, z), c);
+      }
+      _batch.quad(_pt(-1.91, 4.3, z), _pt(1.91, 4.3, z), _pt(1.91, 4.45, z),
+          _pt(-1.91, 4.3 + 0.15, z), c);
+      for (final l in const [-1.0, 0.0, 1.0]) {
+        _batch.quad(_pt(l - 0.02, 4.15, z), _pt(l + 0.02, 4.15, z),
+            _pt(l + 0.02, 4.3, z), _pt(l - 0.02, 4.3, z), c);
+      }
+    }
+    // Lambalar (12 birimde bir, direklerin arasında; iki yanda sırayla)
+    const lStep = 12.0;
+    final lampOff = (g.dist + 6) % lStep;
+    final lampIdx0 = ((g.dist + 6) / lStep).floor();
+    for (var z = zf - (zf % lStep) - lampOff; z > nearZ + 0.4; z -= lStep) {
+      final idx = lampIdx0 + ((z + lampOff) / lStep).round();
+      final sd = idx.isEven ? -1.0 : 1.0;
+      final lx = sd * 1.95;
+      final ft = _fogT(z);
+      // ışık havuzu
+      _batch.quad(
+          _pt(sd * 1.1, 0.006, z - 1.1),
+          _pt(sd * 2.1, 0.006, z - 1.1),
+          _pt(sd * 2.1, 0.006, z + 1.1),
+          _pt(sd * 1.1, 0.006, z + 1.1),
+          const Color(0xFFFFC98A).withValues(alpha: 0.16 * (1 - ft)));
+      final c = _fogged(metal, z);
+      _batch.quad(_pt(lx - 0.035, 0, z), _pt(lx + 0.035, 0, z),
+          _pt(lx + 0.035, 2.5, z), _pt(lx - 0.035, 2.5, z), c);
+      _batch.quad(_pt(lx, 2.44, z), _pt(lx - sd * 0.45, 2.44, z),
+          _pt(lx - sd * 0.45, 2.5, z), _pt(lx, 2.5, z), c);
+      _batch.quad(
+          _pt(lx - sd * 0.47, 2.36, z),
+          _pt(lx - sd * 0.3, 2.36, z),
+          _pt(lx - sd * 0.3, 2.44, z),
+          _pt(lx - sd * 0.47, 2.44, z),
+          _fogged(const Color(0xFFFFF0C8), z));
+    }
+    _batch.flush(canvas, _flat);
+    // Lamba haleleri
+    for (var z = zf - (zf % lStep) - lampOff; z > nearZ + 0.4; z -= lStep) {
+      final idx = lampIdx0 + ((z + lampOff) / lStep).round();
+      final sd = idx.isEven ? -1.0 : 1.0;
+      final c = _pt(sd * 1.95 - sd * 0.385, 2.36, z);
+      _p.color =
+          const Color(0xFFFFD9A0).withValues(alpha: 0.22 * (1 - _fogT(z)));
+      canvas.drawCircle(c, 0.32 * f / _d(z), _p);
+    }
   }
 
   // ── Varlıklar (uzaktan yakına) ──
@@ -1580,13 +1753,16 @@ class _RunnerPainter extends CustomPainter {
     // Oyuncunun yanından geçen trenler oyuncudan önce çizilir (önündeymiş
     // gibi sıralanır); kameraya oyuncudan yakın nesneler ondan sonra.
     double trainKey(_Ob t) => t.z < 0 && t.z + t.len > 0 ? 0.001 : t.z;
-    final visible = g.obs
-        .where((o) => !o.dead && o.z < _SubwayCatScreenState.zFar)
-        .toList();
-    final trains = visible.where((o) => o.isTrain).toList();
+    final visible = _vis..clear();
+    final trains = _trains..clear();
+    for (final o in g.obs) {
+      if (o.dead || o.z >= _SubwayCatScreenState.zFar) continue;
+      visible.add(o);
+      if (o.isTrain) trains.add(o);
+    }
     // Çatıdaki coin / güçlendirmeler bulundukları trenden hemen SONRA
     // çizilir; yoksa trenin ön yüzü ve çatısı onları örter.
-    final keys = <_Ob, double>{};
+    final keys = _keys..clear();
     for (final o in visible) {
       var k = o.isTrain ? trainKey(o) : o.z;
       if (!o.isTrain && o.z >= 0 && o.y >= _SubwayCatScreenState.trainH * 0.8) {
