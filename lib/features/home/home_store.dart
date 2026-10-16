@@ -3,9 +3,10 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../core/services/social_bridge.dart';
-import 'countdown_screen.dart' show Trip, parseTrips;
+import '../countdown/countdown_screen.dart' show Trip, parseTrips;
 
-/// Uçuş listesinin tek kaynağı (Oyunlar kartı + sayaç ekranı).
+/// Ana ekran verisinin tek kaynağı: uçuşlar (Oyunlar kartı + sayaç ekranı)
+/// ve mantar panodaki notlar. İkisi tek istekte gelir (`/home`).
 ///
 /// Ücretsiz Cloudflare kotası için tutumlu: geri sayım yazısı cihazda
 /// hesaplanır, sunucuya yalnız şu durumlarda gidilir:
@@ -13,9 +14,9 @@ import 'countdown_screen.dart' show Trip, parseTrips;
 ///  • uygulama ekrandayken 15 dakikada bir,
 ///  • ekran açılırken / aşağı çekip yenileyince ve ekleme-silmede.
 /// Aynı anda tek istek çalışır.
-class TripsStore with WidgetsBindingObserver {
-  TripsStore._();
-  static final TripsStore instance = TripsStore._();
+class HomeStore with WidgetsBindingObserver {
+  HomeStore._();
+  static final HomeStore instance = HomeStore._();
 
   static const minAge = Duration(minutes: 1);
   static const pollEvery = Duration(minutes: 15);
@@ -23,6 +24,10 @@ class TripsStore with WidgetsBindingObserver {
   /// Liste değişince artar.
   final ValueNotifier<int> changes = ValueNotifier(0);
   List<Trip> trips = const [];
+  List<Note> notes = const [];
+
+  /// Bu cihazdaki oyuncu (1 = yönetici mqcan, 2 = ari).
+  int? me;
   bool connected = false, loaded = false;
 
   /// Son yenilemede sunucuya ulaşılamadıysa (liste önbellekten).
@@ -74,7 +79,7 @@ class TripsStore with WidgetsBindingObserver {
   }
 
   Future<void> _load() async {
-    _apply(await call('trips'));
+    _apply(await call('home'));
     _fetched = clock();
   }
 
@@ -87,6 +92,12 @@ class TripsStore with WidgetsBindingObserver {
 
   Future<Map<String, dynamic>> delete(int id) =>
       _write('tripDelete', {'id': id});
+
+  Future<Map<String, dynamic>> addNote(String text) =>
+      _write('noteAdd', {'text': text});
+
+  Future<Map<String, dynamic>> deleteNote(int id) =>
+      _write('noteDelete', {'id': id});
 
   Future<Map<String, dynamic>> _write(
       String action, Map<String, dynamic> data) async {
@@ -103,6 +114,28 @@ class TripsStore with WidgetsBindingObserver {
     connected = r['connected'] == true;
     error = r['offline'] == true ? r['error'] as String? : null;
     if (r['trips'] != null) trips = parseTrips(r);
+    if (r['notes'] != null) notes = parseNotes(r);
+    if (r['me'] is int) me = r['me'] as int;
     changes.value++;
   }
 }
+
+/// Mantar panodaki not (24 saat sonra kaybolur).
+class Note {
+  Note.fromJson(Map<String, dynamic> j)
+      : id = j['id'] as int,
+        player = j['player'] as int,
+        name = (j['name'] as String?) ?? 'Oyuncu',
+        text = j['text'] as String,
+        expires =
+            DateTime.fromMillisecondsSinceEpoch((j['expires'] as int) * 1000);
+
+  final int id, player;
+  final String name, text;
+  final DateTime expires;
+}
+
+List<Note> parseNotes(Map<String, dynamic> r) => [
+      for (final n in (r['notes'] as List? ?? const []).whereType<Map>())
+        Note.fromJson(n.cast<String, dynamic>())
+    ];

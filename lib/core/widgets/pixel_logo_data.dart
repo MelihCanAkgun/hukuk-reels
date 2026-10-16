@@ -31,6 +31,10 @@ const Map<String, Color> kLogoPalette = {
   'w': Color(0xFFF4ECE0),
   'a': Color(0xFF6B6F80),
   'A': Color(0xFFB8BCC8),
+  'S': Color(0xFFF6CBA4),
+  'h': Color(0xFF4A2618),
+  'u': Color(0xFF6E4A2E),
+  'M': Color(0xFF8E2350),
 };
 
 const List<String> kLogoBlockBlast = [
@@ -474,4 +478,61 @@ const List<String> kLogoPlane = [
   '..kkkkkkkPPPqkkkk...',
   '......kPPPqkk.......',
   '.......kkkk.........',
+];
+
+const List<String> kLogoCouple = [
+  '........k.k.........',
+  '.......krkrk........',
+  '.......krrrk........',
+  '........krk.........',
+  '....kkkk.k..kk......',
+  '...kuuuuk.kkppkk....',
+  '..kuuuuuukhhpphhk...',
+  '..kuSSSSukhhhhhhhk..',
+  '..kSSkSSSkhSSSShhhk.',
+  '..kSSSSRSkRSkSSShhk.',
+  '...kSSSSkkkSSSShhhk.',
+  '..kbbbbbSSSpppphhhk.',
+  '.kbbbbbbSSppppppphhk',
+  '.kbSbbbbbbppppppShhk',
+  '.kbSbbbbbbpppppppShk',
+  '.kbbbbbbbkpppppppppk',
+  '..knnnnnnkpppppppppk',
+  '..knnkknnkkSSkkkSSk.',
+  '...kk..kk..kk...kk..',
+  '....................',
+];
+
+const List<String> kLogoPinPink = [
+  '..kkkk..',
+  '.kPPppk.',
+  'kPppppqk',
+  'kpppppqk',
+  '.kpppqk.',
+  '..kkak..',
+  '...kak..',
+  '....k...',
+];
+
+const List<String> kLogoPinBlue = [
+  '..kkkk..',
+  '.kBBbbk.',
+  'kBbbbbnk',
+  'kbbbbbnk',
+  '.kbbbnk.',
+  '..kkak..',
+  '...kak..',
+  '....k...',
+];
+
+const List<String> kLogoBow = [
+  '.kk.....kk.',
+  'kppk...kppk',
+  'kpPpkkkpPpk',
+  'kppppqppppk',
+  'kpPppqppPpk',
+  'kppkkqkkppk',
+  '.kkkqkqkkk.',
+  '..kqk.kqk..',
+  '...k...k...',
 ];

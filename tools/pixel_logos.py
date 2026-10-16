@@ -46,6 +46,10 @@ PALETTE = {
     'w': 0xF4ECE0,  # kağıt
     'a': 0x6B6F80,
     'A': 0xB8BCC8,
+    'S': 0xF6CBA4,  # ten
+    'h': 0x4A2618,  # koyu kahve saç
+    'u': 0x6E4A2E,  # kahve saç
+    'M': 0x8E2350,  # bordo
 }
 
 
@@ -654,6 +658,54 @@ def plane():
     ])
 
 
+def couple():
+    # Sarılan çift: solda erkek (kısa saç, mavi tişört), sağda kız (uzun saç,
+    # pembe elbise, fiyonk). Başlar birbirine yaslı, kollar birbirine sarılı.
+    return outlined([
+        '.......r.r........',
+        '.......rrr........',
+        '........r.........',
+        '..................',
+        '...uuuu....pp.....',
+        '..uuuuuu.hhpphh...',
+        '..uSSSSu.hhhhhhh..',
+        '..SSkSSS.hSSSShhh.',
+        '..SSSSRS.RSkSSShh.',
+        '...SSSS...SSSShhh.',
+        '..bbbbbSSSpppphhh.',
+        '.bbbbbbSSppppppphh',
+        '.bSbbbbbbppppppShh',
+        '.bSbbbbbbpppppppSh',
+        '.bbbbbbb.ppppppppp',
+        '..nnnnnn.ppppppppp',
+        '..nn..nn..SS...SS.',
+        '..kk..kk..kk...kk.',
+    ])
+
+
+def pin(color, light):
+    return outlined([
+        '.' + light * 2 + color * 2 + '.',
+        light + color * 4 + 'q' if color == 'p' else light + color * 4 + 'n',
+        color * 5 + ('q' if color == 'p' else 'n'),
+        '.' + color * 3 + ('q' if color == 'p' else 'n') + '.',
+        '...a..',
+        '...a..',
+    ])
+
+
+def bow():
+    return outlined([
+        'pp.....pp',
+        'pPp...pPp',
+        'ppppqpppp',
+        'pPppqppPp',
+        'pp..q..pp',
+        '...q.q...',
+        '..q...q..',
+    ])
+
+
 SPRITES = {
     'blockBlast': block_blast(),
     'flappyCat': flappy_cat(),
@@ -681,6 +733,10 @@ SPRITES = {
     'alien': alien(),
     'potion': potion(),
     'plane': plane(),
+    'couple': couple(),
+    'pinPink': pin('p', 'P'),
+    'pinBlue': pin('b', 'B'),
+    'bow': bow(),
 }
 
 

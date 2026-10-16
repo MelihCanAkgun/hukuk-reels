@@ -43,3 +43,7 @@ flutter:
     - family: Inter
       fonts:
         - asset: assets/fonts/Inter.ttf
+    # Not panosu için piksel yazı tipi (SIL OFL, Türkçe tam; bkz. PixelifySans-OFL.txt).
+    - family: PixelifySans
+      fonts:
+        - asset: assets/fonts/PixelifySans.ttf
