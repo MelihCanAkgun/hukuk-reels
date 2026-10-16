@@ -20,6 +20,7 @@ import '../game/tower_screen.dart';
 import '../game/subway_cat_screen.dart';
 import '../reels/widgets/music_button.dart';
 import '../surprise/flower_surprise_flow.dart';
+import '../../core/widgets/pressable.dart';
 
 /// Mini oyunların listelendiği ayrı "Oyunlar" sekmesi. (Eskiden profilin
 /// içindeydi.) Oyun içinde de müziğe erişilebilsin diye üstte müzik düğmesi
@@ -208,7 +209,7 @@ class _GamesScreenState extends State<GamesScreen> {
     final next = trips.isEmpty ? null : trips.first;
     final left =
         next == null ? null : remainingText(next.arrival.difference(now));
-    return GestureDetector(
+    return Pressable(
       onTap: () async {
         // Liste ortak depoda; dönüşte ayrıca istek gerekmez.
         await Navigator.of(context).push(
@@ -278,7 +279,7 @@ class _GamesScreenState extends State<GamesScreen> {
     return Semantics(
       button: true,
       label: 'Çiçeğin',
-      child: GestureDetector(
+      child: Pressable(
         onTap: () => openFlower(context),
         onLongPress: () async {
           await _progress.setFlowerSurpriseSeen(false);
@@ -309,7 +310,7 @@ class _GamesScreenState extends State<GamesScreen> {
     required String subtitle,
     required Widget screen,
   }) {
-    return GestureDetector(
+    return Pressable(
       onTap: () async {
         await Navigator.of(context)
             .push(MaterialPageRoute(builder: (_) => screen));

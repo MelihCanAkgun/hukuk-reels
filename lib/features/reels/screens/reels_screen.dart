@@ -14,6 +14,7 @@ import '../../profile/profile_settings_screen.dart';
 import '../widgets/music_control_panel.dart';
 import '../widgets/question_card.dart';
 import 'reels_maintenance_screen.dart';
+import '../../../core/widgets/pressable.dart';
 
 /// Dikey kaydırmalı soru çözme ekranı (reels formatı).
 ///
@@ -449,7 +450,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                         ),
                       ),
                       const SizedBox(height: 26),
-                      GestureDetector(
+                      Pressable(
                         onTap: _resetPoolAndStart,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -510,7 +511,7 @@ class _CircleIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: 34,
@@ -633,7 +634,7 @@ class _TopBar extends StatelessWidget {
               ),
               if (showMusic) ...[
                 const SizedBox(width: 8),
-                GestureDetector(
+                Pressable(
                   onTap: onMusicTap,
                   child: Container(
                     width: 34,
@@ -846,7 +847,7 @@ class _SummaryCard extends StatelessWidget {
     required VoidCallback onTap,
     required bool primary,
   }) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),

@@ -13,6 +13,7 @@ import '../reels/widgets/music_button.dart';
 import 'arcade/arcade_kit.dart';
 import 'game_pause_overlay.dart';
 import 'revive_overlay.dart';
+import '../../core/widgets/pressable.dart';
 
 /// "Adliye Kulesi": kat kat adalet sarayı yükseltme oyunu (Stack türü).
 ///
@@ -376,7 +377,8 @@ class _TowerScreenState extends State<TowerScreen>
     }
     SfxService.instance.stack(score);
     scorePop = 1;
-    mw = f.w;
+    // Genişleme animasyonu sürüyorsa sıradaki kat hedef genişlikte gelir.
+    mw = growT < 1 ? g1b - g0b : f.w;
     art.invalidate();
     _dust(f);
     // Yeni kayan kat
@@ -738,7 +740,7 @@ class _TowerScreenState extends State<TowerScreen>
   }
 
   Widget _circleBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: 36,
@@ -912,7 +914,7 @@ class _TowerScreenState extends State<TowerScreen>
 
   Widget _btn(String label,
       {required bool primary, required VoidCallback onTap}) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,

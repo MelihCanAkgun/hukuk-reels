@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../../app/theme.dart';
 import '../../../core/models/quiz_question.dart';
 import 'corner_decorations.dart';
+import '../../../core/widgets/pressable.dart';
 
 /// Tek bir soruyu gösteren kart: çoktan seçmeli şıklar + cevap sonrası
 /// açıklama. Kart KAYDIRILMAZ; böylece yukarı kaydırınca PageView bir
@@ -85,7 +86,8 @@ class _QuestionCardState extends State<QuestionCard> {
                 ),
                 const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
                   decoration: BoxDecoration(
                     color: AppTheme.success.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
@@ -286,7 +288,7 @@ class _QuestionCardState extends State<QuestionCard> {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),
-      child: GestureDetector(
+      child: Pressable(
         onTap: () => _select(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
@@ -344,7 +346,7 @@ class _QuestionCardState extends State<QuestionCard> {
   Widget _resultPanel(bool compact) {
     final color = _isCorrect ? AppTheme.success : AppTheme.danger;
 
-    return GestureDetector(
+    return Pressable(
       onTap: _openFullExplanation,
       child: Container(
         width: double.infinity,
@@ -363,9 +365,7 @@ class _QuestionCardState extends State<QuestionCard> {
             Row(
               children: [
                 Icon(
-                  _isCorrect
-                      ? Icons.verified_rounded
-                      : Icons.cancel_rounded,
+                  _isCorrect ? Icons.verified_rounded : Icons.cancel_rounded,
                   color: color,
                   size: 17,
                 ),

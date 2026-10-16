@@ -10,6 +10,7 @@ import '../../core/models/quiz_question.dart';
 import '../../core/services/sfx_service.dart';
 import '../surprise/pixel_font.dart';
 import '../surprise/pixel_sprites.dart';
+import '../../core/widgets/pressable.dart';
 
 /// "Yanlış Soruları Döv" modu 🏏
 ///
@@ -611,7 +612,7 @@ class _BeatCardState extends State<_BeatCard>
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 9),
-      child: GestureDetector(
+      child: Pressable(
         onTap: () => _selectOption(index),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
@@ -1069,7 +1070,7 @@ class _ApologyDialog extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: GestureDetector(
+                  child: Pressable(
                     onTap: onDecline,
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1092,7 +1093,7 @@ class _ApologyDialog extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: GestureDetector(
+                  child: Pressable(
                     onTap: onAccept,
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 14),

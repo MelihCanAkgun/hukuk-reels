@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme.dart';
 import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
+import '../../core/widgets/pressable.dart';
 
 /// Oyun bitince "bir soru karşılığı devam et" akışı (oyun başına 1 kez).
 /// Block Blast, Flappy ve Subway Silly'nin ortak kullandığı katman.
@@ -194,7 +195,7 @@ class _ReviveOverlayState extends State<ReviveOverlay> {
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: GestureDetector(
+      child: Pressable(
         behavior: HitTestBehavior.opaque,
         onTap: sel == null ? () => _answer(i) : null,
         child: Container(
@@ -242,7 +243,7 @@ class _ReviveOverlayState extends State<ReviveOverlay> {
 
   Widget _bigBtn(String label,
       {required bool primary, required VoidCallback onTap}) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,

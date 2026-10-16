@@ -7,6 +7,7 @@ import '../../app/theme.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../game/arcade/arcade_sprites.dart';
 import '../surprise/pixel_sprites.dart';
+import '../../core/widgets/pressable.dart';
 
 typedef _Sticker = (List<String>, Map<String, Color>);
 
@@ -474,7 +475,7 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
                 itemBuilder: (_, i) => Semantics(
                   button: true,
                   label: 'Çıkartma ekle',
-                  child: GestureDetector(
+                  child: Pressable(
                     onTap: () =>
                         _addSticker(kAvatarStickerGroups[_group].$2[i]),
                     child: Container(

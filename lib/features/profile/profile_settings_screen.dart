@@ -19,6 +19,7 @@ import '../games/games_screen.dart';
 import '../reels/screens/reels_screen.dart';
 import 'avatar_editor_screen.dart';
 import 'profile_avatar.dart';
+import '../../core/widgets/pressable.dart';
 
 /// Profil (takma ad, fotoğraf, ilerleme, sorular) + Ayarlar (ses, sıralama,
 /// veri) ekranı.
@@ -290,7 +291,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   Semantics(
                     button: true,
                     label: 'Profil fotoğrafını değiştir',
-                    child: GestureDetector(
+                    child: Pressable(
                       onTap: _avatarBusy ? null : _onAvatarTap,
                       child: Stack(
                         clipBehavior: Clip.none,
@@ -1020,7 +1021,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       required VoidCallback onTap,
     }) =>
         Expanded(
-          child: GestureDetector(
+          child: Pressable(
             onTap: onTap,
             child: Container(
               height: 46,
@@ -1518,7 +1519,7 @@ Widget _dialogButton({
   required VoidCallback onTap,
   Color? color,
 }) {
-  return GestureDetector(
+  return Pressable(
     onTap: onTap,
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 14),
