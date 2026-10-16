@@ -1,8 +1,8 @@
 {
-  "source_commit": "a1cbd7c2be1ec47b9770b485f78d4afdd7f4bfc4",
-  "built_at": "2026-10-16T12:56:59Z",
-  "checks": "flutter analyze (no issues); flutter test (121); web runtime test; release build with base-href /hukuk-reels/",
-  "change": "Nicer Flappy/Subway environments, clipped game scenes on back navigation, lighter painting",
+  "source_commit": "c30dd1fa753665528e3dca7aff5b10771ab6bcc0",
+  "built_at": "2026-10-16T14:20:51Z",
+  "checks": "flutter analyze (no issues); flutter test (121); web runtime test; headless Chrome frame capture of both games; release build with base-href /hukuk-reels/",
+  "change": "Fix background flicker in Flappy and lamp light bursts in Subway",
   "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
-  "app_build": "7d4147cdeaf6fcfa"
+  "app_build": "734e1e8e78574815"
 }
