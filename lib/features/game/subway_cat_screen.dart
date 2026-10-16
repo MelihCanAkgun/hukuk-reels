@@ -1659,35 +1659,6 @@ class _RunnerPainter extends CustomPainter {
     final sk = skins[o.skin % 3];
     final zc = (z0 + math.min(z1, _SubwayCatScreenState.zFar)) / 2;
 
-    // Rampa (trenin önünde)
-    if (o.ramp &&
-        o.z - _SubwayCatScreenState.rampLen < _SubwayCatScreenState.zFar) {
-      final ra = math.max(o.z - _SubwayCatScreenState.rampLen, nearZ);
-      if (o.z > nearZ) {
-        final ha = h * (1 - (o.z - ra) / _SubwayCatScreenState.rampLen);
-        final rc = _fogged(const Color(0xFFC0892E), o.z);
-        _batch.quad(_pt(l - hw, ha, ra), _pt(l + hw, ha, ra),
-            _pt(l + hw, h, o.z), _pt(l - hw, h, o.z), rc);
-        // basamak şeritleri
-        for (var k = 1; k < 6; k++) {
-          final zz = o.z - _SubwayCatScreenState.rampLen * k / 6;
-          if (zz <= ra) continue;
-          final hh = h * (1 - (o.z - zz) / _SubwayCatScreenState.rampLen);
-          _batch.quad(
-              _pt(l - hw, hh, zz),
-              _pt(l + hw, hh, zz),
-              _pt(l + hw, hh, zz + 0.12),
-              _pt(l - hw, hh, zz + 0.12),
-              _fogged(const Color(0xFF7F5418), zz));
-        }
-        // yan üçgen (yakın taraf)
-        final sx = l < camX ? l + hw : l - hw;
-        _batch.quad(_pt(sx, 0, ra), _pt(sx, 0, o.z), _pt(sx, h, o.z),
-            _pt(sx, ha, ra), _fogged(const Color(0xFF7F5418), o.z));
-        _batch.flush(canvas, _flat);
-      }
-    }
-
     // Yan yüz (kameraya bakan taraf)
     if ((l - camX).abs() > hw * 0.6) {
       final sx = l < camX ? l + hw : l - hw;
@@ -1753,6 +1724,41 @@ class _RunnerPainter extends CustomPainter {
               r,
               _p);
         }
+      }
+    }
+    if (o.ramp) _ramp(canvas, o);
+  }
+
+  /// Rampa trenin önünde, kameraya trenden yakındır: trenin ön yüzünden
+  /// SONRA çizilir ki ön yüzü örtsün (aksi hâlde rampa saydam görünür).
+  void _ramp(Canvas canvas, _Ob o) {
+    final l = o.x;
+    const h = _SubwayCatScreenState.trainH, hw = _SubwayCatScreenState.trainHW;
+    if (o.ramp &&
+        o.z - _SubwayCatScreenState.rampLen < _SubwayCatScreenState.zFar) {
+      final ra = math.max(o.z - _SubwayCatScreenState.rampLen, nearZ);
+      if (o.z > nearZ) {
+        final ha = h * (1 - (o.z - ra) / _SubwayCatScreenState.rampLen);
+        final rc = _fogged(const Color(0xFFC0892E), o.z);
+        // yan üçgen (yakın taraf) — yüzeyden önce
+        final sx = l < camX ? l + hw : l - hw;
+        _batch.quad(_pt(sx, 0, ra), _pt(sx, 0, o.z), _pt(sx, h, o.z),
+            _pt(sx, ha, ra), _fogged(const Color(0xFF7F5418), o.z));
+        _batch.quad(_pt(l - hw, ha, ra), _pt(l + hw, ha, ra),
+            _pt(l + hw, h, o.z), _pt(l - hw, h, o.z), rc);
+        // basamak şeritleri
+        for (var k = 1; k < 6; k++) {
+          final zz = o.z - _SubwayCatScreenState.rampLen * k / 6;
+          if (zz <= ra) continue;
+          final hh = h * (1 - (o.z - zz) / _SubwayCatScreenState.rampLen);
+          _batch.quad(
+              _pt(l - hw, hh, zz),
+              _pt(l + hw, hh, zz),
+              _pt(l + hw, hh, zz + 0.12),
+              _pt(l - hw, hh, zz + 0.12),
+              _fogged(const Color(0xFF7F5418), zz));
+        }
+        _batch.flush(canvas, _flat);
       }
     }
   }
