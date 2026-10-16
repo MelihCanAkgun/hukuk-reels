@@ -34,6 +34,9 @@ class AppConfig {
     'assets/audio/Sadece_Senin_Olmak.m4a',
     'assets/audio/Sahte_Dualar.m4a',
     'assets/audio/Zaman_Yok.m4a',
+    'assets/audio/Rezilligi_Insan_Denenlerin.m4a',
+    'assets/audio/Dostum_Degil_Uykular.m4a',
+    'assets/audio/Something.m4a',
   ];
 
   /// Müzik açılışta otomatik başlasın mı? (Web'de tarayıcı ilk dokunuşu

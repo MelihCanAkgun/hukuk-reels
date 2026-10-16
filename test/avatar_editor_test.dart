@@ -87,8 +87,8 @@ void main() {
       expect(find.textContaining('profilde görünür'), findsOneWidget);
     });
     await _edit(tester, () async {
-      expect(find.textContaining('indirilen fotoğrafta kalır'), findsOneWidget);
-      expect(find.textContaining('3024×3024 px'), findsOneWidget);
+      expect(find.textContaining('orijinal boyutunda'), findsOneWidget);
+      expect(find.textContaining('4032×3024 px'), findsOneWidget);
     }, admin: true);
   });
 

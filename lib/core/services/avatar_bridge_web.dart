@@ -35,7 +35,8 @@ Future<String> pickAvatarSource() async {
   }
 }
 
-/// Düzenleyici sonucunu tam çözünürlükte çizer. JSON `{thumb, side, bytes}`
+/// Kare görüntü kopyası + orijinal boyutlu tam JPEG hazırlar.
+/// JSON `{thumb, width, height, bytes}`
 /// ya da 'error:<mesaj>'. Tam JPEG yükleme için JS tarafında bekler.
 Future<String> renderAvatar(String specJson) async {
   try {
