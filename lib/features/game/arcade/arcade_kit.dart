@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
 import 'arcade_sprites.dart';
@@ -150,17 +151,21 @@ class Shake {
 
 /// Piksel yazı tipinde çerçeveli (konturlu) sayı / metin çizer.
 ///
-/// Metin düzeni pahalıdır: aynı (metin, boyut, renk, saydamlık) için
-/// hazırlanan TextPainter'lar küçük bir LRU önbellekte tutulur; skor her
-/// karede yeniden düzenlenmez.
+/// Metin düzeni pahalıdır: aynı (metin, boyut, renk) için hazırlanan
+/// TextPainter'lar küçük bir LRU önbellekte tutulur. Solma ([opacity]) bir
+/// katman saydamlığıyla, büyüyüp küçülme ([scale]) çizimi ölçekleyerek
+/// yapılır; ikisi de yeniden düzen gerektirmez. (Eskiden her saydamlık ve
+/// boyut adımı için metin baştan diziliyordu: hızlı oyunda karede birkaç
+/// düzen.)
 void drawOutlinedText(Canvas canvas, String text, Offset center, double size,
     {Color fill = const Color(0xFFFFFFFF),
     Color stroke = const Color(0xFF2B1220),
-    double opacity = 1}) {
+    double opacity = 1,
+    double scale = 1}) {
   final q = (size * 2).round() / 2; // 0.5 adımlı boyut
   final a = (opacity.clamp(0.0, 1.0) * 16).round() / 16;
   if (a <= 0) return;
-  final key = '$text|$q|${fill.toARGB32()}|${stroke.toARGB32()}|$a';
+  final key = '$text|$q|${fill.toARGB32()}|${stroke.toARGB32()}';
   var pair = _textCache.remove(key);
   if (pair == null) {
     final style = TextStyle(
@@ -177,12 +182,11 @@ void drawOutlinedText(Canvas canvas, String text, Offset center, double size,
                 ..style = PaintingStyle.stroke
                 ..strokeWidth = q * 0.18
                 ..strokeJoin = StrokeJoin.round
-                ..color = stroke.withValues(alpha: a))),
+                ..color = stroke)),
       textDirection: TextDirection.ltr,
     )..layout();
     final fillTp = TextPainter(
-      text: TextSpan(
-          text: text, style: style.copyWith(color: fill.withValues(alpha: a))),
+      text: TextSpan(text: text, style: style.copyWith(color: fill)),
       textDirection: TextDirection.ltr,
     )..layout();
     pair = (strokeTp, fillTp);
@@ -191,10 +195,35 @@ void drawOutlinedText(Canvas canvas, String text, Offset center, double size,
     if (_textCache.length >= 48) _textCache.remove(_textCache.keys.first);
   }
   _textCache[key] = pair; // en sona: en yeni
-  final o = center - Offset(pair.$2.width / 2, pair.$2.height / 2);
+  final w = pair.$2.width, h = pair.$2.height;
+  final scaled = (scale - 1).abs() > 0.001;
+  if (scaled) {
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale);
+    canvas.translate(-center.dx, -center.dy);
+  }
+  final o = center - Offset(w / 2, h / 2);
+  final faded = a < 1;
+  if (faded) {
+    // Kontur ve dolgu birlikte solar (üst üste binen yerler koyulaşmaz).
+    final pad = q * 0.2;
+    canvas.saveLayer(
+        Rect.fromLTWH(o.dx - pad, o.dy - pad, w + 2 * pad, h + 2 * pad),
+        Paint()..color = Color.fromRGBO(255, 255, 255, a));
+  }
   pair.$1.paint(canvas, o);
   pair.$2.paint(canvas, o);
+  if (faded) canvas.restore();
+  if (scaled) canvas.restore();
 }
+
+/// Testlerde: önbellekteki metin düzeni sayısı.
+@visibleForTesting
+int get debugOutlinedTextCacheSize => _textCache.length;
+
+@visibleForTesting
+void debugClearOutlinedTextCache() => _textCache.clear();
 
 // ignore: prefer_collection_literals
 final _textCache = <String, (TextPainter, TextPainter)>{};

@@ -66,5 +66,8 @@ void main() {
   test('streak growth never exceeds the base width', () {
     expect(towerGrownWidth(50, 96, 12), 62);
     expect(towerGrownWidth(90, 96, 12), 96);
+    // Seriyle kat başlangıç genişliğini (96) aşabilir; üst sınır 144.
+    expect(towerGrownWidth(96, 144, 12), 108);
+    expect(towerGrownWidth(140, 144, 12), 144);
   });
 }

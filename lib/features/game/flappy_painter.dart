@@ -482,7 +482,8 @@ class _FlappyPainter extends CustomPainter {
     if (g._phase == _Phase.playing || g._phase == _Phase.dying) {
       final pop = 1 + Curves.easeOut.transform(g.scorePop) * 0.25;
       drawOutlinedText(canvas, '${g.score}',
-          Offset(size.width / 2, size.height * 0.17), 20 * s * pop);
+          Offset(size.width / 2, size.height * 0.17), 20 * s,
+          scale: pop);
     }
 
     // ── Çarpma flaşı ──

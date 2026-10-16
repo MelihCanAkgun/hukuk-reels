@@ -78,6 +78,10 @@ class _TowerScreenState extends State<TowerScreen>
   // ── Dünya ölçüleri ──
   static const double fh = 16; // kat yüksekliği (= kTowerFloorPx)
   static const double baseW = 96;
+
+  /// Mükemmel serisiyle kat bu genişliğe kadar büyüyebilir (başlangıcın 1,5
+  /// katı; en dar ekranda da sığar).
+  static const double maxW = 144;
   static const double viewW = 200; // en dar ekranda görünen genişlik
   static const double plazaY = -9; // meydan seviyesi (basamakların altı)
   static const int floorsPerEra = 8;
@@ -87,7 +91,6 @@ class _TowerScreenState extends State<TowerScreen>
   final _rng = math.Random();
   late final Ticker _ticker;
   Duration? _last;
-  double _acc = 0;
   final ValueNotifier<int> _frame = ValueNotifier(0);
   final art = _Art();
 
@@ -99,7 +102,7 @@ class _TowerScreenState extends State<TowerScreen>
   bool _overShown = false;
 
   // Ekran (layout'ta güncellenir)
-  double screenW = 390, screenH = 844, padTop = 0;
+  double screenW = 390, screenH = 844, padTop = 0, dpr = 1;
   double get s => math.min(screenW / viewW, screenH / 360);
   double get anchorY => screenH * 0.38;
 
@@ -168,7 +171,6 @@ class _TowerScreenState extends State<TowerScreen>
     if (_paused) return;
     _ticker.stop();
     _last = null;
-    _acc = 0;
     setState(() => _paused = true);
   }
 
@@ -178,7 +180,6 @@ class _TowerScreenState extends State<TowerScreen>
       return;
     }
     _last = null;
-    _acc = 0;
     setState(() => _paused = false);
     _ticker.start();
   }
@@ -200,7 +201,10 @@ class _TowerScreenState extends State<TowerScreen>
   int get nextFloor => floors.length;
   double get speed => towerSpeed(score);
   double get tolerance => towerTolerance(score);
-  double get range => math.max(viewW * 0.56, mw * 0.5 + 64);
+  /// Kayan katın merkezden en uzak sapması. Kat ≤ 96 iken eski değerle aynı;
+  /// seriyle genişleyen katta da kat tamamen dışarıda bırakılabilsin (ıska
+  /// mümkün olsun) diye genişlikle büyür.
+  double get range => math.max(viewW * 0.56, mw + 16);
 
   /// Kamera yüksekliği: kule kısa iken meydan ekranın altında kalır.
   double get camTarget {
@@ -259,11 +263,14 @@ class _TowerScreenState extends State<TowerScreen>
     if (last == null) return;
     final dt = (now - last).inMicroseconds / 1e6;
     if (dt <= 0) return;
-    _acc += math.min(dt, 0.05);
-    const step = 1 / 120;
-    while (_acc >= step) {
-      _update(step);
-      _acc -= step;
+    // Her kare tam olarak geçen süre kadar ilerler (≤ 1/120 sn'lik eşit alt
+    // adımlarla). Sabit adım + biriktirici, kare süresi titredikçe bazı
+    // karelerde yarım, bazılarında bir buçuk adım ilerletip hızlı kayan
+    // katı takılıyormuş gibi gösteriyordu.
+    final frame = math.min(dt, 0.05);
+    final n = math.max(1, (frame * 120).ceil());
+    for (var i = 0; i < n; i++) {
+      _update(frame / n);
     }
     _frame.value++;
   }
@@ -300,7 +307,12 @@ class _TowerScreenState extends State<TowerScreen>
       case _Phase.ready:
       case _Phase.playing:
         _updateMover(dt);
-        camY += (camTarget - camY) * math.min(1, dt * 5);
+        // Kamera hedefe yaklaştıkça yavaşlar ama asgari bir hızla yerine
+        // oturur: uzun, piksel altı kuyruk kule yükselirken kesik kesik
+        // (birkaç karede bir piksel) kayma gibi görünüyordu.
+        final d = camTarget - camY;
+        final v = math.max(d.abs() * 5, 30.0) * dt;
+        camY = d.abs() <= v ? camTarget : camY + d.sign * v;
         camS += (s - camS) * math.min(1, dt * 5);
         skyA = camY / fh;
         return;
@@ -367,7 +379,7 @@ class _TowerScreenState extends State<TowerScreen>
       final sx = _sx(f.cx), sy = _sy(yb + fh) - 10;
       popups.add(_Popup(streak >= 2 ? 'MÜKEMMEL x$streak' : 'MÜKEMMEL', sx, sy,
           const Color(0xFFFFE08A), 16));
-      if (towerStreakGrows(streak, every: growEvery) && f.w < baseW - 0.5) {
+      if (towerStreakGrows(streak, every: growEvery) && f.w < maxW - 0.5) {
         _grow(f);
         popups.add(
             _Popup('KAT GENİŞLEDİ!', sx, sy + 22, const Color(0xFFB8F5D8), 13));
@@ -403,8 +415,8 @@ class _TowerScreenState extends State<TowerScreen>
     setState(() {});
   }
 
-  void _grow(_Floor f, {double by = growBy}) {
-    final w = towerGrownWidth(f.w, baseW, by);
+  void _grow(_Floor f, {double by = growBy, double max = maxW}) {
+    final w = towerGrownWidth(f.w, max, by);
     g0a = f.x0;
     g1a = f.x1;
     g0b = f.cx - w / 2;
@@ -456,14 +468,15 @@ class _TowerScreenState extends State<TowerScreen>
       // İkinci şans: son kat belirgin şekilde genişler (en az +24 ya da
       // %50), devam etmek kolaylaşsın.
       final f = top;
+      // (Seriyle başlangıçtan geniş olmuş kat daraltılmaz.)
       final by = math.max(24.0, f.w * 0.5);
       if (f.w < baseW - 0.5 && floors.length > 1) {
-        _grow(f, by: by);
+        _grow(f, by: by, max: baseW);
         popups.add(_Popup('KAT GENİŞLEDİ!', _sx(f.cx), _sy(topY) - 12,
             const Color(0xFFB8F5D8), 14));
+      } else {
+        mw = f.w;
       }
-      mw = math.min(baseW, f.w + by);
-      if (floors.length <= 1) mw = top.w;
       fromLeft = !fromLeft;
       _placeMover();
     });
@@ -676,6 +689,7 @@ class _TowerScreenState extends State<TowerScreen>
   Widget build(BuildContext context) {
     final best = ProgressService.instance.towerHigh;
     padTop = MediaQuery.paddingOf(context).top;
+    dpr = MediaQuery.devicePixelRatioOf(context);
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: Focus(
