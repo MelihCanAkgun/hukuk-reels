@@ -11,6 +11,8 @@ import 'package:flutter/services.dart';
 /// cihazlarda hafif titreşim verir.
 ///
 /// [onTap] null ise buton pasiftir: animasyon ve titreşim olmaz.
+/// Ekran okuyucular (VoiceOver/TalkBack) onu buton olarak duyurur;
+/// içerik yalnız ikonsa [semanticLabel] verilmelidir.
 class Pressable extends StatefulWidget {
   const Pressable({
     super.key,
@@ -20,6 +22,7 @@ class Pressable extends StatefulWidget {
     this.behavior,
     this.pressedScale = 0.94,
     this.haptic = true,
+    this.semanticLabel,
   });
 
   final Widget child;
@@ -28,6 +31,9 @@ class Pressable extends StatefulWidget {
   final HitTestBehavior? behavior;
   final double pressedScale;
   final bool haptic;
+
+  /// Ekran okuyucunun okuyacağı ad (ör. 'Oyunlara dön').
+  final String? semanticLabel;
 
   @override
   State<Pressable> createState() => _PressableState();
@@ -91,6 +97,15 @@ class _PressableState extends State<Pressable>
 
   @override
   Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: _enabled,
+      label: widget.semanticLabel,
+      child: _gestures(),
+    );
+  }
+
+  Widget _gestures() {
     return GestureDetector(
       behavior: widget.behavior,
       onTapDown: _enabled ? (_) => _down() : null,

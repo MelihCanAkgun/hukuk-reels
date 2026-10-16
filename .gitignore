@@ -58,3 +58,6 @@ backend/.secrets/
 /.*.txt
 /*.command
 /*.command.kapali
+
+# Python bytecode
+__pycache__/

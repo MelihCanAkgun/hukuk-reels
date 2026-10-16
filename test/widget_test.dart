@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hukuk_reels/main.dart';
 import 'package:hukuk_reels/core/services/progress_service.dart';
 import 'package:hukuk_reels/features/game/block_blast_screen.dart';
-import 'package:hukuk_reels/features/game/block_leaderboard.dart';
+import 'package:hukuk_reels/features/game/game_leaderboard.dart';
 import 'package:hukuk_reels/features/game/block_blast_engine.dart';
 import 'package:hukuk_reels/features/game/flappy_cat_screen.dart';
 import 'package:hukuk_reels/features/game/subway_cat_screen.dart';
@@ -66,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('İkimizin sıralaması'));
     await tester.pumpAndSettle();
-    expect(find.byType(BlockLeaderboard), findsOneWidget);
+    expect(find.byType(GameLeaderboard), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pageBack();
     await tester.pumpAndSettle();

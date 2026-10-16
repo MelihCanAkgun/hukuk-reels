@@ -54,8 +54,8 @@ class AudioService {
       // Her açılışta rastgele bir parçadan başla.
       final startIndex =
           sources.length > 1 ? Random().nextInt(sources.length) : 0;
-      await _player.setAudioSource(
-        ConcatenatingAudioSource(children: sources),
+      await _player.setAudioSources(
+        sources,
         preload: false,
         initialIndex: startIndex,
       );

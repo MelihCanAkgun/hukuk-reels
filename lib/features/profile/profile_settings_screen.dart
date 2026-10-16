@@ -14,7 +14,7 @@ import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
 import '../../core/services/social_bridge.dart';
 import '../beat/beat_mode_screen.dart';
-import '../game/block_leaderboard.dart';
+import '../game/game_leaderboard.dart';
 import '../games/games_screen.dart';
 import '../reels/screens/reels_screen.dart';
 import 'avatar_editor_screen.dart';
@@ -1399,7 +1399,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   Future<void> _openLeaderboard() async {
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => const BlockLeaderboard()),
+      MaterialPageRoute<void>(builder: (_) => const GameLeaderboard()),
     );
     if (mounted) await _loadSocial();
   }

@@ -99,6 +99,7 @@ class _GamesScreenState extends State<GamesScreen> {
                     // Rotanın kendisi geri alınabiliyorsa (üstteki rotalar değil).
                     if (ModalRoute.of(context)?.canPop ?? false)
                       IconButton(
+                        tooltip: 'Geri',
                         onPressed: () => Navigator.of(context).maybePop(),
                         icon: const Icon(Icons.arrow_back_rounded,
                             color: AppTheme.textPrimary),

@@ -2,14 +2,16 @@
 """Pixel-art logo üreticisi.
 
 Tek kaynak: buradaki sprite'lar hem Flutter tarafına
-(`lib/core/widgets/pixel_logo_data.dart`) hem de PWA ikon / splash
-PNG'lerine (`web/icons/`) dönüştürülür.
+(`lib/core/widgets/pixel_logo_data.dart`), PWA ikon / splash
+PNG'lerine (`web/icons/`) hem de iOS / macOS uygulama ikonlarına
+(`*/Runner/Assets.xcassets/AppIcon.appiconset/`) dönüştürülür.
 
     python3 tools/pixel_logos.py            # Dart + ikonlar
     python3 tools/pixel_logos.py --preview out.png
 """
 import argparse
 import os
+import re
 import sys
 
 from PIL import Image
@@ -839,14 +841,18 @@ def app_icon_rows():
     return g
 
 
-def render_icon(size):
+def render_icon(size, round_only=False):
+    """round_only: dış pembe zemin şeffaf kalır (macOS'ta yuvarlak ikon)."""
     g = app_icon_rows()
     N = len(g)
     big = Image.new('RGBA', (N, N))
     for y in range(N):
         for x in range(N):
             ch = g[y][x]
-            col = ICON_BG_OUT if ch == 'o_' else ICON_BG_IN if ch == 'i_' else rgb(PALETTE[ch])
+            if ch == 'o_' and round_only:
+                col = (0, 0, 0, 0)
+            else:
+                col = ICON_BG_OUT if ch == 'o_' else ICON_BG_IN if ch == 'i_' else rgb(PALETTE[ch])
             big.putpixel((x, y), col)
     # Tam sayı ölçekle keskin büyüt, sonra hedef boyuta (gerekirse) en yakın komşu.
     k = max(1, -(-size // N))
@@ -895,6 +901,21 @@ def main():
     for w, h in ((750, 1334), (1170, 2532), (1290, 2796), (1640, 2360)):
         render_splash(w, h).save(os.path.join(icons, f'splash-{w}x{h}.png'), optimize=True)
     print('icons →', icons)
+
+    # iOS: App Store ikonları saydamlık içeremez; boyut dosya adından gelir
+    # (Icon-App-83.5x83.5@2x.png → 167 px).
+    ios = os.path.join(ROOT, 'ios/Runner/Assets.xcassets/AppIcon.appiconset')
+    for name in sorted(os.listdir(ios)):
+        m = re.fullmatch(r'Icon-App-([\d.]+)x[\d.]+@(\d)x\.png', name)
+        if m:
+            size = round(float(m.group(1)) * int(m.group(2)))
+            render_icon(size).convert('RGB').save(os.path.join(ios, name), optimize=True)
+    print('ios icons →', ios)
+
+    mac = os.path.join(ROOT, 'macos/Runner/Assets.xcassets/AppIcon.appiconset')
+    for s in (16, 32, 64, 128, 256, 512, 1024):
+        render_icon(s, round_only=True).save(os.path.join(mac, f'app_icon_{s}.png'), optimize=True)
+    print('macos icons →', mac)
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ Cloudflare Workers + D1 on the Free plan. No paid plan, domain, queue, or third-
 
 Exactly two rows are permitted by the database constraint. Each player has a cryptographically random 256-bit invite code; only its SHA-256 hash is stored in D1. Codes and VAPID private key are in the ignored `.secrets/` directory (mode 0700; files 0600). Never commit/upload that directory to Pages. Give each player only their own code from `.secrets/oyuncu-kodlari.txt`. The code can reconnect the same player on another device. Keep it safely: this small private system has no email recovery.
 
-Open Block Blast → leaderboard icon → enter name and code. Joining imports the device's existing record. Scores are personal bests, not cumulative totals. Ties share rank. This is a trust-based game between two friends; client scores are bounded and authenticated but not replay-validated anti-cheat scores.
+Open Block Blast → leaderboard icon → enter name and code. Joining imports the device's existing record. Scores are personal bests, not cumulative totals. Ties share rank. Every game has its own leaderboard: Block Blast stays in `players.best`; Flappy Silly Cat, Subway Silly and Adliye Kulesi are rows in `game_scores` (migration `0006_game_scores.sql`), sent as `POST /score {game, score}` and returned by `/board` as `scores: [{id, game, best}]`. Each game notifies the other player once when they are overtaken. The leaderboard icon is in every game's top bar. This is a trust-based game between two friends; client scores are bounded and authenticated but not replay-validated anti-cheat scores.
 
 ## Push
 
