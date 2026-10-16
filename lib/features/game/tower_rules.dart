@@ -59,6 +59,10 @@ TowerDrop resolveTowerDrop({
       rightSide: rightSide);
 }
 
+/// Mükemmel serisinde kat genişler mi? Seri [every]'e ulaşınca ve seri
+/// sürdükçe sonraki her mükemmel yerleşimde (tek seferlik değil).
+bool towerStreakGrows(int streak, {int every = 5}) => streak >= every;
+
 /// Seri ödülünde katın yeni genişliği: [by] kadar büyür, [maxW]'yi aşmaz.
 double towerGrownWidth(double w, double maxW, double by) =>
     math.min(maxW, w + by);

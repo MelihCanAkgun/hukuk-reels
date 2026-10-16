@@ -57,6 +57,12 @@ void main() {
     expect(towerTolerance(1000), 1.7);
   });
 
+  test('the floor keeps growing for as long as the perfect streak lasts', () {
+    expect([for (var s = 0; s <= 9; s++) towerStreakGrows(s)],
+        [false, false, false, false, false, true, true, true, true, true]);
+    expect(towerStreakGrows(3, every: 3), isTrue);
+  });
+
   test('streak growth never exceeds the base width', () {
     expect(towerGrownWidth(50, 96, 12), 62);
     expect(towerGrownWidth(90, 96, 12), 96);

@@ -22,15 +22,16 @@ part 'tower_painter.dart';
 /// "Adliye Kulesi": kat kat adalet sarayı yükseltme oyunu (Stack türü).
 ///
 /// Kayan kat doğru anda bırakılır; alttaki katın dışında kalan kısım
-/// kesilip düşer, kule giderek incelir. Art arda 5 mükemmel yerleşim katı
-/// biraz genişletir. Hız yükseldikçe artar; her 8 katta bir başka ülkenin
+/// kesilip düşer, kule giderek incelir. Art arda 5 mükemmel yerleşimden
+/// sonra seri sürdükçe her mükemmel yerleşim katı biraz genişletir. Hız yükseldikçe artar; her 8 katta bir başka ülkenin
 /// adalet sarayının mimarisine geçilir. Oyun bitince kule baştan sona
 /// gösterilir ve tepeye cüppeli bir avukat kız iner.
 ///
 /// Dünya birimi = sprite pikseli; kat [kTowerFloorPx] birim yüksekliğinde.
-/// Kule (yerleşmiş katlar + meydan) bir [ui.Picture]'a kaydedilir ve yalnız
-/// yeni kat eklenince yeniden kaydedilir; her karede yalnız kayan kat,
-/// düşen parçalar, gökyüzü ve efektler çizilir.
+/// Kule (yerleşmiş katlar + meydan) 8 katlık parçalar hâlinde [ui.Picture]'lara
+/// kaydedilir; her karede yalnız ekrandaki parçalar, kayan kat, düşen
+/// parçalar, gökyüzü ve efektler çizilir. Kule ne kadar yükselirse yükselsin
+/// kare maliyeti sabit kalır.
 class TowerScreen extends StatefulWidget {
   const TowerScreen({super.key});
 
@@ -273,16 +274,14 @@ class _TowerScreenState extends State<TowerScreen>
     particles.update(dt);
     scorePop = math.max(0, scorePop - dt * 4);
     bannerT += dt;
-    for (final f in floors) {
-      f.age += dt;
-    }
+    // Yaş yalnız en üst katın animasyonunda kullanılır.
+    top.age += dt;
     if (growT < 1) {
       growT = math.min(1, growT + dt / 0.35);
       final k = Curves.easeOutBack.transform(growT);
       top
         ..x0 = g0a + (g0b - g0a) * k
         ..x1 = g1a + (g1b - g1a) * k;
-      if (growT >= 1) art.invalidate();
     }
     for (final c in chunks) {
       c.vy += 900 * dt;
@@ -368,7 +367,7 @@ class _TowerScreenState extends State<TowerScreen>
       final sx = _sx(f.cx), sy = _sy(yb + fh) - 10;
       popups.add(_Popup(streak >= 2 ? 'MÜKEMMEL x$streak' : 'MÜKEMMEL', sx, sy,
           const Color(0xFFFFE08A), 16));
-      if (streak % growEvery == 0 && f.w < baseW - 0.5) {
+      if (towerStreakGrows(streak, every: growEvery) && f.w < baseW - 0.5) {
         _grow(f);
         popups.add(
             _Popup('KAT GENİŞLEDİ!', sx, sy + 22, const Color(0xFFB8F5D8), 13));
@@ -393,7 +392,6 @@ class _TowerScreenState extends State<TowerScreen>
     scorePop = 1;
     // Genişleme animasyonu sürüyorsa sıradaki kat hedef genişlikte gelir.
     mw = growT < 1 ? g1b - g0b : f.w;
-    art.invalidate();
     _dust(f);
     // Yeni kayan kat
     fromLeft = !fromLeft;
@@ -853,8 +851,8 @@ class _TowerScreenState extends State<TowerScreen>
                         fontWeight: FontWeight.w700)),
                 SizedBox(height: 4),
                 Text(
-                    'Katı tam üstüne bırak. Art arda 5 mükemmel\n'
-                    'yerleşim katı genişletir.',
+                    'Katı tam üstüne bırak. 5 mükemmelden sonra\n'
+                    'seri sürdükçe kat her seferinde genişler.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white70, fontSize: 12.5)),
               ],

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,11 +94,29 @@ void main() {
       frames++;
     }
     expect(state.score as int, greaterThanOrEqualTo(40));
+    // Kule yükseldikçe kare maliyeti sabit: yalnız ekrandaki 8 katlık
+    // parçalar çizilir, meydan ekran dışında kalır, eski resimler birikmez.
+    final art = state.art;
+    expect(art.drawnSegments as int, inInclusiveRange(1, 3));
+    expect(art.drewPlaza as bool, isFalse);
+    expect(art.pendingDisposals as int, lessThan(12));
     // 40 kat → 5 dönem geçildi; mükemmel seriler katı tam genişlikte tutar.
     expect(state.perfects as int, greaterThan(20));
     expect((state.top.w as double), greaterThan(80));
     // Sıradaki kayan kat en üstteki katla aynı genişlikte olmalı.
     expect(state.mw as double, closeTo(state.top.w as double, 0.01));
+    // Finalde kamera tüm kuleyi gösterir: bütün parçalar ve meydan çizilir.
+    frames = 0;
+    while (find.text('Bir şansın daha!').evaluate().isEmpty && frames < 3000) {
+      state.autopilot(miss: true);
+      await tester.pump(const Duration(microseconds: 16667));
+      frames++;
+    }
+    await tester.tap(find.text('Hayır, bitir'));
+    await _run(tester, const Duration(milliseconds: 2000));
+    final settled = (state.floors as List).length - 1;
+    expect(art.drawnSegments as int, (settled + 7) ~/ 8);
+    expect(art.drewPlaza as bool, isTrue);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -129,6 +149,19 @@ void main() {
     await _run(tester, const Duration(milliseconds: 500));
     expect(state.top.w as double, closeTo(narrow + 12, 0.01));
     expect(state.mw as double, closeTo(narrow + 12, 0.01));
+    // Seri sürdükçe büyüme devam eder: 6. mükemmel katı yine genişletir.
+    frames = 0;
+    while (perfect < 6 && frames < 6000) {
+      final before = state.perfects as int;
+      state.autopilot();
+      await tester.pump(const Duration(microseconds: 16667));
+      if ((state.perfects as int) > before) perfect++;
+      frames++;
+    }
+    await _run(tester, const Duration(milliseconds: 500));
+    expect(state.streak as int, 6);
+    expect(state.top.w as double, closeTo(math.min(96, narrow + 24), 0.01));
+    expect(state.mw as double, closeTo(state.top.w as double, 0.01));
     final grown = state.top.w as double;
     frames = 0;
     while (find.text('Bir şansın daha!').evaluate().isEmpty && frames < 3000) {

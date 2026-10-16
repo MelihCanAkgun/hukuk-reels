@@ -29,9 +29,56 @@ class _Art {
     ..isAntiAlias = false;
   final Paint _flat = Paint()..isAntiAlias = false;
 
-  ui.Picture? tower;
-  int _towerKey = -1;
-  void invalidate() => _towerKey = -1;
+  // ── Kule resmi ──
+  // Yerleşmiş katlar 8'erli parçalar hâlinde ayrı resimlere kaydedilir; her
+  // karede yalnız ekrandaki parçalar çizilir. Yeni kat yalnız kendi
+  // parçasını, gece ışığı yalnız görünen parçaları yeniden kaydettirir.
+  // (Eskiden tüm kule tek resimdi: her karede baştan sona oynatılıyor ve her
+  // katta baştan kaydediliyordu; kule yükseldikçe oyun ağırlaşıyordu.)
+  static const int segFloors = 8;
+  final Map<int, ui.Picture> _segs = {};
+  final Map<int, int> _segKeys = {};
+  ui.Picture? _plazaPic;
+
+  /// Yeni oyunda tüm parçalar yeniden kaydedilir.
+  void invalidate() {
+    for (final p in _segs.values) {
+      retire(p);
+    }
+    _segs.clear();
+    _segKeys.clear();
+  }
+
+  // ── Resimlerin bırakılması ──
+  // Değiştirilen resim hemen dispose edilmez: önceki kare hâlâ onu
+  // kullanıyor olabilir. Kullanıldığı kareden iki çizim sonra bırakılır
+  // (aksi hâlde web'de WASM belleğinde birikip duraklamalara yol açıyordu).
+  int _paints = 0;
+  final List<(ui.Picture, int)> _retired = [];
+  void retire(ui.Picture? p) {
+    if (p != null) _retired.add((p, _paints));
+  }
+
+  void beginPaint() {
+    _paints++;
+    if (_retired.isEmpty) return;
+    _retired.removeWhere((e) {
+      if (e.$2 > _paints - 2) return false;
+      e.$1.dispose();
+      return true;
+    });
+  }
+
+  @visibleForTesting
+  int get cachedSegments => _segs.length;
+  @visibleForTesting
+  int get pendingDisposals => _retired.length;
+
+  /// Son karede çizilen kule parçası sayısı ve meydanın çizilip çizilmediği.
+  @visibleForTesting
+  int drawnSegments = 0;
+  @visibleForTesting
+  bool drewPlaza = false;
 
   static ui.Image? skyline, hills;
 
@@ -105,25 +152,49 @@ class _Art {
     }
   }
 
-  /// Yerleşmiş katlar (en üstteki hariç) + meydan; gerekirse yeniden
-  /// kaydeder. [lit] gece pencere ışığı (16 kademede pişirilir).
-  ui.Picture towerPicture(List<_Floor> floors, double lit) {
-    final litQ = (lit * 16).round();
-    final key = floors.length * 32 + litQ;
-    if (tower != null && key == _towerKey) return tower!;
-    _towerKey = key;
-    final rec = ui.PictureRecorder();
-    final c = Canvas(rec);
-    _plaza(c);
-    final l = litQ / 16;
-    for (var i = 0; i < floors.length - 1; i++) {
-      final f = floors[i];
-      final cap = _TowerScreenState.eraOf(i + 1) != f.era && i > 0;
-      drawFloor(c, f.era, f.x0, f.x1, i * fh, lit: l, cap: cap, tex: f.tex);
+  /// Yerleşmiş katlar (en üstteki hariç) ve meydan; yalnız dünya
+  /// yüksekliği [lo]..[hi] aralığına değen parçalar çizilir. [lit] gece
+  /// pencere ışığı (16 kademede pişirilir).
+  void drawTower(
+      Canvas c, List<_Floor> floors, double lit, double lo, double hi) {
+    drawnSegments = 0;
+    // Meydanın en yüksek öğesi (bayrak direği) zeminden ~46 birim yukarıda.
+    drewPlaza = lo < 60;
+    if (drewPlaza) {
+      c.drawPicture(_plazaPic ??= () {
+        final rec = ui.PictureRecorder();
+        _plaza(Canvas(rec));
+        return rec.endRecording();
+      }());
     }
-    // Eski resim dispose edilmez (web'de önceki kare kullanıyor olabilir).
-    tower = rec.endRecording();
-    return tower!;
+    final settled = floors.length - 1; // en üst kat canlı çizilir
+    if (settled <= 0) return;
+    final litQ = (lit * 16).round();
+    const segH = segFloors * fh;
+    final last = (settled - 1) ~/ segFloors;
+    for (var k = math.max(0, (lo / segH).floor()); k <= last; k++) {
+      final y0 = k * segH;
+      if (y0 > hi) break;
+      final from = k * segFloors, to = math.min(settled, from + segFloors);
+      final key = (to - from) * 32 + litQ;
+      var pic = _segs[k];
+      if (pic == null || _segKeys[k] != key) {
+        retire(pic);
+        final rec = ui.PictureRecorder();
+        final rc = Canvas(rec);
+        final l = litQ / 16;
+        for (var i = from; i < to; i++) {
+          final f = floors[i];
+          final cap = _TowerScreenState.eraOf(i + 1) != f.era && i > 0;
+          drawFloor(rc, f.era, f.x0, f.x1, i * fh,
+              lit: l, cap: cap, tex: f.tex);
+        }
+        pic = _segs[k] = rec.endRecording();
+        _segKeys[k] = key;
+      }
+      c.drawPicture(pic);
+      drawnSegments++;
+    }
   }
 
   /// Meydan: adliye basamakları, taş zemin, lambalar, Themis heykeli,
@@ -325,6 +396,7 @@ class _TowerPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (size.isEmpty) return;
+    g.art.beginPaint();
     W = size.width;
     H = size.height;
     S = g.camS;
@@ -346,7 +418,10 @@ class _TowerPainter extends CustomPainter {
         (anchorY + sh.dy * S + camY * S).roundToDouble());
     canvas.scale(S);
 
-    canvas.drawPicture(g.art.towerPicture(g.floors, night));
+    // Görünen dünya yüksekliği (sarsıntı ve saçak payıyla).
+    final pad = 2 * fh + sh.dy.abs();
+    g.art.drawTower(canvas, g.floors, night, camY - (H - anchorY) / S - pad,
+        camY + anchorY / S + pad);
     _topFloor(canvas);
     if (g._phase == _Phase.playing || g._phase == _Phase.ready) _mover(canvas);
     for (final c in g.chunks) {
@@ -379,6 +454,7 @@ class _TowerPainter extends CustomPainter {
     final key = (g.skyA * 4).round() * 100000 + W.round() * 100 + H.round();
     if (key != _skyKey || _skyPic == null) {
       _skyKey = key;
+      g.art.retire(_skyPic);
       final (top, bottom) = skyAt(g.skyA);
       final rec = ui.PictureRecorder();
       final c = Canvas(rec);
@@ -755,9 +831,12 @@ class _TowerPainter extends CustomPainter {
     if (playing) {
       final pop = 1 + Curves.easeOut.transform(g.scorePop) * 0.22;
       drawOutlinedText(canvas, '${g.score}', Offset(W / 2, top + 34), 44 * pop);
-      // seri: 5 elmas (dolu olanlar mevcut seriyi gösterir)
-      final n = g.streak % _TowerScreenState.growEvery;
-      final full = g.streak > 0 && n == 0;
+      // seri: 5 elmas (dolu olanlar mevcut seriyi gösterir); seri 5'e
+      // ulaşınca hepsi parlar ve seri sürdükçe öyle kalır (her mükemmel
+      // katı genişletir).
+      const every = _TowerScreenState.growEvery;
+      final full = towerStreakGrows(g.streak, every: every);
+      final n = full ? every : g.streak;
       const d = 7.0;
       for (var i = 0; i < 5; i++) {
         final cx = W / 2 + (i - 2) * 18;
