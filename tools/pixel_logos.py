@@ -125,7 +125,7 @@ CAT_FACE = [
 def flappy_cat():
     g = grid(16, 16)
     stamp(g, 0, 3, CAT_FACE)
-    # kanat (kafanın sağında, yukarı kalkık)
+    # melek kanadı (kafanın sağında, yukarı kalkık)
     stamp(g, 11, 4, [
         '.kk..',
         'kWWk.',
@@ -134,9 +134,9 @@ def flappy_cat():
         'kCCWk',
         '.kkk.',
     ])
-    # uçuş "whoosh"
+    # melek halesi
+    stamp(g, 3, 0, ['.yyyyy.', 'y.....y', '.yyyyy.'])
     stamp(g, 14, 12, ['P.', '.P'])
-    stamp(g, 0, 0, ['P...', '.P..'])
     return rows_of(g)
 
 

@@ -46,6 +46,21 @@ class SfxService {
     'bonk': 'assets/sfx/bonk.wav',
     'ko': 'assets/sfx/ko.wav',
     'nope': 'assets/sfx/nope.wav',
+    // Flappy Silly Cat + Subway Silly (tools/game_sfx.py üretir)
+    'flap': 'assets/sfx/flap.wav',
+    'point': 'assets/sfx/point.wav',
+    'hit': 'assets/sfx/hit.wav',
+    'fall': 'assets/sfx/fall.wav',
+    'coin': 'assets/sfx/coin.wav',
+    'jump': 'assets/sfx/jump.wav',
+    'slide': 'assets/sfx/slide.wav',
+    'swoosh': 'assets/sfx/swoosh.wav',
+    'land': 'assets/sfx/land.wav',
+    'power': 'assets/sfx/power.wav',
+    'powerdown': 'assets/sfx/powerdown.wav',
+    'stumble': 'assets/sfx/stumble.wav',
+    'crash': 'assets/sfx/crash.wav',
+    'medal': 'assets/sfx/medal.wav',
   };
 
   Future<void> init() =>
@@ -154,4 +169,23 @@ class SfxService {
 
   /// Pes etmeden şık seçilmeye çalışıldı.
   void nope() => _play('nope');
+
+  // ── Arcade oyunları ──
+  void flap() => _play('flap', rate: 0.95 + _rng.nextDouble() * 0.1);
+  void point() => _play('point');
+  void hit() => _play('hit');
+  void fall() => _play('fall');
+
+  /// Coin: ardışık toplamalarda perde hafifçe yükselir.
+  void coin([int streak = 0]) =>
+      _play('coin', rate: 1 + (streak % 8) * 0.03);
+  void jump() => _play('jump');
+  void slide() => _play('slide');
+  void swoosh() => _play('swoosh', rate: 0.9 + _rng.nextDouble() * 0.2);
+  void land() => _play('land');
+  void power() => _play('power');
+  void powerDown() => _play('powerdown');
+  void stumble() => _play('stumble');
+  void crash() => _play('crash');
+  void medal() => _play('medal');
 }

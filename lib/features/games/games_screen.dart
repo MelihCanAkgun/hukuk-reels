@@ -320,17 +320,7 @@ class _GamesScreenState extends State<GamesScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.surfaceHigh,
-                border: Border.all(color: AppTheme.accent, width: 2),
-              ),
-              child: PixelLogo(logo, size: 28),
-            ),
+            PixelLogo(logo, size: 44),
             const SizedBox(width: 13),
             Expanded(
               child: Column(

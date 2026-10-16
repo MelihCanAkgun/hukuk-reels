@@ -4,7 +4,8 @@ bool get avatarPickerSupported => false;
 /// Fotoğraf seçer; JSON `{w, h, preview}` (önizleme data URL) döner.
 Future<String> pickAvatarSource() async => '';
 
-/// Düzenleyici sonucunu tam çözünürlükte çizer; JSON `{thumb, side, bytes}`.
+/// Kare görüntü kopyası + orijinal boyutlu tam JPEG hazırlar;
+/// JSON `{thumb, width, height, bytes}`.
 Future<String> renderAvatar(String specJson) async =>
     'error:Fotoğraf düzenleme yalnız web uygulamasında çalışır.';
 

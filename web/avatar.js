@@ -1,6 +1,6 @@
 'use strict';
-// Profil fotoğrafı: seçici, tam çözünürlükte düzenleme çizimi (kırpma +
-// piksel çıkartmalar), 320 px görüntü kopyası ve yönetici için kaydetme.
+// Profil fotoğrafı: seçici, kare kırpılmış + çıkartmalı 320 px görüntü
+// kopyası, yönetici için orijinal boyutlu tam kalite kopya ve kaydetme.
 (() => {
   const SIZE = 320;
   function load(file) {
@@ -48,7 +48,6 @@
   // Seçilen fotoğraf (çözülmüş, tam çözünürlük) yalnız bu kapanışta tutulur;
   // Flutter düzenleyiciye küçük bir önizleme gider, son çizim burada tam
   // çözünürlükte yapılır. EXIF/konum canvas'tan geçince zaten düşer.
-  const FULL_MAX_SIDE = 4096;          // iOS Safari canvas sınırı (16.7 MP)
   const FULL_MAX_BYTES = 12 * 1024 * 1024;
   const PREVIEW_SIDE = 1280;
   let source = null;                    // {img, w, h}
@@ -157,42 +156,65 @@
     free(off);
   }
 
+  // Orijinalin sığabileceği en büyük boyut: iOS Safari tuvali ~16.7 MP ile
+  // sınırlı, sunucu kenar başına 8192 px kabul ediyor. Normal telefon
+  // fotoğrafları (12 MP) olduğu gibi, küçültülmeden geçer.
+  const FULL_MAX_AREA = 16_777_216;
+  const SERVER_MAX_SIDE = 8192;
+  function fullSize(w, h) {
+    const k = Math.min(1, Math.sqrt(FULL_MAX_AREA / (w * h)), SERVER_MAX_SIDE / Math.max(w, h));
+    return [Math.max(1, Math.floor(w * k)), Math.max(1, Math.floor(h * k))];
+  }
+
   /**
    * spec: {out, bg, img:{x,y,w,h}, stickers:[{rows, palette, x, y, size}]}
-   * — konumlar kare çerçevenin kenarına (1.0) göre. Tam JPEG'i saklar,
-   * 320 px görüntü kopyasını döndürür.
+   * — konumlar kare çerçevenin kenarına (1.0) göre. Kare kırpma + çıkartmalar
+   * yalnız uygulamada görünen 320 px kopya içindir. Yönetici için saklanan tam
+   * kalite kopya, galerideki ORİJİNAL fotoğraftır: kırpılmamış, çıkartmasız,
+   * kendi en-boy oranı ve çözünürlüğünde (yalnız EXIF/konum düşer).
    */
   window.hukukRenderAvatar = async (raw) => {
-    let full;
+    let full, square;
     try {
       if (!source) throw new Error('Önce bir fotoğraf seç.');
       const spec = JSON.parse(raw);
-      const S = Math.max(320, Math.min(FULL_MAX_SIDE, Math.round(spec.out) || 320));
-      full = canvasOf(S, S);
-      const ctx = full.getContext('2d');
-      ctx.fillStyle = spec.bg || '#170B12';
-      ctx.fillRect(0, 0, S, S);
-      ctx.imageSmoothingQuality = 'high';
+      // 1) Uygulama görüntüsü: kare kırpma + çıkartmalar.
+      const S = Math.max(SIZE, Math.min(1280, Math.round(spec.out) || SIZE));
+      square = canvasOf(S, S);
+      const sctx = square.getContext('2d');
+      sctx.fillStyle = spec.bg || '#170B12';
+      sctx.fillRect(0, 0, S, S);
+      sctx.imageSmoothingQuality = 'high';
       const r = spec.img;
-      ctx.drawImage(source.img, r.x * S, r.y * S, r.w * S, r.h * S);
-      ctx.imageSmoothingEnabled = false;
-      for (const st of spec.stickers || []) drawSticker(ctx, st, S);
+      sctx.drawImage(source.img, r.x * S, r.y * S, r.w * S, r.h * S);
+      sctx.imageSmoothingEnabled = false;
+      for (const st of spec.stickers || []) drawSticker(sctx, st, S);
+      const small = downscale(square, SIZE);
+      const thumb = small.toDataURL('image/jpeg', 0.86);
+      free(small);
+      free(square); square = null;
+      // 2) Tam kalite: orijinal fotoğraf, olduğu gibi.
+      const [W, H] = fullSize(source.w, source.h);
+      full = canvasOf(W, H);
+      const ctx = full.getContext('2d');
+      ctx.fillStyle = '#FFFFFF'; // şeffaf PNG'ler siyaha dönmesin
+      ctx.fillRect(0, 0, W, H);
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(source.img, 0, 0, W, H);
       let blob;
-      for (const q of [0.95, 0.9, 0.85]) {
+      for (const q of [0.95, 0.92, 0.88, 0.82]) {
         blob = await blobOf(full, q);
         if (blob.size <= FULL_MAX_BYTES) break;
       }
       if (blob.size > FULL_MAX_BYTES) throw new Error('Fotoğraf çok büyük.');
       pendingFull = await base64Of(blob);
-      const small = downscale(full, SIZE);
-      const thumb = small.toDataURL('image/jpeg', 0.86);
-      free(small);
-      return JSON.stringify({thumb, side: S, bytes: blob.size});
+      return JSON.stringify({thumb, width: W, height: H, bytes: blob.size});
     } catch (e) {
       pendingFull = '';
       return 'error:' + ((e && e.message) || 'Fotoğraf hazırlanamadı.');
     } finally {
       if (full) free(full);
+      if (square) free(square);
     }
   };
   // social.js yüklerken bir kez alır (bellekte megabaytlarca metin kalmasın).

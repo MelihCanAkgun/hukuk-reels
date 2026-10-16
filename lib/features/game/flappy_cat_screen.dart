@@ -1,16 +1,25 @@
-import 'dart:math';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
-import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
+import '../../core/services/sfx_service.dart';
+import '../../core/widgets/pixel_logo.dart';
 import '../reels/widgets/music_button.dart';
-import 'revive_overlay.dart';
+import 'arcade/arcade_kit.dart';
 import 'game_pause_overlay.dart';
+import 'revive_overlay.dart';
 
 /// Profilden açılan mini oyun: "Flappy Silly Cat".
-/// Dokunarak kediyi zıplat, borulardaki boşluklardan geç.
+///
+/// Dünya 256 birim yüksekliğinde sanal bir tuvaldir; ekran ne olursa olsun
+/// fizik ve zorluk aynı kalır, piksel sprite'lar tek ölçekle büyütülür.
+/// Tüm sahne tek bir [CustomPainter] ile çizilir; her kare yalnız tuvali
+/// yeniden boyar (setState yalnız katman değişimlerinde).
 class FlappyCatScreen extends StatefulWidget {
   const FlappyCatScreen({super.key});
 
@@ -18,53 +27,135 @@ class FlappyCatScreen extends StatefulWidget {
   State<FlappyCatScreen> createState() => _FlappyCatScreenState();
 }
 
-enum _GameState { ready, playing, over }
+enum _Phase { ready, playing, dying, over }
 
 class _Pipe {
   double x;
-  final double gapY;
+  final double baseGapY;
+  final double gap;
+  final double amp; // hareketli borularda dikey salınım genliği
+  final double freq;
+  final double phase;
   bool scored = false;
-  _Pipe(this.x, this.gapY);
+  _Pipe(this.x, this.baseGapY, this.gap,
+      {this.amp = 0, this.freq = 0, this.phase = 0});
+  double gapY(double t) =>
+      amp == 0 ? baseGapY : baseGapY + math.sin(t * freq + phase) * amp;
 }
+
+class _Fish {
+  double x;
+  final double y;
+  bool taken = false;
+  _Fish(this.x, this.y);
+}
+
+class _Popup {
+  double x, y, life;
+  final String text;
+  _Popup(this.x, this.y, this.text) : life = 0.8;
+}
+
+/// Gökyüzü paletleri: alacakaranlık → gece → şafak → gündüz (skorla döner).
+class _Sky {
+  final Color top, bottom, far, near, window, sun;
+  final double stars; // yıldız görünürlüğü
+  final bool moon;
+  const _Sky(this.top, this.bottom, this.far, this.near, this.window, this.sun,
+      this.stars, this.moon);
+}
+
+const _skies = [
+  _Sky(Color(0xFF3A1E50), Color(0xFFFF8FB1), Color(0xFF8C4C86),
+      Color(0xFF5A2A5E), Color(0xFFFFE08A), Color(0xFFFFE3EC), 0.35, true),
+  _Sky(Color(0xFF0B0820), Color(0xFF34205A), Color(0xFF2E2350),
+      Color(0xFF1C1534), Color(0xFFFFD86B), Color(0xFFF4F0FF), 1.0, true),
+  _Sky(Color(0xFF5A6BD0), Color(0xFFFFC09E), Color(0xFF9A82C4),
+      Color(0xFF6C5A9A), Color(0xFFFFE9B0), Color(0xFFFFF2B0), 0.0, false),
+  _Sky(Color(0xFF4FB2FF), Color(0xFFD4F1FF), Color(0xFF9CC9E8),
+      Color(0xFF6E9CC4), Color(0xFFBFE6FF), Color(0xFFFFF6C2), 0.0, false),
+];
 
 class _FlappyCatScreenState extends State<FlappyCatScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  bool _paused = false;
-  double _accumulator = 0;
-  // ── Fizik / ölçü sabitleri ──
-  static const double _gravity = 1500; // px/s²
-  static const double _flapV = -430; // zıplama hızı
-  static const double _speed = 165; // boru hızı px/s
-  static const double _catD = 48; // kedi çapı
-  static const double _pipeW = 66;
-  static const double _gap = 200; // boşluk yüksekliği
-  static const double _groundH = 64;
-  static const double _interval = 230; // borular arası yatay mesafe
+  // ── Dünya ölçüleri (sanal birim) ──
+  static const double vh = 256; // dünya yüksekliği
+  static const double groundH = 30;
+  static const double playH = vh - groundH;
 
-  final _rng = Random();
+  // ── Fizik ──
+  static const double gravity = 980; // birim/s²
+  static const double flapV = -285;
+  static const double maxFall = 430;
+  static const double catR = 7.2; // çarpışma yarıçapı
+  static const double pipeW = 26;
+  static const double capW = 30;
+  static const double capH = 11;
+  static const double spacing = 106;
+
+  final _rng = math.Random();
   late final Ticker _ticker;
-  Duration _last = Duration.zero;
+  Duration? _last;
+  double _acc = 0;
+  final ValueNotifier<int> _frame = ValueNotifier(0);
 
-  double _w = 0, _h = 0;
-  double _catX = 0, _catY = 0, _catVel = 0;
-  double _t = 0;
-  final List<_Pipe> _pipes = [];
-  int _score = 0;
+  bool _paused = false;
+  _Phase _phase = _Phase.ready;
+  bool _resumeHover = false; // ekstra candan sonra dokununca devam
+
+  double vw = 160; // ekran genişliği (sanal birim) — layout'ta güncellenir
+  double get catX => math.min(vw * 0.3, 92);
+
+  double catY = playH / 2, vy = 0, angle = 0;
+  double flapT = 1; // son kanat çırpmadan beri (s)
+  double t = 0; // oyun saati
+  double scroll = 0; // toplam kaydırma (paralaks)
+  double deadT = 0;
+  double flash = 0;
+  double scorePop = 0;
+  double invuln = 0;
+
+  final List<_Pipe> pipes = [];
+  final List<_Fish> fish = [];
+  final List<_Popup> popups = [];
+  final particles = ParticleSystem();
+  final shake = Shake();
+
+  int score = 0;
+  int fishCount = 0;
   bool _newRecord = false;
   DateTime _overAt = DateTime.fromMillisecondsSinceEpoch(0);
-  _GameState _state = _GameState.ready;
 
-  // Soru karşılığı tek seferlik ekstra can
   bool _reviveUsed = false;
   bool _reviving = false;
 
-  double get _playH => _h - _groundH;
+  // Gökyüzü geçişi
+  double skyT = 0; // 0..4 arası sürekli değer
+  _Sky get sky {
+    final i = skyT.floor() % 4, j = (i + 1) % 4;
+    final f = Curves.easeInOut.transform(skyT - skyT.floor());
+    final a = _skies[i], b = _skies[j];
+    return _Sky(
+      lerpColor(a.top, b.top, f),
+      lerpColor(a.bottom, b.bottom, f),
+      lerpColor(a.far, b.far, f),
+      lerpColor(a.near, b.near, f),
+      lerpColor(a.window, b.window, f),
+      lerpColor(a.sun, b.sun, f),
+      a.stars + (b.stars - a.stars) * f,
+      f < 0.5 ? a.moon : b.moon,
+    );
+  }
+
+  double get speed => 78 + math.min(score, 60) * 0.35;
+  double get gapSize => math.max(60, 76 - score * 0.35);
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _ticker = createTicker(_onTick)..start();
+    SfxService.instance.init();
+    _ticker = createTicker(_tick)..start();
   }
 
   @override
@@ -74,14 +165,14 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
 
   @override
   void didChangeMetrics() {
-    if (_state == _GameState.playing) _pause();
+    if (_phase == _Phase.playing) _pause();
   }
 
   void _pause() {
     if (_paused) return;
     _ticker.stop();
-    _last = Duration.zero;
-    _accumulator = 0;
+    _last = null;
+    _acc = 0;
     setState(() => _paused = true);
   }
 
@@ -90,8 +181,8 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
         WidgetsBinding.instance.lifecycleState != AppLifecycleState.resumed) {
       return;
     }
-    _last = Duration.zero;
-    _accumulator = 0;
+    _last = null;
+    _acc = 0;
     setState(() => _paused = false);
     _ticker.start();
   }
@@ -100,100 +191,236 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _ticker.dispose();
+    _frame.dispose();
     super.dispose();
   }
 
-  void _onTick(Duration elapsed) {
-    final dt =
-        _last == Duration.zero ? 0.0 : (elapsed - _last).inMicroseconds / 1e6;
-    _last = elapsed;
-    if (dt <= 0 || _w == 0) return;
-    _accumulator += dt.clamp(0.0, 0.05);
-    while (_accumulator >= 1 / 120) {
-      _update(1 / 120);
-      _accumulator -= 1 / 120;
+  // ───────────────────────── Döngü ─────────────────────────
+  void _tick(Duration now) {
+    final last = _last;
+    _last = now;
+    if (last == null) return;
+    final dt = (now - last).inMicroseconds / 1e6;
+    if (dt <= 0) return;
+    _acc += math.min(dt, 0.05);
+    const step = 1 / 120;
+    while (_acc >= step) {
+      _update(step);
+      _acc -= step;
     }
+    _frame.value++;
   }
 
   void _update(double dt) {
-    _t += dt;
-    if (_state == _GameState.ready) {
-      // Hafif süzülme animasyonu
-      setState(() => _catY = _playH / 2 - _catD / 2 + sin(_t * 3) * 8);
-      return;
+    t += dt;
+    flapT += dt;
+    flash = math.max(0, flash - dt * 4);
+    scorePop = math.max(0, scorePop - dt * 4);
+    invuln = math.max(0, invuln - dt);
+    shake.update(dt);
+    particles.update(dt);
+    for (final p in popups) {
+      p.life -= dt;
+      p.y -= 26 * dt;
     }
-    if (_state != _GameState.playing) return; // over: dondur
+    popups.removeWhere((p) => p.life <= 0);
+    // Gökyüzü hedefine yumuşak geçiş
+    final target = (score ~/ 12).toDouble();
+    if (skyT < target) skyT = math.min(target, skyT + dt * 0.5);
 
-    _catVel += _gravity * dt;
-    _catY += _catVel * dt;
-
-    for (final p in _pipes) {
-      p.x -= _speed * dt;
+    switch (_phase) {
+      case _Phase.ready:
+        scroll += 40 * dt;
+        catY = playH * 0.45 + math.sin(t * 3.2) * 4;
+        angle = 0;
+        return;
+      case _Phase.playing:
+        if (_resumeHover) {
+          catY = playH * 0.45 + math.sin(t * 3.2) * 4;
+          return;
+        }
+        _play(dt);
+        return;
+      case _Phase.dying:
+        _dying(dt);
+        return;
+      case _Phase.over:
+        return;
     }
-    if (_pipes.isEmpty || _pipes.last.x <= _w - _interval) _spawnPipe();
-    _pipes.removeWhere((p) => p.x + _pipeW < 0);
+  }
 
-    for (final p in _pipes) {
-      if (!p.scored && p.x + _pipeW < _catX) {
+  void _play(double dt) {
+    vy = math.min(maxFall, vy + gravity * dt);
+    catY += vy * dt;
+    final targetAngle = vy < 0 ? -0.42 : math.min(1.45, vy / maxFall * 1.7);
+    angle += (targetAngle - angle) * math.min(1, dt * (vy < 0 ? 18 : 6));
+
+    final move = speed * dt;
+    scroll += move;
+    for (final p in pipes) {
+      p.x -= move;
+    }
+    for (final f in fish) {
+      f.x -= move;
+    }
+    if (pipes.isEmpty) {
+      _spawn(vw + 30);
+    } else if (pipes.last.x < vw + 20) {
+      _spawn(pipes.last.x + spacing);
+    }
+    pipes.removeWhere((p) => p.x + capW < -10);
+    fish.removeWhere((f) => f.x < -20 || f.taken);
+
+    for (final p in pipes) {
+      if (!p.scored && p.x + pipeW / 2 < catX) {
         p.scored = true;
-        _score++;
+        score++;
+        scorePop = 1;
+        SfxService.instance.point();
         HapticFeedback.selectionClick();
       }
     }
-
-    if (_catY < 0) {
-      _catY = 0;
-      _catVel = 0;
+    for (final f in fish) {
+      if (!f.taken && (f.x - catX).abs() < 12 && (f.y - catY).abs() < 11) {
+        f.taken = true;
+        score++;
+        fishCount++;
+        scorePop = 1;
+        popups.add(_Popup(f.x, f.y - 8, '+1'));
+        particles.burst(f.x, f.y, 14,
+            const [Color(0xFFFFD36A), Color(0xFFFFF3B0), Color(0xFFFFFFFF)],
+            speed: 70, life: 0.5, size: 2.2);
+        SfxService.instance.coin(fishCount);
+        HapticFeedback.lightImpact();
+      }
     }
-    if (_catY + _catD >= _playH) {
-      _gameOver();
+
+    if (catY < -24) {
+      catY = -24;
+      vy = 0;
+    }
+    if (catY + catR >= playH) {
+      catY = playH - catR;
+      _hit(ground: true);
       return;
     }
-    final hit = Rect.fromLTWH(_catX + 7, _catY + 7, _catD - 14, _catD - 14);
-    for (final p in _pipes) {
-      final top = Rect.fromLTWH(p.x, 0, _pipeW, p.gapY - _gap / 2);
-      final bot = Rect.fromLTWH(
-          p.x, p.gapY + _gap / 2, _pipeW, _playH - (p.gapY + _gap / 2));
-      if (hit.overlaps(top) || hit.overlaps(bot)) {
-        _gameOver();
-        return;
+    if (invuln > 0) return;
+    for (final p in pipes) {
+      final g = p.gapY(t);
+      final top = g - p.gap / 2, bot = g + p.gap / 2;
+      final rects = [
+        Rect.fromLTRB(p.x, -400, p.x + pipeW, top - capH),
+        Rect.fromLTRB(p.x - (capW - pipeW) / 2, top - capH,
+            p.x + pipeW + (capW - pipeW) / 2, top),
+        Rect.fromLTRB(p.x - (capW - pipeW) / 2, bot,
+            p.x + pipeW + (capW - pipeW) / 2, bot + capH),
+        Rect.fromLTRB(p.x, bot + capH, p.x + pipeW, playH),
+      ];
+      for (final r in rects) {
+        if (_circleHits(r)) {
+          _hit(ground: false);
+          return;
+        }
       }
+    }
+  }
+
+  bool _circleHits(Rect r) {
+    final cx = catX.clamp(r.left, r.right);
+    final cy = catY.clamp(r.top, r.bottom);
+    final dx = catX - cx, dy = catY - cy;
+    return dx * dx + dy * dy < catR * catR;
+  }
+
+  void _spawn(double x) {
+    final gap = gapSize;
+    const margin = 26.0;
+    final minY = gap / 2 + margin + capH;
+    final maxY = playH - gap / 2 - margin - capH;
+    var gy = minY + _rng.nextDouble() * (maxY - minY);
+    // Ardışık boşluklar arasında makul fark (adil zorluk)
+    if (pipes.isNotEmpty) {
+      final prev = pipes.last.baseGapY;
+      gy = gy.clamp(prev - 88, prev + 88);
+    }
+    double amp = 0, freq = 0;
+    if (score >= 15 &&
+        _rng.nextDouble() < math.min(0.45, 0.2 + score * 0.006)) {
+      amp = math.min(
+          14 + _rng.nextDouble() * 12, math.min(gy - minY, maxY - gy) + 10);
+      amp = math.max(0, amp);
+      freq = 1.1 + _rng.nextDouble() * 0.8;
+    }
+    pipes.add(_Pipe(x, gy, gap,
+        amp: amp, freq: freq, phase: _rng.nextDouble() * math.pi * 2));
+    // Altın balık iki borunun arasında
+    if (pipes.length > 1 && _rng.nextDouble() < 0.28) {
+      final prev = pipes[pipes.length - 2];
+      final fy = ((prev.baseGapY + gy) / 2 + (_rng.nextDouble() - 0.5) * 30)
+          .clamp(30.0, playH - 30);
+      fish.add(_Fish(x - spacing / 2 + pipeW / 2, fy));
+    }
+  }
+
+  void _hit({required bool ground}) {
+    _phase = _Phase.dying;
+    deadT = 0;
+    flash = 1;
+    shake.kick(5, 0.35);
+    SfxService.instance.hit();
+    HapticFeedback.heavyImpact();
+    particles.burst(
+        catX,
+        catY,
+        18,
+        const [
+          Color(0xFF9C98A6),
+          Color(0xFFE4E0EA),
+          Color(0xFFFFFFFF),
+          Color(0xFFFF80AB),
+        ],
+        speed: 90,
+        life: 0.7,
+        size: 2.4,
+        gravity: 260);
+    if (ground) {
+      vy = 0;
+      deadT = 0.35; // yere çarptıysa düşüş yok
+    } else {
+      vy = -120;
+      Future.delayed(const Duration(milliseconds: 180), () {
+        if (mounted && _phase == _Phase.dying) SfxService.instance.fall();
+      });
     }
     setState(() {});
   }
 
-  void _spawnPipe() {
-    const margin = 58.0;
-    const minY = _gap / 2 + margin;
-    final maxY = _playH - _gap / 2 - margin;
-    final gapY =
-        maxY <= minY ? _playH / 2 : minY + _rng.nextDouble() * (maxY - minY);
-    _pipes.add(_Pipe(_w, gapY));
-  }
-
-  void _flap() {
-    if (_paused) return;
-    if (_state == _GameState.over) {
-      if (_reviving) return; // revive katmanı açıkken dokunuş restart etmesin
-      // Ölüm dokunuşu oyunu hemen yeniden başlatmasın.
-      if (DateTime.now().difference(_overAt) <
-          const Duration(milliseconds: 700)) {
-        return;
+  void _dying(double dt) {
+    deadT += dt;
+    if (catY + catR < playH) {
+      vy = math.min(maxFall * 1.2, vy + gravity * 1.3 * dt);
+      catY = math.min(playH - catR, catY + vy * dt);
+      angle += (1.57 - angle) * math.min(1, dt * 8);
+      if (catY + catR >= playH) {
+        shake.kick(3, 0.2);
+        particles.burst(
+            catX, playH, 10, const [Color(0xFFD9A066), Color(0xFF8A5A3A)],
+            speed: 60,
+            life: 0.5,
+            size: 2,
+            gravity: 200,
+            angle: -math.pi / 2,
+            spread: 2.2);
       }
-      _restart();
-      return;
+    } else if (deadT > 0.75) {
+      _gameOver();
     }
-    if (_state == _GameState.ready) _state = _GameState.playing;
-    _catVel = _flapV;
-    HapticFeedback.lightImpact();
   }
 
   void _gameOver() {
-    // Bu oyunda revive hakkı kalmadıysa önce "devam et?" sorusunu sun.
     if (!_reviveUsed) {
-      _state = _GameState.over;
+      _phase = _Phase.over;
       _reviving = true;
-      HapticFeedback.mediumImpact();
       setState(() {});
       return;
     }
@@ -201,26 +428,31 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
   }
 
   void _finishGame() {
-    _state = _GameState.over;
+    _phase = _Phase.over;
     _reviving = false;
     _overAt = DateTime.now();
-    HapticFeedback.heavyImpact();
-    ProgressService.instance.submitFlappyScore(_score).then((rec) {
-      if (mounted && rec) setState(() => _newRecord = true);
+    ProgressService.instance.submitFlappyScore(score).then((rec) {
+      if (!mounted) return;
+      if (rec) setState(() => _newRecord = true);
+      if (rec || score >= 10) SfxService.instance.medal();
     });
     setState(() {});
   }
 
-  /// Doğru cevap: ekstra can yakıldı, kedi ortalanır, önündeki yakın borular
-  /// temizlenir ve oyun devam eder.
+  /// Doğru cevap: ekstra can; kedi ortalanır, önündeki borular temizlenir,
+  /// dokununca kaldığı yerden devam edilir.
   void _doRevive() {
     setState(() {
       _reviveUsed = true;
       _reviving = false;
-      _catY = _playH / 2 - _catD / 2;
-      _catVel = 0;
-      _pipes.removeWhere((p) => p.x + _pipeW > _catX - 40 && p.x < _catX + 260);
-      _state = _GameState.playing;
+      catY = playH * 0.45;
+      vy = 0;
+      angle = 0;
+      pipes.removeWhere((p) => p.x + capW > catX - 40 && p.x < catX + 200);
+      fish.clear();
+      _phase = _Phase.playing;
+      _resumeHover = true;
+      invuln = 1.2;
     });
   }
 
@@ -228,238 +460,194 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
 
   void _restart() {
     setState(() {
-      _state = _GameState.ready;
-      _catY = _playH / 2 - _catD / 2;
-      _catVel = 0;
-      _pipes.clear();
-      _score = 0;
-      _t = 0;
+      _phase = _Phase.ready;
+      catY = playH * 0.45;
+      vy = 0;
+      angle = 0;
+      pipes.clear();
+      fish.clear();
+      popups.clear();
+      particles.clear();
+      shake.reset();
+      score = 0;
+      fishCount = 0;
+      t = 0;
+      skyT = 0;
       _newRecord = false;
       _reviveUsed = false;
       _reviving = false;
+      _resumeHover = false;
     });
   }
 
+  void _flap() {
+    if (_paused) return;
+    if (_phase == _Phase.over) {
+      if (_reviving) return;
+      if (DateTime.now().difference(_overAt) <
+          const Duration(milliseconds: 700)) {
+        return;
+      }
+      _restart();
+      return;
+    }
+    if (_phase == _Phase.dying) return;
+    if (_phase == _Phase.ready) setState(() => _phase = _Phase.playing);
+    if (_resumeHover) setState(() => _resumeHover = false);
+    vy = flapV;
+    flapT = 0;
+    particles.burst(
+        catX - 10, catY + 2, 4, const [Color(0xFFFFFFFF), Color(0xFFE4E0EA)],
+        speed: 40, life: 0.45, size: 2, angle: math.pi * 0.85, spread: 1.0);
+    SfxService.instance.flap();
+    HapticFeedback.lightImpact();
+  }
+
+  /// Testlerde ve demo görüntülerinde kediyi sıradaki boşluğa yönlendirir.
+  @visibleForTesting
+  void autopilot() {
+    if (_phase == _Phase.ready) return _flap();
+    if (_phase != _Phase.playing || _resumeHover) return;
+    final next = pipes.where((p) => p.x + pipeW > catX - catR).toList();
+    final target = next.isEmpty ? playH * 0.5 : next.first.gapY(t) + 13;
+    if (catY > target && vy > -40) _flap();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent) return KeyEventResult.ignored;
+    final k = e.logicalKey;
+    if (k == LogicalKeyboardKey.space ||
+        k == LogicalKeyboardKey.arrowUp ||
+        k == LogicalKeyboardKey.keyW ||
+        k == LogicalKeyboardKey.enter) {
+      _flap();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Tek bir kanat çırpışı (dokunuşla başlar): yukarıdan aşağı vuruş,
+  /// sonra kanat yukarı toparlanır.
+  static const _stroke = [
+    kSprFlappyCatUpMid,
+    kSprFlappyCatMid,
+    kSprFlappyCatDownMid,
+    kSprFlappyCatDown,
+    kSprFlappyCatDown,
+    kSprFlappyCatDownMid,
+    kSprFlappyCatMid,
+    kSprFlappyCatUpMid,
+    kSprFlappyCatUp,
+  ];
+  static const double _strokeFrame = 0.036;
+
+  List<String> get catSprite {
+    if (_phase == _Phase.dying || _phase == _Phase.over) {
+      return kSprFlappyCatDead;
+    }
+    // Menüde ve "devam etmek için dokun" beklerken sakin, sürekli çırpış
+    final hovering = _phase == _Phase.ready || _resumeHover;
+    final i = hovering
+        ? ((t % 0.6) / 0.6 * _stroke.length).floor()
+        : (flapT / _strokeFrame).floor();
+    if (i < _stroke.length) return _stroke[i];
+    if (vy > 200) return kSprFlappyCatUp; // dalışta kanatlar yukarıda
+    return kSprFlappyCatMid; // süzülme
+  }
+
+  // ───────────────────────── Arayüz ─────────────────────────
   @override
   Widget build(BuildContext context) {
     final best = ProgressService.instance.flappyHigh;
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      body: LayoutBuilder(
-        builder: (context, c) {
-          _w = c.maxWidth;
-          _h = c.maxHeight;
-          _catX = _w * 0.28;
-          final tilt = (_catVel / 620).clamp(-0.5, 1.3);
-
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: _onKey,
+        child: LayoutBuilder(builder: (context, c) {
+          vw = c.maxHeight <= 0 ? 160 : c.maxWidth / (c.maxHeight / vh);
           return GestureDetector(
             behavior: HitTestBehavior.opaque,
-            onTap: _flap,
+            onTapDown: (_) => _flap(),
+            // Katmanlar ne kadar dar olursa olsun sahne tüm ekranı kaplar.
             child: Stack(
+              fit: StackFit.expand,
               children: [
-                // ── Gökyüzü ──
-                const Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF3A1E30), Color(0xFF1C0E17)],
-                      ),
-                    ),
+                Positioned.fill(
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                        painter: _FlappyPainter(this, repaint: _frame)),
                   ),
                 ),
-
-                // ── Borular ──
-                for (final p in _pipes) ..._pipePair(p),
-
-                // ── Zemin ──
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: _groundH,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFE0567F), Color(0xFF9B2F50)],
-                      ),
-                      border: Border(
-                        top: BorderSide(color: Color(0xFFFFB6C1), width: 3),
-                      ),
-                    ),
-                  ),
-                ),
-
-                // ── Kedi ──
-                Positioned(
-                  left: _catX,
-                  top: _catY,
-                  child: Transform.rotate(
-                    angle: tilt,
-                    child: _cat(),
-                  ),
-                ),
-
-                // ── Skor (oynarken) ──
-                if (_state == _GameState.playing)
-                  Positioned(
-                    top: c.maxHeight * 0.10,
-                    left: 0,
-                    right: 0,
-                    child: Center(
-                      child: Text(
-                        '$_score',
-                        style: const TextStyle(
-                          fontSize: 56,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                          shadows: [
-                            Shadow(color: Color(0xFF9B2F50), blurRadius: 8),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // ── Üst bar ──
                 Positioned(
                   top: 0,
                   left: 0,
                   right: 0,
-                  child: SafeArea(
-                    bottom: false,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 4, 14, 4),
-                      child: Row(
-                        children: [
-                          _circleBtn(Icons.arrow_back_rounded,
-                              () => Navigator.of(context).maybePop()),
-                          const SizedBox(width: 6),
-                          const PixelLogo(kLogoFlappyCat, size: 24),
-                          const SizedBox(width: 6),
-                          const Expanded(
-                              child: Text(
-                            'Flappy Silly Cat',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          )),
-                          MusicButton(onOpen: _pause),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 11, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              borderRadius: BorderRadius.circular(30),
-                              border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.25)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Text('🏆',
-                                    style: TextStyle(fontSize: 13)),
-                                const SizedBox(width: 5),
-                                Text(
-                                  '$best',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  child: SafeArea(bottom: false, child: _topBar(best)),
                 ),
-
-                // ── Başlangıç katmanı ──
-                if (_state == _GameState.ready) _readyOverlay(),
-
-                // ── Devam et? (soru karşılığı ekstra can) ──
-                if (_state == _GameState.over && _reviving)
+                if (_phase == _Phase.ready) _readyOverlay(),
+                if (_resumeHover && _phase == _Phase.playing)
+                  _hint('Devam etmek için dokun'),
+                if (_phase == _Phase.over && _reviving)
                   ReviveOverlay(onRevive: _doRevive, onGiveUp: _giveUp),
-
-                // ── Oyun bitti katmanı ──
-                if (_state == _GameState.over && !_reviving) _overOverlay(best),
+                if (_phase == _Phase.over && !_reviving) _overOverlay(best),
                 if (_paused) GamePauseOverlay(onResume: _resume),
               ],
             ),
           );
-        },
+        }),
       ),
     );
   }
 
-  Widget _cat() {
-    return Container(
-      width: _catD,
-      height: _catD,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2.5),
-        image: const DecorationImage(
-          image: AssetImage('assets/images/SHINY_Cuh.png'),
-          fit: BoxFit.cover,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.accent.withValues(alpha: 0.6),
-            blurRadius: 12,
-            spreadRadius: 1,
+  Widget _topBar(int best) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 14, 4),
+      child: Row(
+        children: [
+          _circleBtn(
+              Icons.arrow_back_rounded, () => Navigator.of(context).maybePop()),
+          const SizedBox(width: 6),
+          const PixelLogo(kLogoFlappyCat, size: 24),
+          const SizedBox(width: 6),
+          const Expanded(
+            child: Text(
+              'Flappy Silly Cat',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'PixelifySans',
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                shadows: [Shadow(color: Color(0xFF2B1220), blurRadius: 4)],
+              ),
+            ),
+          ),
+          MusicButton(onOpen: _pause),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.32),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const PixelLogo(kLogoTrophy, size: 15),
+                const SizedBox(width: 5),
+                Text('$best',
+                    style: const TextStyle(
+                        fontFamily: 'PixelifySans',
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  List<Widget> _pipePair(_Pipe p) {
-    final topH = p.gapY - _gap / 2;
-    final botTop = p.gapY + _gap / 2;
-    return [
-      Positioned(
-        left: p.x,
-        top: 0,
-        width: _pipeW,
-        height: topH < 0 ? 0 : topH,
-        child: _pipe(capAtBottom: true),
-      ),
-      Positioned(
-        left: p.x,
-        top: botTop,
-        width: _pipeW,
-        height: (_playH - botTop).clamp(0, _h),
-        child: _pipe(capAtBottom: false),
-      ),
-    ];
-  }
-
-  Widget _pipe({required bool capAtBottom}) {
-    final radius = capAtBottom
-        ? const BorderRadius.vertical(bottom: Radius.circular(12))
-        : const BorderRadius.vertical(top: Radius.circular(12));
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [Color(0xFFFF9FC1), Color(0xFFD9477A), Color(0xFFB23461)],
-          stops: [0.0, 0.5, 1.0],
-        ),
-        borderRadius: radius,
-        border: Border.all(color: const Color(0xFF7A2243), width: 2),
       ),
     );
   }
@@ -480,151 +668,515 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
     );
   }
 
+  Widget _hint(String text) => IgnorePointer(
+        child: Align(
+          alignment: const Alignment(0, 0.42),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2B1220).withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Text(text,
+                style: const TextStyle(
+                    fontFamily: 'PixelifySans',
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ),
+      );
+
   Widget _readyOverlay() {
     return IgnorePointer(
-      child: Align(
-        alignment: const Alignment(0, 0.45),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '👆 Uçurmak için dokun',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Borulardaki boşluklardan geç!',
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Spacer(flex: 2),
+          const Text('Hazır mısın?',
+              style: TextStyle(
+                fontFamily: 'PixelifySans',
+                fontSize: 40,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFFFFE08A),
+                shadows: [
+                  Shadow(color: Color(0xFF2B1220), offset: Offset(3, 3)),
+                  Shadow(color: Color(0xFF2B1220), offset: Offset(-2, -2)),
                 ],
-              ),
+              )),
+          const Spacer(flex: 5),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2B1220).withValues(alpha: 0.65),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white24),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _overOverlay(int best) {
-    return Container(
-      color: Colors.black.withValues(alpha: 0.55),
-      alignment: Alignment.center,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 40),
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-        decoration: BoxDecoration(
-          color: AppTheme.bgElevated,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.border),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_newRecord ? '🎉' : '😹',
-                style: const TextStyle(fontSize: 48)),
-            const SizedBox(height: 10),
-            Text(
-              _newRecord ? 'Yeni Rekor!' : 'Oyun Bitti',
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: AppTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: const Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _scoreBox('Skor', '$_score', AppTheme.accent),
-                const SizedBox(width: 14),
-                _scoreBox('Rekor', '$best', AppTheme.success),
+                Text('Uçmak için dokun',
+                    style: TextStyle(
+                        fontFamily: 'PixelifySans',
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.w700)),
+                SizedBox(height: 4),
+                Text('Borulardan geç, altın balıkları kap!',
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
               ],
             ),
-            const SizedBox(height: 22),
-            GestureDetector(
-              onTap: _restart,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  gradient: AppTheme.pinkGradient,
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: const Text(
-                  'Tekrar Oyna',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => Navigator.of(context).maybePop(),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppTheme.surfaceHigh,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: AppTheme.border),
-                ),
-                child: const Text(
-                  'Profile Dön',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _scoreBox(String label, String value, Color color) {
-    return Container(
-      width: 92,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.border),
-      ),
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-                fontSize: 26, fontWeight: FontWeight.w900, color: color),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
-          ),
+          const Spacer(flex: 2),
         ],
       ),
     );
   }
+
+  List<String>? get _medal {
+    if (score >= 40) return kSprMedalPlatinum;
+    if (score >= 30) return kSprMedalGold;
+    if (score >= 20) return kSprMedalSilver;
+    if (score >= 10) return kSprMedalBronze;
+    return null;
+  }
+
+  Widget _overOverlay(int best) {
+    final medal = _medal;
+    return Container(
+      color: Colors.black.withValues(alpha: 0.45),
+      alignment: Alignment.center,
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 420),
+        curve: Curves.easeOutBack,
+        builder: (context, v, child) => Transform.translate(
+            offset: Offset(0, (1 - v) * 120),
+            child: Opacity(opacity: v.clamp(0.0, 1.0), child: child)),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 34),
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+          constraints: const BoxConstraints(maxWidth: 380),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF4E3C1),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: const Color(0xFF2B1220), width: 3),
+            boxShadow: const [
+              BoxShadow(color: Color(0xFF2B1220), offset: Offset(0, 6)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_newRecord ? 'Yeni Rekor!' : 'Oyun Bitti',
+                  style: const TextStyle(
+                    fontFamily: 'PixelifySans',
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFD63F78),
+                  )),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Container(
+                    width: 74,
+                    height: 82,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE2C998),
+                      borderRadius: BorderRadius.circular(6),
+                      border:
+                          Border.all(color: const Color(0xFFC0892E), width: 2),
+                    ),
+                    alignment: Alignment.center,
+                    child: medal == null
+                        ? const Text('Madalya\n10 puanda',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                fontSize: 11, color: Color(0xFF8A5A3A)))
+                        : CustomPaint(
+                            size: const Size(56, 63),
+                            painter: _SpritePainter(medal)),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _stat('SKOR', '$score'),
+                        const SizedBox(height: 6),
+                        _stat('EN İYİ', '$best'),
+                        if (fishCount > 0) ...[
+                          const SizedBox(height: 6),
+                          _stat('BALIK', '$fishCount'),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _btn('Tekrar Oyna', primary: true, onTap: _restart),
+              const SizedBox(height: 10),
+              _btn('Profile Dön',
+                  primary: false,
+                  onTap: () => Navigator.of(context).maybePop()),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _stat(String label, String value) => Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontFamily: 'PixelifySans',
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFC0892E))),
+          Text(value,
+              style: const TextStyle(
+                  fontFamily: 'PixelifySans',
+                  fontSize: 26,
+                  height: 1,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF2B1220))),
+        ],
+      );
+
+  Widget _btn(String label,
+      {required bool primary, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: primary ? const Color(0xFFFF80AB) : const Color(0xFFE2C998),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF2B1220), width: 2.5),
+          boxShadow: const [
+            BoxShadow(color: Color(0xFF2B1220), offset: Offset(0, 3)),
+          ],
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontFamily: 'PixelifySans',
+                color: primary ? Colors.white : const Color(0xFF2B1220),
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                shadows: primary
+                    ? const [
+                        Shadow(color: Color(0xFF8E2350), offset: Offset(1, 2))
+                      ]
+                    : null)),
+      ),
+    );
+  }
+}
+
+class _SpritePainter extends CustomPainter {
+  _SpritePainter(this.rows);
+  final List<String> rows;
+  @override
+  void paint(Canvas canvas, Size size) =>
+      drawSprite(canvas, rows, Offset.zero & size);
+  @override
+  bool shouldRepaint(_SpritePainter old) => old.rows != rows;
+}
+
+// ═══════════════════════════ Çizim ═══════════════════════════
+class _FlappyPainter extends CustomPainter {
+  _FlappyPainter(this.g, {required Listenable repaint})
+      : super(repaint: repaint);
+  final _FlappyCatScreenState g;
+
+  static const double vh = _FlappyCatScreenState.vh;
+  static const double playH = _FlappyCatScreenState.playH;
+
+  final Paint _p = Paint()..isAntiAlias = false;
+
+  // Şehir katmanları (bir kez üretilir, renkleri ColorFilter ile boyanır)
+  static ui.Image? _farCity, _nearCity, _nearWindows, _bushes;
+  static const double tileW = 240;
+  static final List<Offset> _stars = List.generate(46, (i) {
+    final r = math.Random(i * 7919 + 3);
+    return Offset(r.nextDouble(), r.nextDouble() * 0.62);
+  });
+
+  static void _ensureLayers() {
+    if (_farCity != null) return;
+    _farCity = _city(seed: 11, minH: 34, maxH: 92, windows: false);
+    _nearCity =
+        _city(seed: 23, minH: 22, maxH: 64, windows: false, court: true);
+    _nearWindows =
+        _city(seed: 23, minH: 22, maxH: 64, windows: true, court: true);
+    _bushes = _bushLayer();
+  }
+
+  /// Sanal birimde (1 px = 1 birim) şehir silüeti ya da yalnız pencereleri.
+  static ui.Image _city(
+      {required int seed,
+      required double minH,
+      required double maxH,
+      required bool windows,
+      bool court = false}) {
+    const h = 110.0;
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..color = const Color(0xFFFFFFFF);
+    final r = math.Random(seed);
+    var x = 0.0;
+    while (x < tileW) {
+      if (court && x > 92 && x < 100) {
+        // Adliye: basamaklı alınlık + sütunlar
+        const cx = 96.0, cw = 52.0, ch = 40.0;
+        if (!windows) {
+          c.drawRect(const Rect.fromLTWH(cx, h - ch, cw, ch), paint);
+          for (var i = 0; i < 7; i++) {
+            c.drawRect(
+                Rect.fromLTWH(
+                    cx - 3 + i * 4, h - ch - 3 - i * 2, cw + 6 - i * 8, 2),
+                paint);
+          }
+          c.drawRect(const Rect.fromLTWH(cx - 4, h - ch - 3, cw + 8, 3), paint);
+        } else {
+          for (var i = 0; i < 6; i++) {
+            c.drawRect(
+                Rect.fromLTWH(cx + 5 + i * 8, h - ch + 4, 3, ch - 8), paint);
+          }
+          c.drawRect(const Rect.fromLTWH(cx + 22, h - ch - 12, 8, 4), paint);
+        }
+        x = cx + cw + 4;
+        continue;
+      }
+      final w = 14 + r.nextInt(18).toDouble();
+      final bh = minH + r.nextDouble() * (maxH - minH);
+      if (!windows) {
+        c.drawRect(Rect.fromLTWH(x, h - bh, w, bh), paint);
+        if (r.nextDouble() < 0.3) {
+          c.drawRect(Rect.fromLTWH(x + w / 2 - 1, h - bh - 6, 2, 6), paint);
+        }
+      } else {
+        for (var wy = h - bh + 4; wy < h - 6; wy += 6) {
+          for (var wx = x + 3; wx < x + w - 3; wx += 5) {
+            if (r.nextDouble() < 0.42) {
+              c.drawRect(Rect.fromLTWH(wx, wy, 2, 3), paint);
+            }
+          }
+        }
+      }
+      x += w + 1 + r.nextInt(4);
+    }
+    return rec.endRecording().toImageSync(tileW.toInt(), h.toInt());
+  }
+
+  static ui.Image _bushLayer() {
+    const h = 20.0;
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    final r = math.Random(5);
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..color = const Color(0xFFFFFFFF);
+    for (var x = -6.0; x < tileW + 6; x += 9 + r.nextInt(8)) {
+      final rad = 7 + r.nextDouble() * 6;
+      // piksel daire
+      for (var dy = -rad; dy <= 0; dy++) {
+        final half =
+            math.sqrt(math.max(0, rad * rad - dy * dy)).floorToDouble();
+        c.drawRect(Rect.fromLTWH(x - half, h + dy - 1, half * 2, 1), paint);
+      }
+    }
+    c.drawRect(const Rect.fromLTWH(0, h - 2, tileW, 2), paint);
+    return rec.endRecording().toImageSync(tileW.toInt(), h.toInt());
+  }
+
+  void _tiled(Canvas canvas, ui.Image img, double offset, double y, double vw,
+      Color color) {
+    _p.colorFilter = ColorFilter.mode(color, BlendMode.srcIn);
+    _p.filterQuality = FilterQuality.none;
+    final w = img.width.toDouble();
+    final src = Rect.fromLTWH(0, 0, w, img.height.toDouble());
+    var x = -(offset % w);
+    while (x < vw) {
+      canvas.drawImageRect(
+          img, src, Rect.fromLTWH(x, y, w, img.height.toDouble()), _p);
+      x += w;
+    }
+    _p.colorFilter = null;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) return;
+    _ensureLayers();
+    final s = size.height / vh;
+    final vw = size.width / s;
+    final sky = g.sky;
+
+    canvas.save();
+    final sh = g.shake.offset;
+    canvas.translate(sh.dx * s, sh.dy * s);
+    canvas.scale(s);
+
+    // ── Gökyüzü ──
+    const bands = 12;
+    for (var i = 0; i < bands; i++) {
+      _p.color = lerpColor(sky.top, sky.bottom, i / (bands - 1));
+      canvas.drawRect(
+          Rect.fromLTWH(-8, -8 + i * (playH + 16) / bands, vw + 16,
+              (playH + 16) / bands + 1),
+          _p);
+    }
+    // Yıldızlar
+    if (sky.stars > 0.02) {
+      for (var i = 0; i < _stars.length; i++) {
+        final st = _stars[i];
+        final tw = 0.5 + 0.5 * math.sin(g.t * 2 + i * 1.7);
+        _p.color = Colors.white.withValues(alpha: sky.stars * (0.3 + 0.7 * tw));
+        final sz = i % 5 == 0 ? 2.0 : 1.0;
+        canvas.drawRect(
+            Rect.fromLTWH(
+                (st.dx * vw - g.scroll * 0.02) % vw, st.dy * playH, sz, sz),
+            _p);
+      }
+    }
+    // Ay / güneş (piksel daire)
+    final bx = vw * 0.76, by = 42.0;
+    _p.color = sky.sun.withValues(alpha: 0.18);
+    _pixelCircle(canvas, bx, by, 22);
+    _p.color = sky.sun;
+    _pixelCircle(canvas, bx, by, 14);
+    if (sky.moon) {
+      _p.color = sky.top.withValues(alpha: 0.9);
+      _pixelCircle(canvas, bx + 7, by - 5, 11);
+    }
+    // Bulutlar
+    for (var i = 0; i < 4; i++) {
+      final cw = 28.0 * (1 + (i % 2) * 0.4);
+      final x =
+          (vw + 60) - ((g.scroll * (0.08 + i * 0.03) + i * 97) % (vw + 90));
+      final y = 24.0 + (i * 37) % 70;
+      drawSprite(canvas, kSprCloud, Rect.fromLTWH(x - 30, y, cw, cw * 12 / 28),
+          opacity: 0.55 + (1 - sky.stars) * 0.35);
+    }
+    // Şehir
+    _tiled(canvas, _farCity!, g.scroll * 0.12, playH - 110 + 4, vw, sky.far);
+    _tiled(canvas, _nearCity!, g.scroll * 0.3 + 60, playH - 110 + 14, vw,
+        sky.near);
+    _tiled(canvas, _nearWindows!, g.scroll * 0.3 + 60, playH - 110 + 14, vw,
+        sky.window.withValues(alpha: 0.35 + sky.stars * 0.6));
+    _tiled(canvas, _bushes!, g.scroll * 0.55, playH - 20, vw,
+        lerpColor(const Color(0xFF1E8A63), sky.near, 0.35));
+
+    // ── Borular ──
+    for (final p in g.pipes) {
+      final gy = p.gapY(g.t);
+      final top = gy - p.gap / 2, bot = gy + p.gap / 2;
+      const pw = _FlappyCatScreenState.pipeW;
+      const cw = _FlappyCatScreenState.capW;
+      const ch = _FlappyCatScreenState.capH;
+      drawSprite(canvas, kSprPipeBody,
+          Rect.fromLTRB(p.x, -10, p.x + pw, top - ch + 0.5));
+      drawSprite(canvas, kSprPipeCap,
+          Rect.fromLTWH(p.x - (cw - pw) / 2, top - ch, cw, ch));
+      drawSprite(canvas, kSprPipeBody,
+          Rect.fromLTRB(p.x, bot + ch - 0.5, p.x + pw, playH + 1));
+      drawSprite(
+          canvas, kSprPipeCap, Rect.fromLTWH(p.x - (cw - pw) / 2, bot, cw, ch));
+      if (p.amp > 0) {
+        // Hareketli boru uyarı ışığı
+        final on = (g.t * 4).floor() % 2 == 0;
+        _p.color = on ? const Color(0xFFFFD36A) : const Color(0xFFC0892E);
+        canvas.drawRect(Rect.fromLTWH(p.x + pw / 2 - 1.5, top - 7, 3, 3), _p);
+        canvas.drawRect(Rect.fromLTWH(p.x + pw / 2 - 1.5, bot + 4, 3, 3), _p);
+      }
+    }
+    // ── Altın balıklar ──
+    for (final f in g.fish) {
+      final bob = math.sin(g.t * 4 + f.x * 0.05) * 2.5;
+      final fr = (g.t * 5).floor() % 2 == 0 ? kSprGoldFish0 : kSprGoldFish1;
+      _p.color = const Color(0xFFFFE08A).withValues(alpha: 0.22);
+      _pixelCircle(canvas, f.x, f.y + bob, 9);
+      drawSprite(
+          canvas,
+          fr,
+          Rect.fromCenter(
+              center: Offset(f.x, f.y + bob), width: 15, height: 8));
+    }
+
+    // ── Zemin ──
+    const gy = playH;
+    const tile = kSprGroundTile;
+    final tw = tile.first.length.toDouble();
+    final th = tile.length.toDouble();
+    var x = -(g.scroll % tw);
+    while (x < vw) {
+      drawSprite(canvas, tile, Rect.fromLTWH(x, gy, tw + 0.05, th));
+      x += tw;
+    }
+    _p.color = const Color(0xFFD9A066);
+    canvas.drawRect(Rect.fromLTWH(-8, gy + th, vw + 16, vh - gy - th + 8), _p);
+    _p.color = const Color(0xFFC0892E);
+    canvas.drawRect(Rect.fromLTWH(-8, gy + th, vw + 16, 1), _p);
+
+    // ── Parçacıklar ──
+    for (final pt in g.particles.items) {
+      _p.color = pt.color.withValues(alpha: pt.t);
+      canvas.drawRect(
+          Rect.fromCenter(
+              center: Offset(pt.x, pt.y), width: pt.size, height: pt.size),
+          _p);
+    }
+
+    // ── Kedi ──
+    final blink = g.invuln > 0 && (g.t * 12).floor() % 2 == 0;
+    if (!blink) {
+      canvas.save();
+      canvas.translate(g.catX, g.catY);
+      canvas.rotate(g.angle);
+      // 40×40 sprite; gövde merkezi sprite içinde (24, 22)
+      drawSprite(canvas, g.catSprite, const Rect.fromLTWH(-24, -22, 40, 40));
+      canvas.restore();
+    }
+
+    // ── Puan yazıları ──
+    for (final p in g.popups) {
+      drawOutlinedText(canvas, p.text, Offset(p.x, p.y), 11,
+          fill: const Color(0xFFFFE08A), opacity: (p.life / 0.8).clamp(0, 1));
+    }
+    canvas.restore();
+
+    // ── Skor (ekran koordinatı) ──
+    if (g._phase == _Phase.playing || g._phase == _Phase.dying) {
+      final pop = 1 + Curves.easeOut.transform(g.scorePop) * 0.25;
+      drawOutlinedText(canvas, '${g.score}',
+          Offset(size.width / 2, size.height * 0.17), 20 * s * pop);
+    }
+
+    // ── Çarpma flaşı ──
+    if (g.flash > 0) {
+      _p.color = Colors.white.withValues(alpha: g.flash * 0.7);
+      canvas.drawRect(Offset.zero & size, _p);
+    }
+  }
+
+  void _pixelCircle(Canvas canvas, double cx, double cy, double r) {
+    for (var dy = -r; dy < r; dy += 1) {
+      final half = math
+          .sqrt(math.max(0, r * r - (dy + 0.5) * (dy + 0.5)))
+          .roundToDouble();
+      canvas.drawRect(Rect.fromLTWH(cx - half, cy + dy, half * 2, 1), _p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _FlappyPainter old) => false;
 }

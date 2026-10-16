@@ -264,7 +264,6 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
   @override
   Widget build(BuildContext context) {
     final sel = _sel;
-    final out = (_minSide / _zoom).round().clamp(320, 4096);
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
@@ -302,8 +301,9 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
                     ? 'Çıkartmayı sürükle; iki parmakla ya da kaydırıcılarla '
                         'boyutlandır ve döndür.'
                     : widget.admin
-                        ? 'Fotoğrafı sürükle ve iki parmakla yakınlaştır. Daire profilde '
-                            'görünür; köşeler indirilen fotoğrafta kalır. ($out×$out px)'
+                        ? 'Fotoğrafı sürükle ve iki parmakla yakınlaştır. Kırpma yalnız '
+                            'profil içindir; indirilen fotoğraf orijinal boyutunda '
+                            '(${widget.srcWidth}×${widget.srcHeight} px) kalır.'
                         : 'Fotoğrafı sürükle ve iki parmakla yakınlaştır. Daire içi '
                             'profilde görünür.',
                 textAlign: TextAlign.center,

@@ -57,9 +57,9 @@ const List<String> kLogoBlockBlast = [
 ];
 
 const List<String> kLogoFlappyCat = [
-  'P...............',
-  '.P..............',
-  '................',
+  '....yyyyy.......',
+  '...y.....y......',
+  '....yyyyy.......',
   '.k.........k....',
   'kck.......kckk..',
   'kPck.....kckWWk.',

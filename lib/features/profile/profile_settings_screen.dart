@@ -588,7 +588,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
       }
       final r = jsonDecode(rendered) as Map<String, dynamic>;
       final thumb = r['thumb'] as String;
-      final side = r['side'];
+      final size = r['width'] != null
+          ? '${r['width']}×${r['height']}'
+          : '${r['side']}×${r['side']}';
       if (_connected) {
         final result = await socialCall('avatarPutFull', {'data': thumb});
         if (!mounted) return;
@@ -599,7 +601,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               thumb.split(',').last, _me?['avatar'] as String? ?? '');
           HapticFeedback.lightImpact();
           _toast(_isAdmin
-              ? 'Profil fotoğrafı tam kalitede yüklendi ($side×$side).'
+              ? 'Profil fotoğrafı tam kalitede yüklendi ($size, orijinal).'
               : 'Profil fotoğrafı güncellendi.');
           return;
         }
