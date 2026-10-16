@@ -5,9 +5,34 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
 import '../../core/widgets/pixel_logo.dart';
+import '../game/arcade/arcade_sprites.dart';
 import '../surprise/pixel_sprites.dart';
 
 typedef _Sticker = (List<String>, Map<String, Color>);
+
+/// Sprite'ın boş (saydam) kenarlarını kırpar; çıkartma kutusu çizime otursun.
+List<String> _trim(List<String> rows) {
+  bool emptyRow(String r) => !r.split('').any((c) => c != '.');
+  var top = 0, bottom = rows.length;
+  while (top < bottom && emptyRow(rows[top])) {
+    top++;
+  }
+  while (bottom > top && emptyRow(rows[bottom - 1])) {
+    bottom--;
+  }
+  final body = rows.sublist(top, bottom);
+  if (body.isEmpty) return rows;
+  var left = body.first.length, right = 0;
+  for (final r in body) {
+    for (var x = 0; x < r.length; x++) {
+      if (r[x] != '.') {
+        if (x < left) left = x;
+        if (x + 1 > right) right = x + 1;
+      }
+    }
+  }
+  return [for (final r in body) r.substring(left, right)];
+}
 
 /// Fotoğrafa eklenebilen piksel-art çıkartmalar, gruplar hâlinde.
 final List<(String, List<_Sticker>)> kAvatarStickerGroups = [
@@ -41,6 +66,36 @@ final List<(String, List<_Sticker>)> kAvatarStickerGroups = [
       (kLogoBattle, kLogoPalette),
       (kLogoFlappyCat, kLogoPalette),
       (kLogoSubwaySilly, kLogoPalette),
+    ]
+  ),
+  (
+    'Arcade',
+    [
+      (_trim(kSprFlappyCatUp), kArcadePalette),
+      (_trim(kSprFlappyCatMid), kArcadePalette),
+      (_trim(kSprFlappyCatDead), kArcadePalette),
+      (_trim(kSprGoldFish0), kArcadePalette),
+      (_trim(kSprMedalBronze), kArcadePalette),
+      (_trim(kSprMedalSilver), kArcadePalette),
+      (_trim(kSprMedalGold), kArcadePalette),
+      (_trim(kSprMedalPlatinum), kArcadePalette),
+      (_trim(kSprCloud), kArcadePalette),
+      (_trim(kSprPipeCap), kArcadePalette),
+      (_trim(kSprGroundTile), kArcadePalette),
+      (_trim(kSprRunner0), kArcadePalette),
+      (_trim(kSprRunnerJump), kArcadePalette),
+      (_trim(kSprRunnerSlide), kArcadePalette),
+      (_trim(kSprGuard0), kArcadePalette),
+      (_trim(kSprTrainPink), kArcadePalette),
+      (_trim(kSprTrainBlue), kArcadePalette),
+      (_trim(kSprTrainMint), kArcadePalette),
+      (_trim(kSprBarrier), kArcadePalette),
+      (_trim(kSprHighBar), kArcadePalette),
+      (_trim(kSprCoin0), kArcadePalette),
+      (_trim(kSprMagnet), kArcadePalette),
+      (_trim(kSprSneaker), kArcadePalette),
+      (_trim(kSprDouble), kArcadePalette),
+      (_trim(kSprHeart), kArcadePalette),
     ]
   ),
   (
