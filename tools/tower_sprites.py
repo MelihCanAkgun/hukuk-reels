@@ -512,6 +512,158 @@ def lawyer(pose='stand', blink=False):
     return rows_of(g)
 
 
+# ───────────────────────── Kraliçe tahtı + oturan avukat ─────────────────
+TW, TH = 34, 52
+THRONE_SEAT_ROW = 36  # minder üst satırı (kızın kalça çizgisi buraya)
+
+
+def _throne_frame():
+    g = grid(TW, TH)
+    return g
+
+
+def throne_back():
+    """Arka katman: taçlı, kemerli, kapitone kadife yüksek sırtlık, minder
+    ve ön etek. Kız bunun önüne, kolçaklar (ön katman) kızın önüne çizilir."""
+    g = grid(TW, TH)
+    o = 8  # sırtlık kızın başının üstüne yükselsin
+    ellipse(g, 17, 11 + 0, 12.5, 9.5, 'd')
+    rect(g, 5, 11, 24, 21 + o, 'd')
+    ellipse(g, 17, 11.5, 10.8, 8.2, 'y')
+    rect(g, 7, 11, 20, 20 + o, 'y')
+    ellipse(g, 17, 12, 9.2, 7.0, 'Q')
+    rect(g, 8, 12, 18, 18 + o, 'Q')
+    for j in range(5, 30 + o):
+        for i in range(8, 26):
+            if g[j][i] != 'Q':
+                continue
+            if (i + j) % 6 == 0 or (i - j) % 6 == 0:
+                g[j][i] = 'q'
+    for j in range(9, 30 + o, 6):
+        for i in range(8, 27, 6):
+            ii = i + (3 if (j // 6) % 2 else 0)
+            if 0 <= ii < TW and g[j][ii] in 'Qq':
+                g[j][ii] = 'P'
+    for j in range(10, 30 + o):
+        if g[j][7] == 'y':
+            g[j][7] = 'Y'
+    for i in range(10, 17):
+        put(g, i, 3 + abs(i - 13) // 3, 'Y')
+    # taç (sırtlığın tepesinde, kemeri taşar)
+    rows = [
+        'y....y....y',
+        'yy..yYy..yy',
+        'yYy.yYy.yYy',
+        'yyyyyyyyyyy',
+        'yrybyrybyry',
+        'ddddddddddd',
+    ]
+    for j, r in enumerate(rows):
+        for i, c in enumerate(r):
+            if c != '.':
+                put(g, 12 + i, j - 2 + 0, c) if j >= 2 else None
+    # taç sivri uçları (grid'in üstüne taşmasın diye 0. satırdan başlar)
+    for j, r in enumerate(rows):
+        for i, c in enumerate(r):
+            if c != '.':
+                put(g, 12 + i, j, c)
+    put(g, 12, 0, 'W'); put(g, 17, 0, 'W'); put(g, 22, 0, 'W')
+    for cx in (5, 28):
+        ellipse(g, cx + 0.5, 11.5, 1.9, 1.9, 'y')
+        put(g, cx, 10, 'Y')
+    # minder
+    rect(g, 4, 28 + o, 26, 4, 'q')
+    rect(g, 4, 28 + o, 26, 1, 'P')
+    rect(g, 4, 31 + o, 26, 1, 'Q')
+    # ön etek
+    rect(g, 4, 32 + o, 26, 4, 'y')
+    rect(g, 4, 32 + o, 26, 1, 'Y')
+    rect(g, 4, 35 + o, 26, 1, 'd')
+    for x in range(6, 28, 3):
+        put(g, x, 34 + o, 'd')
+    rect(g, 16, 33 + o, 2, 2, 'r')
+    put(g, 16, 33 + o, 'R')
+    rect(g, 7, 36 + o, 2, 7, 'D')
+    rect(g, 25, 36 + o, 2, 7, 'D')
+    outline(g, 'k')
+    return rows_of(g)
+
+
+def throne_front():
+    """Ön katman: kıvrık uçlu altın kolçaklar ve aslan pençeli ön ayaklar."""
+    g = grid(TW, TH)
+    o = 8
+    for side in (0, 1):
+        x0 = 1 if side == 0 else 28
+        rect(g, x0, 27 + o, 5, 5, 'y')
+        rect(g, x0, 27 + o, 5, 1, 'Y')
+        rect(g, x0 + (0 if side == 0 else 4), 28 + o, 1, 4, 'Y' if side == 0 else 'd')
+        ellipse(g, x0 + 2.5, 27 + o, 2.8, 2.3, 'y')
+        put(g, x0 + 2, 26 + o, 'd'); put(g, x0 + 2, 27 + o, 'Y')
+        rect(g, x0 + 1, 28 + o, 3, 1, 'q')
+        lx = x0 + 1 if side == 0 else x0
+        rect(g, lx, 32 + o, 4, 9 - 8 + 8, 'y')
+        rect(g, lx, 32 + o, 1, 9, 'Y')
+        rect(g, lx + 3, 32 + o, 1, 9, 'd')
+        rect(g, lx - 1, 41 + o, 6, 3, 'd')
+        rect(g, lx - 1, 41 + o, 6, 1, 'y')
+        put(g, lx, 43 + o, 'D'); put(g, lx + 2, 43 + o, 'D'); put(g, lx + 4, 43 + o, 'D')
+        put(g, lx + 1, 36 + o, 'r')
+    outline(g, 'k')
+    return rows_of(g)
+
+
+def lawyer_sit(pose='sit', blink=False):
+    """Tahtta oturan avukat (24×32). Kalça çizgisi satır 22'de; dizler
+    öne, bacaklar minderin önünden sarkar."""
+    g = grid(24, 32)
+    _girl_head(g, 'stand' if pose == 'sit' else pose.replace('sit', ''), blink)
+    top = 16
+    # gövde (cüppe)
+    for y in range(top, 23):
+        half = 4.6 if y == top else 5.4 + (y - top) * 0.15
+        x0, x1 = int(round(12 - half)), int(round(12 + half)) - 1
+        for x in range(x0, x1 + 1):
+            put(g, x, y, 'x')
+        put(g, x0 + 1, y, 's')
+    # kucak: cüppe dizlere doğru genişçe yayılır
+    for y in range(22, 27):
+        x0, x1 = 5, 18
+        for x in range(x0, x1 + 1):
+            put(g, x, y, 'x')
+        put(g, x0 + 1, y, 's')
+    put(g, 11, 23, 's'); put(g, 12, 24, 's')
+    # bacaklar + ayakkabılar
+    rect(g, 8, 27, 3, 3, 'x'); rect(g, 13, 27, 3, 3, 'x')
+    rect(g, 8, 30, 3, 2, 'k'); rect(g, 13, 30, 3, 2, 'k')
+    put(g, 9, 30, 's'); put(g, 14, 30, 's')
+    # yeşil yaka + beyaz gömlek
+    for i in range(6):
+        y = top + i
+        put(g, 7 + (i + 1) // 2, y, 'e')
+        put(g, 8 + (i + 1) // 2, y, 'g')
+        put(g, 16 - (i + 1) // 2, y, 'e')
+        put(g, 15 - (i + 1) // 2, y, 'g')
+    for y in range(top, top + 5):
+        span = 2 - (y - top) // 2
+        for x in range(12 - span, 12 + span):
+            put(g, x, y, 'W')
+    # kollar: sol el kucakta; sağ el kucakta ya da el sallıyor
+    rect(g, 4, 17, 3, 6, 'x')
+    rect(g, 4, 22, 3, 1, 'e')
+    rect(g, 6, 23, 2, 2, 'S')
+    if pose.startswith('sitwave'):
+        _girl_arm_up(g, 1, pose == 'sitwave1')
+    else:
+        rect(g, 17, 17, 3, 6, 'x')
+        rect(g, 17, 22, 3, 1, 'e')
+        rect(g, 16, 23, 2, 2, 'S')
+        # kucakta küçük altın terazi
+        stamp(g, 13, 21, ['..y..', 'yyyyy', 'Y...Y'])
+    outline(g, 'k')
+    return rows_of(g)
+
+
 # ───────────────────────── Bayraklar (16×11) ─────────────────────────
 def flag(code):
     w, h = 16, 11
@@ -671,6 +823,12 @@ DECOR = {
     'lawyerWave1': lawyer('wave1'),
     'lawyerFall0': lawyer('fall0'),
     'lawyerFall1': lawyer('fall1'),
+    'lawyerSit': lawyer_sit('sit'),
+    'lawyerSitBlink': lawyer_sit('sit', blink=True),
+    'lawyerSitWave0': lawyer_sit('sitwave0'),
+    'lawyerSitWave1': lawyer_sit('sitwave1'),
+    'throneBack': throne_back(),
+    'throneFront': throne_front(),
     'themis': themis(),
     'balloon': balloon(),
     'lamp': lamp(),

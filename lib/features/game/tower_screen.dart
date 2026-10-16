@@ -131,6 +131,13 @@ class _TowerScreenState extends State<TowerScreen>
   double camY0 = 0, camS0 = 1; // finale girerken kamera
   double girlY = 0, girlVy = 0, landT = -1;
   bool girlSpawned = false;
+  // Kraliçe tahtı: önce o düşer, kız sonra üstüne oturur.
+  double throneY = 0, throneVy = 0, throneLandT = -1;
+  bool throneSpawned = false;
+
+  /// Kız sprite'ının alt kenarı, tahta oturduğunda kat üstünden bu kadar
+  /// yukarıda kalır (kalça çizgisi = minder üstü).
+  static const double seatLift = 6;
 
   @override
   void initState() {
@@ -217,6 +224,8 @@ class _TowerScreenState extends State<TowerScreen>
     fallT = 0;
     girlSpawned = false;
     landT = -1;
+    throneSpawned = false;
+    throneLandT = -1;
     bannerT = 99;
     _overShown = false;
   }
@@ -469,6 +478,8 @@ class _TowerScreenState extends State<TowerScreen>
     camS0 = camS;
     girlSpawned = false;
     landT = -1;
+    throneSpawned = false;
+    throneLandT = -1;
     ProgressService.instance.submitTowerScore(score).then((rec) {
       if (!mounted) return;
       if (rec) setState(() => _newRecord = true);
@@ -508,9 +519,34 @@ class _TowerScreenState extends State<TowerScreen>
       camY = camY0 + (endCam - camY0) * k;
       girlAt = 0.5;
     }
-    if (finT >= girlAt && !girlSpawned) {
+    if (finT >= girlAt && !throneSpawned) {
+      throneSpawned = true;
+      throneY = camY + (anchorY + 70) / camS; // ekranın üstünden
+      throneVy = -80;
+    }
+    if (throneSpawned && throneLandT < 0) {
+      throneVy = math.max(-640, throneVy - 900 * dt);
+      throneY += throneVy * dt;
+      if (throneY <= topY) {
+        throneY = topY;
+        throneLandT = 0;
+        SfxService.instance.stack(0);
+        HapticFeedback.heavyImpact();
+        shake.kick(2.6, 0.24);
+        particles.burst(top.cx, -topY, 18,
+            const [Color(0xFFFFFFFF), Color(0xFFE4E0EA), Color(0xFFFFD36A)],
+            speed: 70,
+            life: 0.6,
+            size: 2,
+            gravity: 140,
+            angle: -math.pi / 2,
+            spread: 2.8);
+      }
+    }
+    if (throneLandT >= 0) throneLandT += dt;
+    if (throneLandT >= 0.45 && !girlSpawned) {
       girlSpawned = true;
-      girlY = camY + (anchorY + 40) / camS; // ekranın üstünden
+      girlY = camY + (anchorY + 40) / camS;
       girlVy = -60;
     }
     if (girlSpawned && landT < 0) {
@@ -521,18 +557,19 @@ class _TowerScreenState extends State<TowerScreen>
             const [Color(0xFFFFE08A), Color(0xFFFFFFFF)],
             speed: 14, life: 0.5, size: 1.5);
       }
-      if (girlY <= topY) {
-        girlY = topY;
+      final seat = topY + seatLift;
+      if (girlY <= seat) {
+        girlY = seat;
         landT = 0;
         SfxService.instance.girl();
         HapticFeedback.mediumImpact();
-        shake.kick(1.5, 0.18);
-        particles.burst(top.cx, -topY, 14,
-            const [Color(0xFFFFFFFF), Color(0xFFE4E0EA), Color(0xFFFFE08A)],
-            speed: 55,
+        shake.kick(1.2, 0.15);
+        particles.burst(top.cx, -(topY + 16), 10,
+            const [Color(0xFFFFE08A), Color(0xFFFFFFFF), Color(0xFFE85A8A)],
+            speed: 45,
             life: 0.55,
-            size: 2,
-            gravity: 120,
+            size: 1.6,
+            gravity: 100,
             angle: -math.pi / 2,
             spread: 2.6);
       }
@@ -1310,7 +1347,9 @@ class _TowerPainter extends CustomPainter {
               center: Offset(pt.x, pt.y), width: pt.size, height: pt.size),
           _p);
     }
+    _throne(canvas, front: false);
     _girl(canvas);
+    _throne(canvas, front: true);
     canvas.restore();
 
     _hud(canvas);
@@ -1627,6 +1666,34 @@ class _TowerPainter extends CustomPainter {
     }
   }
 
+  // ── Kraliçe tahtı (arka: sırtlık+minder, ön: kolçaklar+ayaklar) ──
+  void _throne(Canvas canvas, {required bool front}) {
+    if (!g.throneSpawned) return;
+    final x = g.top.cx;
+    final y = -g.throneY;
+    var sxk = 1.0, syk = 1.0;
+    final lt = g.throneLandT;
+    if (lt >= 0) {
+      final sq = math.exp(-lt * 10) * math.cos(lt * 30);
+      sxk = 1 + 0.16 * sq;
+      syk = 1 - 0.16 * sq;
+      if (!front) {
+        _p.color = Colors.black.withValues(alpha: 0.28);
+        canvas.drawRect(Rect.fromLTWH(x - 16, y - 1, 32, 1.5), _p);
+      }
+    }
+    final img =
+        SpriteBank.instance.of(front ? kTwrThroneFront : kTwrThroneBack);
+    final w = img.width.toDouble(), h = img.height.toDouble();
+    canvas.save();
+    canvas.translate(x, y);
+    canvas.scale(sxk, syk);
+    _img.color = Colors.white;
+    canvas.drawImageRect(img, Rect.fromLTWH(0, 0, w, h),
+        Rect.fromLTWH(-w / 2, -h + 0.5, w, h), _img);
+    canvas.restore();
+  }
+
   // ── Avukat kız ──
   void _girl(Canvas canvas) {
     if (!g.girlSpawned) return;
@@ -1642,22 +1709,17 @@ class _TowerPainter extends CustomPainter {
       sxk = 1 + 0.22 * sq;
       syk = 1 - 0.22 * sq;
       if (lt < 0.35) {
-        spr = kTwrLawyerBlink;
+        spr = kTwrLawyerSitBlink;
       } else if (lt < 2.6) {
         spr = ((lt - 0.35) / 0.2).floor() % 2 == 0
-            ? kTwrLawyerWave0
-            : kTwrLawyerWave1;
+            ? kTwrLawyerSitWave0
+            : kTwrLawyerSitWave1;
       } else {
-        spr = (lt % 3.2) < 0.13 ? kTwrLawyerBlink : kTwrLawyerStand;
+        spr = (lt % 3.2) < 0.13 ? kTwrLawyerSitBlink : kTwrLawyerSit;
       }
     }
     final img = SpriteBank.instance.of(spr);
     final w = img.width.toDouble(), h = img.height.toDouble();
-    // gölge
-    if (g.landT >= 0) {
-      _p.color = Colors.black.withValues(alpha: 0.25);
-      canvas.drawRect(Rect.fromLTWH(x - 7, y - 1, 14, 1.5), _p);
-    }
     canvas.save();
     canvas.translate(x, y);
     canvas.scale(sxk, syk);
