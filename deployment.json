@@ -1,9 +1,9 @@
 {
-  "source_commit": "ad147c41a4d2d19465a63df2c5807cb389389008",
-  "built_at": "2026-10-16T22:07:12Z",
-  "checks": "flutter test (142); notes ink/content test; headless Chrome mid-stroke live render, lasso and pressure checks; release build with base-href /hukuk-reels/",
-  "change": "Notes: live stroke rendered with SVG (follows the pencil on iPad Safari); wider pressure range",
+  "source_commit": "78bee8c06c07cb371906ddf34e45d4584cedd6cb",
+  "built_at": "2026-10-16T22:29:32Z",
+  "checks": "flutter analyze (no issues); flutter test (142); notes ink tests; web runtime/update checks; headless Chrome 1500-stroke tile/cull, pen, eraser, undo, lasso, save checks; release build with base-href /hukuk-reels/",
+  "change": "Notes: tiled/culled ink, faster outlines, Float32 storage, lasso prefilter, backup reminder",
   "backend_version": "7fb800b5-9635-4e13-b670-148db4e2a16d",
   "pubspec_lock_sha256": "fded44df6063fcea317b8ec06d7175e2992bb2467385200438407562ac9d23e7",
-  "app_build": "7fda93c8d1667f8e"
+  "app_build": "b68597ede5880340"
 }
