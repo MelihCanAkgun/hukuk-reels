@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hukuk_reels/features/game/arcade/arcade_kit.dart';
 import 'package:hukuk_reels/features/game/flappy_cat_screen.dart';
 import 'package:hukuk_reels/features/game/subway_cat_screen.dart';
 import 'package:hukuk_reels/features/game/tower_screen.dart';
@@ -102,7 +103,10 @@ void main() {
     expect(art.pendingDisposals as int, lessThan(12));
     // 40 kat → 5 dönem geçildi; mükemmel seriler katı tam genişlikte tutar.
     expect(state.perfects as int, greaterThan(20));
-    expect((state.top.w as double), greaterThan(80));
+    // Uzun mükemmel serileri katı başlangıç genişliğinin (96) de ötesine,
+    // en fazla 144'e büyütür.
+    expect((state.top.w as double), greaterThan(96));
+    expect((state.top.w as double), lessThanOrEqualTo(144));
     // Sıradaki kayan kat en üstteki katla aynı genişlikte olmalı.
     expect(state.mw as double, closeTo(state.top.w as double, 0.01));
     // Finalde kamera tüm kuleyi gösterir: bütün parçalar ve meydan çizilir.
@@ -117,6 +121,57 @@ void main() {
     final settled = (state.floors as List).length - 1;
     expect(art.drawnSegments as int, (settled + 7) ~/ 8);
     expect(art.drewPlaza as bool, isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('Tower: the sliding floor moves evenly on jittery frames',
+      (tester) async {
+    await phone(tester, const TowerScreen());
+    await _run(tester, const Duration(milliseconds: 200));
+    final state = tester.state(find.byType(TowerScreen)) as dynamic;
+    state.autopilot(); // başlat
+    await tester.pump(const Duration(milliseconds: 16));
+    final speed = state.speed as double;
+    var prev = state.mx as double;
+    var uneven = 0;
+    for (var i = 0; i < 120; i++) {
+      // Ekran tam 60 Hz değilse ya da kare süreleri oynarsa sabit adımlı
+      // döngü bazı karelerde fazladan adım atıyordu.
+      final us = const [17000, 16950, 17050, 17000][i % 4];
+      await tester.pump(Duration(microseconds: us));
+      final mx = state.mx as double;
+      final ratio = (mx - prev).abs() / (us / 1e6) / speed;
+      if ((ratio - 1).abs() > 0.02) uneven++;
+      prev = mx;
+    }
+    // Yalnız uçtaki dönüş karelerinde fark olabilir.
+    expect(uneven, lessThanOrEqualTo(2));
+
+    // Kat yerleşince kamera kısa sürede hedefine tam oturur (uzun, piksel
+    // altı kuyruk yok). Kamera kule meydanı aşınca (~10. kat) yükselmeye başlar.
+    var frames = 0;
+    while ((state.score as int) < 14 && frames < 6000) {
+      state.autopilot();
+      await tester.pump(const Duration(microseconds: 16667));
+      frames++;
+    }
+    expect(state.score as int, 14);
+    expect(state.camY as double, lessThan(state.camTarget as double));
+    await _run(tester, const Duration(milliseconds: 700));
+    expect(state.camY as double, state.camTarget as double);
+
+    // Skor büyüyüp küçülürken ve yazılar solarken metin yeniden dizilmez:
+    // bir kat sonrası yalnız birkaç düzen (skor, MÜKEMMEL yazısı) hazırlanır.
+    debugClearOutlinedTextCache();
+    frames = 0;
+    while ((state.score as int) < 15 && frames < 600) {
+      state.autopilot();
+      await tester.pump(const Duration(microseconds: 16667));
+      frames++;
+    }
+    await _run(tester, const Duration(milliseconds: 1200));
+    expect(debugOutlinedTextCacheSize, inInclusiveRange(1, 4));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
   });
@@ -160,7 +215,7 @@ void main() {
     }
     await _run(tester, const Duration(milliseconds: 500));
     expect(state.streak as int, 6);
-    expect(state.top.w as double, closeTo(math.min(96, narrow + 24), 0.01));
+    expect(state.top.w as double, closeTo(math.min(144, narrow + 24), 0.01));
     expect(state.mw as double, closeTo(state.top.w as double, 0.01));
     final grown = state.top.w as double;
     frames = 0;

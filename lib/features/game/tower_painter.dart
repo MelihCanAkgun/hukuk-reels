@@ -391,6 +391,10 @@ class _TowerPainter extends CustomPainter {
   double get night => ((g.skyA - 30) / 22).clamp(0.0, 1.0);
 
   double sy(double wy) => anchorY + (camY - wy) * S;
+
+  /// Fiziksel piksele yuvarlar: mantıksal piksel (iPhone'da 3 fiziksel
+  /// piksel) adımları yüksek hızda ve kamera kayarken kesik görünüyordu.
+  double snap(double v) => (v * g.dpr).roundToDouble() / g.dpr;
   double sx(double x) => W / 2 + x * S;
 
   @override
@@ -412,10 +416,10 @@ class _TowerPainter extends CustomPainter {
     // ── Dünya ──
     canvas.save();
     final sh = g.shake.offset;
-    // Dünya orijini tam ekran pikseline oturur: kamera kayarken sprite
+    // Dünya orijini tam fiziksel piksele oturur: kamera kayarken sprite
     // pikselleri yuvarlama yüzünden titremez.
-    canvas.translate((W / 2 + sh.dx * S).roundToDouble(),
-        (anchorY + sh.dy * S + camY * S).roundToDouble());
+    canvas.translate(
+        snap(W / 2 + sh.dx * S), snap(anchorY + sh.dy * S + camY * S));
     canvas.scale(S);
 
     // Görünen dünya yüksekliği (sarsıntı ve saçak payıyla).
@@ -730,9 +734,9 @@ class _TowerPainter extends CustomPainter {
   // ── Kayan kat + alttakine düşen gölgesi ──
   void _mover(Canvas canvas) {
     final era = _TowerScreenState.eraOf(g.nextFloor);
-    // Kayan kat tam ekran pikseli adımlarla ilerler; deseni bloğa
+    // Kayan kat tam fiziksel piksel adımlarla ilerler; deseni bloğa
     // yapışık olduğundan piksel sütunları kayarken titremez.
-    final x0 = ((g.mx - g.mw / 2) * S).roundToDouble() / S;
+    final x0 = snap((g.mx - g.mw / 2) * S) / S;
     final x1 = x0 + g.mw;
     final tp = g.top;
     final l = math.max(x0, tp.x0), r = math.min(x1, tp.x1);
@@ -830,7 +834,8 @@ class _TowerPainter extends CustomPainter {
     final top = g.padTop + 50;
     if (playing) {
       final pop = 1 + Curves.easeOut.transform(g.scorePop) * 0.22;
-      drawOutlinedText(canvas, '${g.score}', Offset(W / 2, top + 34), 44 * pop);
+      drawOutlinedText(canvas, '${g.score}', Offset(W / 2, top + 34), 44,
+          scale: pop);
       // seri: 5 elmas (dolu olanlar mevcut seriyi gösterir); seri 5'e
       // ulaşınca hepsi parlar ve seri sürdükçe öyle kalır (her mükemmel
       // katı genişletir).
