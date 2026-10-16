@@ -52,7 +52,7 @@ test('a note notifies the other player and expires after 24 hours', async () => 
   assert.equal(note.text, 'Seni çok özledim\nyakında görüşürüz');
   assert.equal(note.expires - note.created, 86400);
   assert.deepEqual(notifications(), [{player_id: 1, title: 'ari sana not bıraktı! 📌',
-    body: 'Kaybolmadan görüntüle: not 24 saat sonra silinecek.'}]);
+    body: 'Kaybolmadan görüntüle.'}]);
 });
 
 test('one active note per player; deleting allows a new one, without notification spam', async () => {

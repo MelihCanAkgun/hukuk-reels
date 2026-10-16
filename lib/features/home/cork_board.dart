@@ -126,16 +126,9 @@ class _CorkBoardState extends State<CorkBoard> {
             painter: _CorkPainter(),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 16, 10, 10),
+              // Boş pano: yalnız mantar dokusu.
               child: notes.isEmpty
-                  ? const Center(
-                      child: Text('Henüz not yok…\nilk notu sen iğnele 💌',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              fontFamily: _pixelFont,
-                              fontSize: 16,
-                              height: 1.3,
-                              color: Color(0xFF5A3418))),
-                    )
+                  ? const SizedBox.expand()
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
