@@ -99,6 +99,35 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('Tower: second chance widens the last floor', (tester) async {
+    await phone(tester, const TowerScreen());
+    await _run(tester, const Duration(milliseconds: 200));
+    final state = tester.state(find.byType(TowerScreen)) as dynamic;
+    state.autopilot(); // başlat
+    // Bilerek kaydırarak bırak: kat daralsın.
+    var frames = 0;
+    while ((state.score as int) < 2 && frames < 3000) {
+      final d = (state.mx as double) - (state.top.cx as double);
+      if ((d - 30).abs() < 3) await tester.tapAt(const Offset(200, 500));
+      await tester.pump(const Duration(microseconds: 16667));
+      frames++;
+    }
+    final narrow = state.top.w as double;
+    expect(narrow, lessThan(80));
+    frames = 0;
+    while (find.text('Bir şansın daha!').evaluate().isEmpty && frames < 3000) {
+      state.autopilot(miss: true);
+      await tester.pump(const Duration(microseconds: 16667));
+      frames++;
+    }
+    state.debugRevive();
+    await _run(tester, const Duration(milliseconds: 600));
+    expect(state.top.w as double, greaterThanOrEqualTo(narrow + 24 - 0.01));
+    expect(state.mw as double, closeTo(state.top.w as double, 0.01));
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   for (final size in const [Size(390, 844), Size(320, 568), Size(1280, 800)]) {
     testWidgets('Tower: miss ends with the lawyer on top at $size',
         (tester) async {
