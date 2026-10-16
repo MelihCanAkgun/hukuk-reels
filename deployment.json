@@ -1,8 +1,8 @@
 {
-  "source_commit": "5cff4849c58c7a57b11736b6257ded70051824d0",
-  "built_at": "2026-10-16T16:04:59Z",
-  "checks": "flutter analyze (no issues); flutter test (125); backend npm test (48); web runtime test; headless Chrome capture; release build with base-href /hukuk-reels/",
-  "change": "New game: Adliye Kulesi (stacking tower across palaces of justice)",
+  "source_commit": "dab751adb1249847d423a4d387401091ebd421a1",
+  "built_at": "2026-10-16T16:12:55Z",
+  "checks": "flutter analyze (no issues); flutter test (126); web runtime test; release build with base-href /hukuk-reels/",
+  "change": "Adliye Kulesi: block-anchored facades, wider top floor after revive",
   "pubspec_lock_sha256": "8414f7e33ba7781652ed7ec57cca90b2f4a2ad8b241a617fe1196c832ab2b437",
-  "app_build": "6299843644e09233"
+  "app_build": "5cdf501ad2fe3142"
 }
