@@ -40,7 +40,12 @@ class _Floor {
   final int era;
   double age = 0;
   bool perfect;
-  _Floor(this.x0, this.x1, this.era, {this.perfect = false});
+
+  /// Cephe deseninin başlangıç x'i: desen bloğa yapışıktır (blokla
+  /// birlikte kayar), dünyaya değil.
+  final double tex;
+  _Floor(this.x0, this.x1, this.era, {this.perfect = false, double? tex})
+      : tex = tex ?? x0;
   double get w => x1 - x0;
   double get cx => (x0 + x1) / 2;
 }
@@ -50,7 +55,8 @@ class _Chunk {
   final double x0, x1, yb;
   final int era;
   double ox = 0, oy = 0, vx, vy = 0, rot = 0, vr;
-  _Chunk(this.x0, this.x1, this.yb, this.era, this.vx, this.vr);
+  final double tex;
+  _Chunk(this.x0, this.x1, this.yb, this.era, this.vx, this.vr, this.tex);
 }
 
 class _Popup {
@@ -333,7 +339,8 @@ class _TowerScreenState extends State<TowerScreen>
     late _Floor f;
     if (delta.abs() <= tolerance) {
       // ── Mükemmel ──
-      f = _Floor(tp.x0, tp.x1, era, perfect: true);
+      // Mükemmel: kat (deseniyle) alttakine oturur, sütunlar hizalanır.
+      f = _Floor(tp.x0, tp.x1, era, perfect: true, tex: tp.tex);
       floors.add(f);
       streak++;
       perfects++;
@@ -351,7 +358,8 @@ class _TowerScreenState extends State<TowerScreen>
       }
     } else {
       // ── Kesildi ──
-      f = _Floor(l, r, era);
+      // Kesilen kat, kayarken görünen desenini aynen korur.
+      f = _Floor(l, r, era, tex: mx - mw / 2);
       floors.add(f);
       streak = 0;
       final rightSide = delta > 0;
@@ -359,7 +367,7 @@ class _TowerScreenState extends State<TowerScreen>
       final c1 = rightSide ? mx + mw / 2 : l;
       if (c1 - c0 > 0.3) {
         chunks.add(_Chunk(c0, c1, yb, era, (rightSide ? 1 : -1) * 26,
-            (rightSide ? 1 : -1) * (1.2 + _rng.nextDouble())));
+            (rightSide ? 1 : -1) * (1.2 + _rng.nextDouble()), mx - mw / 2));
         _crumble(rightSide ? r : l, yb, rightSide ? 1 : -1, era);
       }
       SfxService.instance.slice();
@@ -381,8 +389,8 @@ class _TowerScreenState extends State<TowerScreen>
     setState(() {});
   }
 
-  void _grow(_Floor f) {
-    final w = math.min(baseW, f.w + growBy);
+  void _grow(_Floor f, {double by = growBy}) {
+    final w = math.min(baseW, f.w + by);
     g0a = f.x0;
     g1a = f.x1;
     g0b = f.cx - w / 2;
@@ -401,8 +409,14 @@ class _TowerScreenState extends State<TowerScreen>
   }
 
   void _miss(int era) {
-    chunks.add(_Chunk(mx - mw / 2, mx + mw / 2, topY, era,
-        (mx > top.cx ? 1 : -1) * 30, (mx > top.cx ? 1 : -1) * 1.6));
+    chunks.add(_Chunk(
+        mx - mw / 2,
+        mx + mw / 2,
+        topY,
+        era,
+        (mx > top.cx ? 1 : -1) * 30,
+        (mx > top.cx ? 1 : -1) * 1.6,
+        mx - mw / 2));
     streak = 0;
     fallT = 0;
     shake.kick(3, 0.3);
@@ -425,7 +439,17 @@ class _TowerScreenState extends State<TowerScreen>
       _reviving = false;
       _phase = _Phase.playing;
       chunks.clear();
-      mw = top.w;
+      // İkinci şans: son kat belirgin şekilde genişler (en az +24 ya da
+      // %50), devam etmek kolaylaşsın.
+      final f = top;
+      final by = math.max(24.0, f.w * 0.5);
+      if (f.w < baseW - 0.5 && floors.length > 1) {
+        _grow(f, by: by);
+        popups.add(_Popup('KAT GENİŞLEDİ!', _sx(f.cx), _sy(topY) - 12,
+            const Color(0xFFB8F5D8), 14));
+      }
+      mw = math.min(baseW, f.w + by);
+      if (floors.length <= 1) mw = top.w;
       fromLeft = !fromLeft;
       _placeMover();
     });
@@ -573,6 +597,10 @@ class _TowerScreenState extends State<TowerScreen>
   // ───────────────────────── Test yardımcıları ─────────────────────────
   @visibleForTesting
   String get phaseName => _phase.name;
+
+  /// Testlerde: soruyu doğru bilmiş gibi ikinci şansı başlatır.
+  @visibleForTesting
+  void debugRevive() => _doRevive();
 
   /// Testlerde: kayan kat hizalandığında bırakır ([miss] ise tamamen
   /// dışarıdayken).
@@ -968,14 +996,17 @@ class _Art {
   /// Bir katı (dünya: x0..x1, alt kenar yb) tuvale çizer. Tuval y ekseni
   /// aşağı doğrudur: dünya y'si -y olarak çizilir.
   void drawFloor(Canvas c, int era, double x0, double x1, double yb,
-      {double lit = 0, bool cap = false, double whiten = 0}) {
+      {double lit = 0, bool cap = false, double whiten = 0, double? tex}) {
+    final origin = tex ?? x0;
     if (x1 - x0 <= 0) return;
     lit *= litStrength(era) * floorLit((yb / fh).round());
     final e = kTowerEras[era];
     final top = -(yb + fh);
     void tiles(ui.Image img) {
       final m = img.width.toDouble();
-      for (var tx = (x0 / m).floorToDouble() * m; tx < x1; tx += m) {
+      for (var tx = origin + ((x0 - origin) / m).floorToDouble() * m;
+          tx < x1;
+          tx += m) {
         final a = math.max(x0, tx), b = math.min(x1, tx + m);
         if (b <= a) continue;
         c.drawImageRect(img, Rect.fromLTWH(a - tx, 0, b - a, fh),
@@ -1030,7 +1061,7 @@ class _Art {
     for (var i = 0; i < floors.length - 1; i++) {
       final f = floors[i];
       final cap = _TowerScreenState.eraOf(i + 1) != f.era && i > 0;
-      drawFloor(c, f.era, f.x0, f.x1, i * fh, lit: l, cap: cap);
+      drawFloor(c, f.era, f.x0, f.x1, i * fh, lit: l, cap: cap, tex: f.tex);
     }
     // Eski resim dispose edilmez (web'de önceki kare kullanıyor olabilir).
     tower = rec.endRecording();
@@ -1251,9 +1282,11 @@ class _TowerPainter extends CustomPainter {
     // ── Dünya ──
     canvas.save();
     final sh = g.shake.offset;
-    canvas.translate(W / 2 + sh.dx * S, anchorY + sh.dy * S);
+    // Dünya orijini tam ekran pikseline oturur: kamera kayarken sprite
+    // pikselleri yuvarlama yüzünden titremez.
+    canvas.translate((W / 2 + sh.dx * S).roundToDouble(),
+        (anchorY + sh.dy * S + camY * S).roundToDouble());
     canvas.scale(S);
-    canvas.translate(0, camY);
 
     canvas.drawPicture(g.art.towerPicture(g.floors, night));
     _topFloor(canvas);
@@ -1264,7 +1297,7 @@ class _TowerPainter extends CustomPainter {
       canvas.translate(cx + c.ox, cy + c.oy);
       canvas.rotate(c.rot);
       canvas.translate(-cx, -cy);
-      g.art.drawFloor(canvas, c.era, c.x0, c.x1, c.yb, lit: night);
+      g.art.drawFloor(canvas, c.era, c.x0, c.x1, c.yb, lit: night, tex: c.tex);
       canvas.restore();
     }
     _lampGlow(canvas);
@@ -1534,7 +1567,9 @@ class _TowerPainter extends CustomPainter {
     canvas.save();
     canvas.translate(0, -bounce);
     g.art.drawFloor(canvas, f.era, f.x0, f.x1, i * fh,
-        lit: night, whiten: f.perfect ? (1 - f.age / 0.28) * 0.85 : 0);
+        tex: f.tex,
+        lit: night,
+        whiten: f.perfect ? (1 - f.age / 0.28) * 0.85 : 0);
     canvas.restore();
     // Mükemmel halkaları
     if (f.perfect && f.age < 0.55) {
@@ -1559,14 +1594,17 @@ class _TowerPainter extends CustomPainter {
   // ── Kayan kat + alttakine düşen gölgesi ──
   void _mover(Canvas canvas) {
     final era = _TowerScreenState.eraOf(g.nextFloor);
-    final x0 = g.mx - g.mw / 2, x1 = g.mx + g.mw / 2;
+    // Kayan kat tam ekran pikseli adımlarla ilerler; deseni bloğa
+    // yapışık olduğundan piksel sütunları kayarken titremez.
+    final x0 = ((g.mx - g.mw / 2) * S).roundToDouble() / S;
+    final x1 = x0 + g.mw;
     final tp = g.top;
     final l = math.max(x0, tp.x0), r = math.min(x1, tp.x1);
     if (r > l) {
       _p.color = Colors.black.withValues(alpha: 0.22);
       canvas.drawRect(Rect.fromLTRB(l, -g.topY, r, -g.topY + 3), _p);
     }
-    g.art.drawFloor(canvas, era, x0, x1, g.topY, lit: night);
+    g.art.drawFloor(canvas, era, x0, x1, g.topY, lit: night, tex: x0);
   }
 
   // ── Gece lambaları ──
