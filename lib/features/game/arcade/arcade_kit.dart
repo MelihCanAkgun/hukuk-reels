@@ -134,39 +134,57 @@ class Shake {
 }
 
 /// Piksel yazı tipinde çerçeveli (konturlu) sayı / metin çizer.
+///
+/// Metin düzeni pahalıdır: aynı (metin, boyut, renk, saydamlık) için
+/// hazırlanan TextPainter'lar küçük bir LRU önbellekte tutulur; skor her
+/// karede yeniden düzenlenmez.
 void drawOutlinedText(Canvas canvas, String text, Offset center, double size,
     {Color fill = const Color(0xFFFFFFFF),
     Color stroke = const Color(0xFF2B1220),
     double opacity = 1}) {
-  final style = TextStyle(
-    fontFamily: 'PixelifySans',
-    fontSize: size,
-    fontWeight: FontWeight.w700,
-    height: 1,
-  );
-  final strokeTp = TextPainter(
-    text: TextSpan(
-        text: text,
-        style: style.copyWith(
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = size * 0.18
-              ..strokeJoin = StrokeJoin.round
-              ..color = stroke.withValues(alpha: opacity))),
-    textDirection: TextDirection.ltr,
-  )..layout();
-  final fillTp = TextPainter(
-    text: TextSpan(
-        text: text,
-        style: style.copyWith(color: fill.withValues(alpha: opacity))),
-    textDirection: TextDirection.ltr,
-  )..layout();
-  final o = center - Offset(fillTp.width / 2, fillTp.height / 2);
-  strokeTp.paint(canvas, o);
-  fillTp.paint(canvas, o);
-  strokeTp.dispose();
-  fillTp.dispose();
+  final q = (size * 2).round() / 2; // 0.5 adımlı boyut
+  final a = (opacity.clamp(0.0, 1.0) * 16).round() / 16;
+  if (a <= 0) return;
+  final key = '$text|$q|${fill.toARGB32()}|${stroke.toARGB32()}|$a';
+  var pair = _textCache.remove(key);
+  if (pair == null) {
+    final style = TextStyle(
+      fontFamily: 'PixelifySans',
+      fontSize: q,
+      fontWeight: FontWeight.w700,
+      height: 1,
+    );
+    final strokeTp = TextPainter(
+      text: TextSpan(
+          text: text,
+          style: style.copyWith(
+              foreground: Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = q * 0.18
+                ..strokeJoin = StrokeJoin.round
+                ..color = stroke.withValues(alpha: a))),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final fillTp = TextPainter(
+      text: TextSpan(
+          text: text, style: style.copyWith(color: fill.withValues(alpha: a))),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    pair = (strokeTp, fillTp);
+    if (_textCache.length >= 48) {
+      final old = _textCache.remove(_textCache.keys.first)!;
+      old.$1.dispose();
+      old.$2.dispose();
+    }
+  }
+  _textCache[key] = pair; // en sona: en yeni
+  final o = center - Offset(pair.$2.width / 2, pair.$2.height / 2);
+  pair.$1.paint(canvas, o);
+  pair.$2.paint(canvas, o);
 }
+
+// ignore: prefer_collection_literals
+final _textCache = <String, (TextPainter, TextPainter)>{};
 
 /// İki renk arası doğrusal geçiş, kısaltma.
 Color lerpColor(Color a, Color b, double t) => Color.lerp(a, b, t)!;
