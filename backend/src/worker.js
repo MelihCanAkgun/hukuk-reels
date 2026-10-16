@@ -33,16 +33,19 @@ async function body(request) {
   if (value.length > 4096) fail('İstek çok büyük.', 413);
   try { return JSON.parse(value); } catch { fail('Geçersiz istek.'); }
 }
+// Arcade games with their own leaderboard (game_scores). Block Blast keeps players.best.
+export const GAMES = ['flappy', 'subway', 'tower'];
 async function board(env, playerId) {
   // `avatar` is only a version tag; the photo itself needs an authenticated /avatar request.
   const {results} = await env.DB.prepare(`SELECT p.id, p.name, p.best, p.active, a.version AS avatar,
     f.size AS avatarFull, f.width AS avatarWidth, f.height AS avatarHeight
     FROM players p LEFT JOIN avatars a ON a.player_id = p.id
     LEFT JOIN avatar_full f ON f.player_id = p.id AND f.version = a.version ORDER BY p.best DESC, p.id`).all();
+  const {results: scores} = await env.DB.prepare('SELECT player_id AS id, game, best FROM game_scores ORDER BY game, best DESC').all();
   const other = await env.DB.prepare('SELECT COUNT(*) AS count FROM subscriptions WHERE player_id != ?').bind(playerId).first();
   const latest = playerId === 1 ? await env.DB.prepare(
     'SELECT sent, attempts, created, delivery_status FROM notifications WHERE player_id = 2 ORDER BY id DESC LIMIT 1').first() : null;
-  return {lastNotification: latest, players: results, me: playerId, otherCanReceive: other.count > 0,
+  return {lastNotification: latest, players: results, scores, me: playerId, otherCanReceive: other.count > 0,
     otherRegisteredDevices: other.count, publicKey: env.VAPID_PUBLIC_KEY};
 }
 
@@ -186,8 +189,15 @@ export async function route(request, env, ctx) {
   }
   if (path === '/score') {
     if (!Number.isSafeInteger(data.score) || data.score < 0 || data.score > 100000000) fail('Geçersiz skor.');
-    // MAX and the SQL trigger run atomically: retries cannot lower scores or duplicate overtakes.
-    await env.DB.prepare('UPDATE players SET best = MAX(best, ?) WHERE id = ?').bind(data.score, player.id).run();
+    const game = data.game ?? 'block';
+    if (game !== 'block' && !GAMES.includes(game)) fail('Geçersiz oyun.');
+    // MAX and the SQL triggers run atomically: retries cannot lower scores or duplicate overtakes.
+    if (game === 'block') {
+      await env.DB.prepare('UPDATE players SET best = MAX(best, ?) WHERE id = ?').bind(data.score, player.id).run();
+    } else {
+      await env.DB.prepare(`INSERT INTO game_scores(player_id, game, best) VALUES (?, ?, ?)
+        ON CONFLICT(player_id, game) DO UPDATE SET best = MAX(best, excluded.best)`).bind(player.id, game, data.score).run();
+    }
     ctx.waitUntil(deliver(env));
     return json(await board(env, player.id));
   }

@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../../web/social.js',import.meta.url),'utf8');
 function client({push = false} = {}) {
-  const saved=new Map(); const timers=[]; const requests=[]; let offline=false; let best=0;
+  const saved=new Map(); const timers=[]; const requests=[]; let offline=false; let best=0; const scores={};
   const window={addEventListener(){}};
   const sub = {endpoint:'https://web.push.apple.com/test', toJSON(){return {endpoint:this.endpoint, keys:{p256dh:'A'.repeat(87),auth:'B'.repeat(22)}};}};
   const notification = {permission:'granted'};
@@ -18,8 +18,12 @@ function client({push = false} = {}) {
       requests.push({url,body:init.body});
       if(offline) throw new Error('Offline');
       const data=init.body?JSON.parse(init.body):{};
-      if(url.endsWith('/score')) best=Math.max(best,data.score);
-      return {ok:true,json:async()=>({me:1,players:[{id:1,best,name:'A'},{id:2,best:100,name:'B'}]})};
+      if(url.endsWith('/score')) {
+        if(data.game) scores[data.game]=Math.max(scores[data.game]||0,data.score);
+        else best=Math.max(best,data.score);
+      }
+      return {ok:true,json:async()=>({me:1,players:[{id:1,best,name:'A'},{id:2,best:100,name:'B'}],
+        scores:Object.entries(scores).map(([game,b])=>({id:1,game,best:b}))})};
     }});
   vm.runInContext(source,context);
   return {saved,requests,timers,context,offline:v=>offline=v,
@@ -71,4 +75,30 @@ test('failed registration is shown truthfully and retried when online',async()=>
   assert.match(offline.pushError,/kaydedilemedi/);
   c.offline(false);
   assert.equal((await c.call('state')).subscribed,true);
+});
+
+test('arcade games keep separate bests and upload only what the server lacks',async()=>{
+  const c=client();
+  await c.call('init',{url:'https://worker.example'});
+  await c.call('join',{token:'a'.repeat(43),name:'A',score:40,scores:{flappy:9,tower:3,subway:-1}});
+  const scoreBodies=()=>c.requests.filter(r=>r.url.endsWith('/score')).map(r=>JSON.parse(r.body));
+  assert.deepEqual(scoreBodies(),[{score:40},{game:'flappy',score:9},{game:'tower',score:3}]);
+  await c.call('score',{game:'flappy',score:7});
+  assert.equal(c.timers.length,0);
+  c.offline(true);
+  await c.call('score',{game:'subway',score:250});
+  await c.timers.pop()();
+  const offline=await c.call('state',{});
+  assert.deepEqual(offline.pendingGames,['subway']);
+  assert.equal(JSON.parse(c.saved.get('hukuk_social_v1')).bests.subway,250);
+  c.offline(false);
+  await c.call('state');
+  await new Promise(r=>setImmediate(r));
+  const online=await c.call('state');
+  assert.equal(online.pending,false);
+  assert.equal(online.scores.find(r=>r.game==='subway').best,250);
+  assert.equal(online.players[0].best,40);
+  assert.match((await c.call('score',{game:'chess',score:1})).error,/Geçersiz oyun/);
+  await c.call('leave');
+  assert.deepEqual(JSON.parse(c.saved.get('hukuk_social_v1')).bests,{});
 });

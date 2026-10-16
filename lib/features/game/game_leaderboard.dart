@@ -12,14 +12,75 @@ import '../../core/widgets/pixel_logo.dart';
 const socialApiUrl = String.fromEnvironment('SOCIAL_API_URL',
     defaultValue: 'https://hukuk-games-social.hukuk-games-social.workers.dev');
 
-class BlockLeaderboard extends StatefulWidget {
-  const BlockLeaderboard({super.key});
-  @override
-  State<BlockLeaderboard> createState() => _BlockLeaderboardState();
+/// Ayrı sıralaması olan oyunlar. [name] sunucudaki oyun kodudur; Block Blast
+/// rekoru oyuncu satırında, diğerleri `scores` listesinde gelir.
+enum LeaderboardGame {
+  block('Block Blast', kLogoBlockBlast),
+  flappy('Flappy Silly Cat', kLogoFlappyCat),
+  subway('Subway Silly', kLogoSubwaySilly),
+  tower('Adliye Kulesi', kLogoAdliyeKulesi, unit: ' kat');
+
+  const LeaderboardGame(this.title, this.logo, {this.unit = ''});
+  final String title;
+  final List<String> logo;
+  final String unit;
+
+  /// Bu cihazdaki kişisel rekor.
+  int get localBest => switch (this) {
+        block => ProgressService.instance.blockHigh,
+        flappy => ProgressService.instance.flappyHigh,
+        subway => ProgressService.instance.subwayHigh,
+        tower => ProgressService.instance.towerHigh,
+      };
+
+  /// Rekoru ikimizin sıralamasına gönderir (bağlı değilse JS tarafı yok sayar;
+  /// bağlantı yoksa cihazda saklanıp sonra gönderilir).
+  Future<void> report(int score) =>
+      socialCall('score', {if (this != block) 'game': name, 'score': score});
+
+  /// Oyun açılırken servisi hazırlar ve bu cihazdaki rekoru eşitler.
+  Future<void> syncLocalBest() =>
+      socialCall('init', {'url': socialApiUrl}).then((_) => report(localBest));
 }
 
-class _BlockLeaderboardState extends State<BlockLeaderboard>
+/// Oyuncuların seçili oyundaki rekorları, yüksekten düşüğe.
+List<Map<String, dynamic>> leaderboardRows(
+    Map<String, dynamic> data, LeaderboardGame game) {
+  final scores = (data['scores'] as List? ?? const []).whereType<Map>();
+  final rows = [
+    for (final p in (data['players'] as List? ?? const []).whereType<Map>())
+      {
+        ...p.cast<String, dynamic>(),
+        if (game != LeaderboardGame.block)
+          'best': scores
+                  .where((r) => r['id'] == p['id'] && r['game'] == game.name)
+                  .map((r) => r['best'])
+                  .firstOrNull ??
+              0,
+      }
+  ];
+  rows.sort((a, b) {
+    final byBest =
+        ((b['best'] as num?) ?? 0).compareTo((a['best'] as num?) ?? 0);
+    return byBest != 0
+        ? byBest
+        : ((a['id'] as num?) ?? 0).compareTo((b['id'] as num?) ?? 0);
+  });
+  return rows;
+}
+
+class GameLeaderboard extends StatefulWidget {
+  const GameLeaderboard({super.key, this.game = LeaderboardGame.block});
+
+  /// İlk açılan oyunun sıralaması; ekranda diğerlerine geçilebilir.
+  final LeaderboardGame game;
+  @override
+  State<GameLeaderboard> createState() => _GameLeaderboardState();
+}
+
+class _GameLeaderboardState extends State<GameLeaderboard>
     with WidgetsBindingObserver {
+  late LeaderboardGame _game = widget.game;
   final _name = TextEditingController();
   final _code = TextEditingController();
   final _message = TextEditingController();
@@ -230,9 +291,11 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
   Widget build(BuildContext context) {
     final connected = _data['connected'] == true;
     final configured = _data['configured'] == true;
-    final players = (_data['players'] as List?) ?? [];
+    final players = leaderboardRows(_data, _game);
     final tied =
         players.length == 2 && players[0]['best'] == players[1]['best'];
+    final pending =
+        (_data['pendingGames'] as List?)?.contains(_game.name) ?? false;
     return Scaffold(
       backgroundColor: const Color(0xFF142442),
       appBar: AppBar(
@@ -252,7 +315,24 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
           const SizedBox(height: 8),
           const Text('İyi olan kazansın bir tanem 😘',
               textAlign: TextAlign.center),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final g in LeaderboardGame.values)
+                ChoiceChip(
+                  key: ValueKey('leaderboard-${g.name}'),
+                  avatar: PixelLogo(g.logo, size: 18),
+                  label: Text(g.title),
+                  selected: g == _game,
+                  showCheckmark: false,
+                  onSelected: (_) => setState(() => _game = g),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
           if (_data.isEmpty)
             const Center(child: CircularProgressIndicator())
           else if (!configured)
@@ -276,7 +356,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                     border: OutlineInputBorder())),
             const SizedBox(height: 12),
             const Text(
-                'Kodun hesabının anahtarıdır. Yalnızca sana ait kodu kullan. Bu cihazdaki rekorun sıralamaya eklenecek.'),
+                'Kodun hesabının anahtarıdır. Yalnızca sana ait kodu kullan. Bu cihazdaki tüm oyun rekorların sıralamaya eklenecek.'),
             const SizedBox(height: 16),
             FilledButton(
                 onPressed: _busy
@@ -285,6 +365,11 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                           'name': _name.text,
                           'token': _code.text,
                           'score': ProgressService.instance.blockHigh,
+                          'scores': {
+                            for (final g in LeaderboardGame.values)
+                              if (g != LeaderboardGame.block)
+                                g.name: g.localBest,
+                          },
                         }),
                 child: const Text('Sıralamaya katıl')),
           ],
@@ -344,16 +429,18 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                                players[i]['active'] == 1
-                                    ? 'En yüksek skor'
-                                    : 'Henüz katılmadı',
+                                players[i]['active'] != 1
+                                    ? 'Henüz katılmadı'
+                                    : players[i]['best'] == 0
+                                        ? 'Henüz skor yok'
+                                        : 'En yüksek skor',
                                 style: const TextStyle(
                                     color: Color(0xFFD5DEEE), fontSize: 13.5)),
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text('${players[i]['best']}',
+                      Text('${players[i]['best']}${_game.unit}',
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 23,
@@ -362,7 +449,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                   ),
                 ),
               ),
-            if (_data['pending'] == true)
+            if (pending)
               const Padding(
                   padding: EdgeInsets.only(top: 10),
                   child: Text(
@@ -376,7 +463,7 @@ class _BlockLeaderboardState extends State<BlockLeaderboard>
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             const Text(
-                'Diğer oyuncu rekorunu geçtiğinde telefonuna bildirim gelsin. iPhone’da uygulamayı ana ekrandan açıp izin ver. (yerse)'),
+                'Diğer oyuncu herhangi bir oyunda rekorunu geçtiğinde telefonuna bildirim gelsin. iPhone’da uygulamayı ana ekrandan açıp izin ver. (yerse)'),
             const SizedBox(height: 12),
             Text(_data['subscribed'] == true
                 ? 'Bu cihazın bildirim kaydı aktif.'

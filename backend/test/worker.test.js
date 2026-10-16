@@ -52,6 +52,36 @@ test('scores never decrease; overtakes notify once, ties do not notify', async()
   assert.equal((await call('/score',{score:-1})).status,400);
   assert.equal((await call('/score',{score:1.5})).status,400);
 });
+test('each arcade game has its own leaderboard and overtake notifications', async()=>{
+  const {db,call}=await setup();
+  const count=()=>db.prepare('SELECT COUNT(*) n FROM notifications').get().n;
+  const board=await call('/score',{game:'flappy',score:12});
+  assert.deepEqual(board.data.scores,[{id:1,game:'flappy',best:12}]);
+  assert.equal(count(),1);
+  // Lower and equal retries keep the best and never notify.
+  await call('/score',{game:'flappy',score:5});
+  await call('/score',{game:'flappy',score:12},1);
+  assert.equal(count(),1);
+  await call('/score',{game:'flappy',score:13},1);
+  assert.equal(count(),2);
+  const event=db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 1').get();
+  assert.equal(event.player_id,1);
+  assert.match(event.body,/Arkadaş, Flappy Silly Cat sıralamasında seni geçti! Yeni rekor: 13/);
+  // Already leading: no repeat notification.
+  await call('/score',{game:'flappy',score:20},1);
+  assert.equal(count(),2);
+  // Games are independent of each other and of Block Blast.
+  await call('/score',{game:'tower',score:7},1);
+  assert.match(db.prepare('SELECT body FROM notifications ORDER BY id DESC LIMIT 1').get().body,/Adliye Kulesi.*7 kat/);
+  const {data}=await call('/board');
+  assert.deepEqual(data.players.map(p=>p.best),[0,0]);
+  assert.deepEqual(data.scores.filter(r=>r.game==='flappy').map(r=>[r.id,r.best]),[[2,20],[1,12]]);
+  assert.deepEqual(data.scores.filter(r=>r.game==='tower').map(r=>[r.id,r.best]),[[2,7]]);
+  await call('/score',{game:'block',score:30});
+  assert.equal((await call('/board')).data.players.find(p=>p.id===1).best,30);
+  assert.equal((await call('/score',{game:'chess',score:1})).status,400);
+  assert.equal((await call('/score',{game:'subway',score:-3})).status,400);
+});
 test('manual message requires recipient permission and has cooldown', async()=>{
   const {db,call}=await setup();
   assert.equal((await call('/message',{message:'Oynayalım mı?'})).status,400);

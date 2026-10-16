@@ -418,6 +418,7 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
                   icon: Icons.person_rounded,
                   color: AppTheme.accent,
                   onTap: _openProfile,
+                  label: 'Profil ve ayarlar',
                 ),
               ),
               Center(
@@ -502,17 +503,20 @@ class _CircleIconButton extends StatelessWidget {
   final Widget? logo;
   final Color color;
   final VoidCallback onTap;
+  final String label;
   const _CircleIconButton({
     this.icon,
     this.logo,
     required this.color,
     required this.onTap,
+    required this.label,
   });
 
   @override
   Widget build(BuildContext context) {
     return Pressable(
       onTap: onTap,
+      semanticLabel: label,
       child: Container(
         width: 34,
         height: 34,
@@ -582,6 +586,7 @@ class _TopBar extends StatelessWidget {
                   icon: Icons.arrow_back_rounded,
                   color: AppTheme.textPrimary,
                   onTap: onBack,
+                  label: 'Geri',
                 ),
                 const SizedBox(width: 10),
               ],
@@ -625,12 +630,14 @@ class _TopBar extends StatelessWidget {
                 logo: const PixelLogo(kLogoGames, size: 22),
                 color: AppTheme.accent,
                 onTap: onGames,
+                label: 'Oyunlar',
               ),
               const SizedBox(width: 8),
               _CircleIconButton(
                 icon: Icons.person_rounded,
                 color: AppTheme.accent,
                 onTap: onProfile,
+                label: 'Profil ve ayarlar',
               ),
               if (showMusic) ...[
                 const SizedBox(width: 8),

@@ -49,9 +49,10 @@ Orijinal oyunun [resmî App Store açıklaması](https://apps.apple.com/us/app/b
 1. Fiziksel iPhone ve iPad'de profile modunda frame sürelerini, uzun oyun oturumlarında sıcaklığı/pili ve ses gecikmesini ölçmek. 60/120 Hz fizik tutarlılığı kodda iyileştirildi; ölçülmüş FPS iddiası yoktur.
 2. Gerçek kullanıcı denemeleriyle puan/üçlü üretim zorluğunu ayarlamak. Şu an yeni tepsinin en az bir tam çözümü var; oyuncunun her yanlış tercihinden kurtulacağı garanti edilmez.
 3. Apple cihazında çağrı, kulaklık/Bluetooth değişimi, sessiz anahtar, kilit ekranı ve PWA yeniden açılışı için ses testi. Native iki kanallı just_audio yeterli gecikmeyi sağlayamazsa AVAudioEngine tabanlı küçük bir efekt köprüsü değerlendirmek.
-4. VoiceOver ile hücre/parça seçimi ve klavyeyle Block Blast oynanışı. Mevcut çalışma metin boyutu, hareket tercihi, buton dokunma alanı ve tahta etiketini iyileştirir; tam VoiceOver oynanabilirliği sağlamaz.
-5. Uygulama kimliği, özel native ikonlar, geliştirici takım/imza ve TestFlight dağıtımı. Mevcut runner'lardaki `com.example.hukukReels` ve Flutter ikonları geliştirme şablonudur.
-6. Repoda önceden takip edilen `build/`, `.dart_tool/`, `.DS_Store` dosyalarını ayrı bir depo temizliği değişikliğinde takipten çıkarmak. Yeni `.gitignore` gelecekteki dosyaları engeller; mevcut takipleri kendiliğinden kaldırmaz.
+4. VoiceOver ile hücre/parça seçimi ve klavyeyle Block Blast oynanışı. `Pressable` artık ekran okuyucuya buton olarak duyurulur; yalnız ikonlu üst bar düğmelerinin (geri, oyunlar, profil) adı vardır. Tam VoiceOver oynanabilirliği hâlâ yoktur.
+5. Geliştirici takım/imza ve TestFlight dağıtımı. Uygulama kimliği `com.melihcanakgun.hukukreels` oldu; iOS/macOS ikonları `tools/pixel_logos.py` ile PWA ikonuyla aynı piksel teraziden üretilir (iOS ikonları saydamlıksızdır).
+
+16 Ekim bakım turu: `build/`, `.dart_tool/`, `.DS_Store` takipten çıkarıldı. `just_audio` 0.10 (`setAudioSources`) ve `flutter_lints` 6'ya geçildi. Subway, Tower ve Flappy painter'ları `*_painter.dart` part dosyalarına ayrıldı. Tower'ın kat kesme/zorluk kuralları `tower_rules.dart` içinde saf fonksiyonlardır ve birim testleri vardır. macOS release derlemesi bu turda Xcode lisansı onaylanmadığı için alınamadı (`sudo xcodebuild -license`).
 
 Test ve derleme komutları README'dedir. İnceleme sırasında mevcut kullanıcı `.DS_Store` değişiklikleri korunmuştur. Mağaza gönderimi yapılmamıştır. Web sürümü mevcut GitHub Pages kanalından yayımlanır.
 

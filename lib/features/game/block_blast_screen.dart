@@ -3,7 +3,7 @@ import 'dart:math';
 import 'block_blast_engine.dart';
 import 'block_celebration.dart';
 import 'block_board_fx.dart';
-import 'block_leaderboard.dart';
+import 'game_leaderboard.dart';
 import 'block_battle_lobby.dart';
 import 'block_battle_session.dart';
 import 'block_battle_widgets.dart';
@@ -618,7 +618,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
               onPressed: () {
                 _cancelDrag();
                 Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => const BlockLeaderboard()));
+                    builder: (_) => const GameLeaderboard()));
               },
             ),
           const MusicButton(),

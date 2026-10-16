@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
 import '../../core/services/social_bridge.dart';
-import 'block_leaderboard.dart';
+import 'game_leaderboard.dart';
 import 'block_battle_session.dart';
 import 'block_blast_screen.dart';
 
@@ -104,7 +104,7 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
               FilledButton(
                   onPressed: () async {
                     await Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => const BlockLeaderboard()));
+                        builder: (_) => const GameLeaderboard()));
                     if (mounted) await _init();
                   },
                   child: const Text('Oyuncu bağlantısını aç')),
