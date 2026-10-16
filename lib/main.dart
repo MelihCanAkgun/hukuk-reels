@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
 import 'core/services/progress_service.dart';
@@ -33,6 +34,10 @@ class HukukReelsApp extends StatelessWidget {
       title: 'Hukuk Reels · Oyunlar',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
+      // Türkçe tarih/saat seçicileri ve Material metinleri.
+      locale: const Locale('tr'),
+      supportedLocales: const [Locale('tr')],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
       // Oyunlara doğrudan erişim; soru bankası oyun menüsünde.
       home: const GamesScreen(),
     );
