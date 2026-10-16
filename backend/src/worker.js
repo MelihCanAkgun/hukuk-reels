@@ -173,7 +173,7 @@ export async function route(request, env, ctx) {
     const other = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
     if (other && !recent) {
       await env.DB.prepare('INSERT INTO notifications(player_id, title, body) VALUES (?, ?, ?)')
-        .bind(other.id, `${player.name} sana not bıraktı! 📌`, 'Kaybolmadan görüntüle: not 24 saat sonra silinecek.').run();
+        .bind(other.id, `${player.name} sana not bıraktı! 📌`, 'Kaybolmadan görüntüle.').run();
       ctx.waitUntil(deliver(env));
     }
     return json(await home(env, player.id));
