@@ -1,9 +1,9 @@
 {
-  "source_commit": "0d737c0f5eadf07cf3f767496c0b4f0706ce7ab3",
-  "built_at": "2026-10-17T11:40:29Z",
-  "checks": "flutter analyze (no issues); flutter test (145); notes ink, remap and content tests; web runtime/update checks; headless Chrome: v1 to v2 note migration, pen/highlighter/lasso/eraser/find/zoom interactions, paginated print (26 and 20 PDF pages), last-edit field; release build with base-href /hukuk-reels/ opened from the Flutter tile, offline cache includes icra.v1.js",
-  "change": "Notes follow their block when a summary changes (saved basis, per-section LCS, frozen icra.v1.js); İcra summary v2 checked against the current İİK incl. 7589; search, A4 print, toolbar levels, lasso resize/recolor, highlighter snap, storage fallback; last edit on the summary tile",
+  "source_commit": "04cd4a7a143dff02e8cee2dd2c9bf2aef92fcc53",
+  "built_at": "2026-10-17T12:49:32Z",
+  "checks": "flutter analyze (no issues); flutter test (353) incl. orientation_test: 16 screens x 6 sizes rotated portrait/landscape both ways, mid-game rotation pause/resume for Flappy/Subway/Tower, Block Blast placement in both layouts; notes ink and web runtime/update checks; widget screenshots of phone/iPad in both orientations; release build with base-href /hukuk-reels/",
+  "change": "Portrait and landscape everywhere: Block Blast side layout and fitting end card, game panels scale to fit, Subway camera zoom on wide screens, Tower panel beside the tower, two-column Beat options, maintenance and avatar editor landscape layouts, readable width on tablets",
   "backend_version": "7fb800b5-9635-4e13-b670-148db4e2a16d",
   "pubspec_lock_sha256": "fded44df6063fcea317b8ec06d7175e2992bb2467385200438407562ac9d23e7",
-  "app_build": "22af49500267581d"
+  "app_build": "07e79a1b8bc658fb"
 }
