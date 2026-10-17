@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
+import '../../core/widgets/fit_panel.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../reels/widgets/music_button.dart';
 import 'arcade/arcade_kit.dart';
@@ -775,7 +776,8 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
         builder: (context, v, child) => Transform.translate(
             offset: Offset(0, (1 - v) * 120),
             child: Opacity(opacity: v.clamp(0.0, 1.0), child: child)),
-        child: Container(
+        child: FitPanel(
+            child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 34),
           padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
           constraints: const BoxConstraints(maxWidth: 380),
@@ -844,7 +846,7 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
                   onTap: () => Navigator.of(context).maybePop()),
             ],
           ),
-        ),
+        )),
       ),
     );
   }

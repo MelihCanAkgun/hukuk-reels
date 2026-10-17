@@ -172,6 +172,10 @@ void main() {
   testWidgets(
       'Battle drag sends only placement; authoritative ack preserves solo save',
       (tester) async {
+    // Dikey telefon; yatay düzendeki sürükleme orientation_test.dart'ta.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final solo = BlockBlastEngine()..score = 1234;
     unawaited(ProgressService.instance.saveBlockGame(solo.toJson()));
     await tester.pump();

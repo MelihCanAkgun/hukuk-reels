@@ -87,7 +87,12 @@ class _BeatPagerState extends State<_BeatPager> {
               padding: EdgeInsets.only(top: pad.top + 60),
               child: LayoutBuilder(
                 builder: (context, c) {
-                  final w = c.maxWidth < 480 ? c.maxWidth : 480.0;
+                  // Yatay ekranda kart genişler (şıklar iki sütun olur) ki
+                  // kısa yükseklikte yazı küçülmesin.
+                  final wide = c.maxWidth > c.maxHeight * 1.2;
+                  final w = c.maxWidth < (wide ? 760 : 480)
+                      ? c.maxWidth
+                      : (wide ? 760.0 : 480.0);
                   return Center(
                     child: SizedBox(
                       width: w,
@@ -460,7 +465,11 @@ class _BeatCardState extends State<_BeatCard>
                                   text: q.question, intensity: _scatter),
                         ),
                         const SizedBox(height: 18),
-                        ...List.generate(q.options.length, (i) => _option(i)),
+                        if (c.maxWidth >= 560)
+                          _twoColumns(c.maxWidth,
+                              List.generate(q.options.length, _option))
+                        else
+                          ...List.generate(q.options.length, (i) => _option(i)),
                         const SizedBox(height: 8),
                         _footerHint(),
                       ],
@@ -553,19 +562,49 @@ class _BeatCardState extends State<_BeatCard>
           ),
         ),
         const SizedBox(width: 10),
-        for (var i = 0; i < kHitsNeeded; i++)
-          Container(
-            width: 11,
-            height: 11,
-            margin: const EdgeInsets.only(right: 3),
-            decoration: BoxDecoration(
-              color:
-                  i < left ? _accent : AppTheme.border.withValues(alpha: 0.6),
-              border: Border.all(
-                color: i < left
-                    ? Colors.white.withValues(alpha: 0.35)
-                    : Colors.transparent,
-              ),
+        // Dar ekranda kareler alt satıra geçer, satır taşmaz.
+        Flexible(
+          child: Wrap(
+            spacing: 3,
+            runSpacing: 3,
+            children: [
+              for (var i = 0; i < kHitsNeeded; i++)
+                Container(
+                  width: 11,
+                  height: 11,
+                  decoration: BoxDecoration(
+                    color: i < left
+                        ? _accent
+                        : AppTheme.border.withValues(alpha: 0.6),
+                    border: Border.all(
+                      color: i < left
+                          ? Colors.white.withValues(alpha: 0.35)
+                          : Colors.transparent,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Geniş kartta şıklar iki sütun: satırdaki iki şık aynı yükseklikte.
+  Widget _twoColumns(double width, List<Widget> items) {
+    return Column(
+      children: [
+        for (var i = 0; i < items.length; i += 2)
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: items[i]),
+                const SizedBox(width: 9),
+                Expanded(
+                    child:
+                        i + 1 < items.length ? items[i + 1] : const SizedBox()),
+              ],
             ),
           ),
       ],

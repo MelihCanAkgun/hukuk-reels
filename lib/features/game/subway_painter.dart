@@ -95,8 +95,11 @@ class _RunnerPainter extends CustomPainter {
     if (size.isEmpty) return;
     W = size.width;
     H = size.height;
-    f = math.min(H * 0.6, W * 1.05);
-    horizonY = H * 0.27;
+    // Geniş (yatay) ekranda yükseklik azdır: sahne yakınlaştırılır ve ufuk
+    // yukarı alınır ki kedi ve raylar dikeydeki kadar büyük kalsın.
+    final wide = ((W / H - 0.8) / 0.5).clamp(0.0, 1.0);
+    f = math.min(H * (0.6 + 0.25 * wide), W * 1.05);
+    horizonY = H * (0.27 - 0.05 * wide);
     camX = g.camX;
     camY = g.camY;
     camZ = -_SubwayCatScreenState.camDist;

@@ -338,18 +338,16 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: Column(
-          children: [
-            Expanded(
-              child: LayoutBuilder(builder: (context, c) {
-                final side = (c.maxWidth - 32 < c.maxHeight - 16
-                        ? c.maxWidth - 32
-                        : c.maxHeight - 16)
-                    .clamp(120.0, 560.0);
-                _frame = side;
-                return Center(child: _frameView(side));
-              }),
-            ),
+        child: LayoutBuilder(builder: (context, outer) {
+          final frame = LayoutBuilder(builder: (context, c) {
+            final side = (c.maxWidth - 32 < c.maxHeight - 16
+                    ? c.maxWidth - 32
+                    : c.maxHeight - 16)
+                .clamp(120.0, 560.0);
+            _frame = side;
+            return Center(child: _frameView(side));
+          });
+          final controls = <Widget>[
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
               child: Text(
@@ -494,8 +492,28 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
                 ),
               ),
             ),
-          ],
-        ),
+          ];
+          // Yatay ekranda kontroller sağa geçer; kırpma alanı tüm yüksekliği
+          // kullanır.
+          if (outer.maxWidth > outer.maxHeight * 1.15) {
+            return Row(
+              children: [
+                Expanded(child: frame),
+                SizedBox(
+                  width: math.min(420.0, outer.maxWidth * 0.45),
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min, children: controls),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
+          return Column(children: [Expanded(child: frame), ...controls]);
+        }),
       ),
     );
   }

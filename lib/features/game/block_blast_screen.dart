@@ -22,6 +22,7 @@ import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
 import '../reels/widgets/music_button.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/widgets/fit_panel.dart';
 
 /// Block Blast benzeri bulmaca: 8×8 ızgaraya 3 parçayı sürükleyip yerleştir;
 /// dolan satır/sütunlar patlar. Hiçbir parça sığmazsa oyun biter.
@@ -83,6 +84,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   int? _reviveSelected;
 
   double _cell = 40; // build'de hesaplanır
+  bool _sideTray = false; // yatay ekran: tepsi tahtanın sağında
   static const double _lift = 64; // parmağın belirgin şekilde üstünde göster
 
   int? _dragIdx;
@@ -236,17 +238,21 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     final gridTL = stackBox.globalToLocal(gridBox.localToGlobal(Offset.zero));
     final wpx = p.cols * _cell, hpx = p.rows * _cell;
 
-    // Başlangıç çapasını sabitle: parça ilk anda parmağın üstünde belirir.
+    // Başlangıç çapasını sabitle: parça ilk anda parmağın üstünde belirir
+    // (tepsi tahtanın yanındaysa parmağın solunda).
     if (!_dragHasAnchor) {
       _dragAnchor = local;
-      _anchorTL = local - Offset(wpx / 2, hpx + _lift);
+      _anchorTL = _sideTray
+          ? local - Offset(wpx + _lift, hpx / 2)
+          : local - Offset(wpx / 2, hpx + _lift);
       _dragHasAnchor = true;
     }
     // Parmak hareketini büyüterek uygula (hassasiyet).
     final target = _anchorTL + (local - _dragAnchor) * _dragGain;
-    // The piece always stays above the finger, including downward corrections.
-    _dragPosition.value =
-        Offset(target.dx, min(target.dy, local.dy - hpx - 32));
+    // Parça parmağın altında kalmaz: dikeyde hep üstünde, yanda hep solunda.
+    _dragPosition.value = _sideTray
+        ? Offset(min(target.dx, local.dx - wpx - 32), target.dy)
+        : Offset(target.dx, min(target.dy, local.dy - hpx - 32));
 
     final oldRow = _tr, oldCol = _tc;
     final wasValid = _valid;
@@ -518,21 +524,51 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                           Expanded(
                             child: LayoutBuilder(
                               builder: (context, c) {
-                                final gridSize = min(min(c.maxWidth - 28, 440),
+                                final hud = _battle == null
+                                    ? _scoreText()
+                                    : BattleHud(
+                                        session: _battle!,
+                                        palette: _palette,
+                                        feedback: _battleFeedback);
+                                // Dikey: skor, tahta, tepsi alt alta. Ekran
+                                // yataysa ve tahta yükseklikten kısılıyorsa
+                                // skor solda, tahta ortada, tepsi sağda.
+                                final tall = min(min(c.maxWidth - 28, 600),
                                         max(80, (c.maxHeight - 134) / 1.37))
                                     .toDouble();
-                                _cell = gridSize / _n;
+                                final side = min(min(c.maxHeight - 24, 680),
+                                        max(80, c.maxWidth - 2 * 150))
+                                    .toDouble();
+                                if (c.maxWidth > c.maxHeight * 1.1 &&
+                                    side > tall * 1.12) {
+                                  _cell = side / _n;
+                                  _sideTray = true;
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                          child: Center(
+                                              child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8),
+                                        child: hud,
+                                      ))),
+                                      _gridWidget(side),
+                                      Expanded(
+                                          child: _trayWidget(
+                                              vertical: true,
+                                              extent: side,
+                                              cross: (c.maxWidth - side) / 2)),
+                                    ],
+                                  );
+                                }
+                                _cell = tall / _n;
+                                _sideTray = false;
                                 return Column(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceEvenly,
                                   children: [
-                                    _battle == null
-                                        ? _scoreText()
-                                        : BattleHud(
-                                            session: _battle!,
-                                            palette: _palette,
-                                            feedback: _battleFeedback),
-                                    _gridWidget(gridSize),
+                                    hud,
+                                    _gridWidget(tall),
                                     _trayWidget(),
                                   ],
                                 );
@@ -560,7 +596,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                                       key:
                                           const ValueKey('block-drag-feedback'),
                                       scale: scale,
-                                      alignment: Alignment.bottomCenter,
+                                      alignment: _sideTray
+                                          ? Alignment.centerRight
+                                          : Alignment.bottomCenter,
                                       child: child),
                             ),
                           )),
@@ -783,12 +821,19 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     );
   }
 
-  Widget _trayWidget() {
-    final tc =
-        min(_cell * 0.58, (MediaQuery.sizeOf(context).width / 3 - 12) / 5);
+  /// Üç parçalık tepsi. [vertical]: yatay ekranda tahtanın yanında, [extent]
+  /// yüksekliğinde üst üste üç bölme.
+  Widget _trayWidget(
+      {bool vertical = false, double extent = 0, double cross = 0}) {
+    // Dikey tepside 5 hücrelik parça hem 1/3 yüksekliğe hem sütun genişliğine
+    // sığmalı.
+    final tc = vertical
+        ? min(_cell * 0.58, min(extent / 3 - 12, cross - 16) / 5)
+        : min(_cell * 0.58, (MediaQuery.sizeOf(context).width / 3 - 12) / 5);
     return SizedBox(
-      height: tc * 5 + 16,
-      child: Row(
+      height: vertical ? extent : tc * 5 + 16,
+      child: Flex(
+        direction: vertical ? Axis.vertical : Axis.horizontal,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           for (var i = 0; i < 3; i++)
@@ -1057,15 +1102,21 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   Widget _overOverlay(int best) {
-    final cardWidth = min(MediaQuery.sizeOf(context).width - 36, 420.0);
-    final statWidth = (cardWidth - 40 - 10) / 2;
+    final screen = MediaQuery.sizeOf(context);
+    // Kısa (yatay telefon) ekranda kart genişler, istatistikler tek satıra iner.
+    final short = screen.height < 520 && screen.width > screen.height;
+    final cardWidth = min(screen.width - 36, short ? 600.0 : 420.0);
+    final cols = short ? 4 : 2;
+    // 40 iç boşluk + 2 kenarlık; aşağı yuvarlanır ki karolar yan yana sığsın.
+    final statWidth =
+        ((cardWidth - 42 - 10 * (cols - 1)) / cols).floorToDouble();
     final summaryAvailable = _game.runSummaryAvailable;
     final recordColor = _newRecord ? const Color(0xFFFFD36A) : AppTheme.accent;
     return Container(
       color: const Color(0xD8091428),
       alignment: Alignment.center,
       child: SafeArea(
-        child: SingleChildScrollView(
+        child: FitPanel(
           padding: const EdgeInsets.symmetric(vertical: 16),
           child: Center(
             child: Container(
@@ -1094,24 +1145,26 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: recordColor.withValues(alpha: .14),
-                      borderRadius: BorderRadius.circular(19),
-                      border:
-                          Border.all(color: recordColor.withValues(alpha: .34)),
+                  if (!short) ...[
+                    Container(
+                      width: 58,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        color: recordColor.withValues(alpha: .14),
+                        borderRadius: BorderRadius.circular(19),
+                        border: Border.all(
+                            color: recordColor.withValues(alpha: .34)),
+                      ),
+                      child: Icon(
+                        _newRecord
+                            ? Icons.emoji_events_rounded
+                            : Icons.grid_view_rounded,
+                        color: recordColor,
+                        size: 30,
+                      ),
                     ),
-                    child: Icon(
-                      _newRecord
-                          ? Icons.emoji_events_rounded
-                          : Icons.grid_view_rounded,
-                      color: recordColor,
-                      size: 30,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
+                  ],
                   Text(
                     _newRecord ? 'YENİ REKOR!' : 'OYUN TAMAMLANDI',
                     textAlign: TextAlign.center,

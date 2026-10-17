@@ -94,8 +94,12 @@ class _MaintenancePainter extends CustomPainter {
 
   static final _stars = List.generate(34, (i) {
     final r = Random(i * 7919 + 13);
-    return (r.nextDouble(), r.nextDouble(), r.nextDouble() * 2 * pi,
-        r.nextBool());
+    return (
+      r.nextDouble(),
+      r.nextDouble(),
+      r.nextDouble() * 2 * pi,
+      r.nextBool()
+    );
   });
   static final _paint = Paint()..isAntiAlias = false;
 
@@ -105,21 +109,32 @@ class _MaintenancePainter extends CustomPainter {
 
   void _layoutText(Size size) {
     final widest = ReelsMaintenanceScreen.lines.map(pixelLineWidth).reduce(max);
-    _px = ((size.width - 48) / widest).floorToDouble().clamp(2.0, 5.0);
-    final titlePx = (_px * 1.8).roundToDouble();
     const lineGap = 4; // piksel
+    // Yüz + başlık + satırlar, piksel boyutu başına toplam yükseklik. Yatay
+    // telefonda yükseklik de sınırlar; yazı kesilmez.
+    final unit = kLoveFaceSprite.length * 1.6 +
+        6 +
+        (kGlyphRows + 3) * 1.8 +
+        ReelsMaintenanceScreen.lines.length * (kGlyphRows + lineGap);
+    _px = min((size.width - 48) / widest,
+            (size.height - pad.top - pad.bottom - 80) / unit)
+        .floorToDouble()
+        .clamp(2.0, 5.0);
+    final titlePx = (_px * 1.8).roundToDouble();
     final rec = ui.PictureRecorder();
     final c = Canvas(rec);
     var y = 0.0;
     const title = ReelsMaintenanceScreen.title;
     final tw = pixelLineWidth(title) * titlePx;
     paintPixelText(c, title, Offset(((size.width - tw) / 2).roundToDouble(), y),
-        titlePx, _titleColor, shadow: _shadow);
+        titlePx, _titleColor,
+        shadow: _shadow);
     y += (kGlyphRows + 3) * titlePx;
     for (final line in ReelsMaintenanceScreen.lines) {
       final w = pixelLineWidth(line) * _px;
       paintPixelText(c, line, Offset(((size.width - w) / 2).roundToDouble(), y),
-          _px, _textColor, shadow: _shadow);
+          _px, _textColor,
+          shadow: _shadow);
       y += (kGlyphRows + lineGap) * _px;
     }
     _text?.dispose();
@@ -142,7 +157,8 @@ class _MaintenancePainter extends CustomPainter {
       _paint.color = const Color(0xFFFFF4FA).withValues(alpha: a * 0.8);
       canvas.drawRect(Rect.fromLTWH(x, y, sp, sp), _paint);
       if (big && a > 0.75) {
-        _paint.color = const Color(0xFFFFC4DA).withValues(alpha: (a - 0.75) * 3);
+        _paint.color =
+            const Color(0xFFFFC4DA).withValues(alpha: (a - 0.75) * 3);
         canvas.drawRect(Rect.fromLTWH(x - sp, y, sp, sp), _paint);
         canvas.drawRect(Rect.fromLTWH(x + sp, y, sp, sp), _paint);
         canvas.drawRect(Rect.fromLTWH(x, y - sp, sp, sp), _paint);

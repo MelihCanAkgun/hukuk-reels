@@ -119,6 +119,10 @@ void main() {
   testWidgets(
       'drag clears a line, commits save before animation and restores it',
       (tester) async {
+    // Dikey telefon; yatay düzendeki sürükleme orientation_test.dart'ta.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final game = BlockBlastEngine()
       ..tray = [
         const BlockPiece(0, 0),
@@ -179,6 +183,10 @@ void main() {
   testWidgets(
       'touch lifts immediately, travels farther and ignores a second finger',
       (tester) async {
+    // Dikey telefon; yatay düzendeki sürükleme orientation_test.dart'ta.
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     final game = BlockBlastEngine()
       ..tray = [
         const BlockPiece(9, 0),
