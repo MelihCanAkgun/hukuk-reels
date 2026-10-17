@@ -1,9 +1,9 @@
 {
-  "source_commit": "1920d069d67c592255eebc7c6e7ffdd1cc513fb5",
-  "built_at": "2026-10-16T23:06:47Z",
-  "checks": "flutter analyze (no issues); flutter test (144); arcade tests also on the web engine (flutter test --platform chrome); release build with base-href /hukuk-reels/",
-  "change": "Adliye Kulesi: floors grow up to 1.5x the base width on a perfect streak; frame-accurate substeps, camera minimum speed, physical-pixel snapping, cached score text",
+  "source_commit": "0d737c0f5eadf07cf3f767496c0b4f0706ce7ab3",
+  "built_at": "2026-10-17T11:40:29Z",
+  "checks": "flutter analyze (no issues); flutter test (145); notes ink, remap and content tests; web runtime/update checks; headless Chrome: v1 to v2 note migration, pen/highlighter/lasso/eraser/find/zoom interactions, paginated print (26 and 20 PDF pages), last-edit field; release build with base-href /hukuk-reels/ opened from the Flutter tile, offline cache includes icra.v1.js",
+  "change": "Notes follow their block when a summary changes (saved basis, per-section LCS, frozen icra.v1.js); İcra summary v2 checked against the current İİK incl. 7589; search, A4 print, toolbar levels, lasso resize/recolor, highlighter snap, storage fallback; last edit on the summary tile",
   "backend_version": "7fb800b5-9635-4e13-b670-148db4e2a16d",
   "pubspec_lock_sha256": "fded44df6063fcea317b8ec06d7175e2992bb2467385200438407562ac9d23e7",
-  "app_build": "619bac890fe71ae9"
+  "app_build": "22af49500267581d"
 }
