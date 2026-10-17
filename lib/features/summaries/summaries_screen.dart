@@ -21,6 +21,34 @@ class SummaryInfo {
   final int topics;
 }
 
+const List<String> _kMonths = [
+  'Ocak',
+  'Şubat',
+  'Mart',
+  'Nisan',
+  'Mayıs',
+  'Haziran',
+  'Temmuz',
+  'Ağustos',
+  'Eylül',
+  'Ekim',
+  'Kasım',
+  'Aralık'
+];
+
+/// Son düzenleme etiketi: "bugün", "dün", "3 gün önce", "12 Ekim",
+/// başka yıldaysa "12 Ekim 2025". Günler takvime göre sayılır.
+String editedLabel(DateTime t, DateTime now) {
+  final days = DateTime.utc(now.year, now.month, now.day)
+      .difference(DateTime.utc(t.year, t.month, t.day))
+      .inDays;
+  if (days <= 0) return 'bugün';
+  if (days == 1) return 'dün';
+  if (days < 7) return '$days gün önce';
+  final d = '${t.day} ${_kMonths[t.month - 1]}';
+  return t.year == now.year ? d : '$d ${t.year}';
+}
+
 const List<SummaryInfo> kSummaries = [
   SummaryInfo(
     id: 'icra',
@@ -41,7 +69,7 @@ class SummariesScreen extends StatefulWidget {
 }
 
 class _SummariesScreenState extends State<SummariesScreen> {
-  final Map<String, int> _notes = {};
+  final Map<String, SummaryNotes> _notes = {};
   bool _opening = false;
 
   @override
@@ -52,9 +80,9 @@ class _SummariesScreenState extends State<SummariesScreen> {
 
   Future<void> _refreshCounts() async {
     for (final s in widget.summaries) {
-      final n = await summaryNoteCount(s.id);
+      final info = await summaryNotes(s.id);
       if (!mounted) return;
-      setState(() => _notes[s.id] = n);
+      setState(() => _notes[s.id] = info);
     }
   }
 
@@ -162,7 +190,14 @@ class _SummariesScreenState extends State<SummariesScreen> {
   }
 
   Widget _tile(SummaryInfo s) {
-    final n = _notes[s.id] ?? 0;
+    final info = _notes[s.id] ?? const SummaryNotes();
+    final n = info.count;
+    final edited = info.edited;
+    final notes = n == 0
+        ? 'henüz not yok'
+        : edited == null
+            ? '$n not'
+            : '$n not · son düzenleme ${editedLabel(edited, DateTime.now())}';
     return Pressable(
       semanticLabel: '${s.title} özetini aç',
       onTap: () => _open(s),
@@ -192,7 +227,7 @@ class _SummariesScreenState extends State<SummariesScreen> {
                           fontSize: 13, color: AppTheme.textSecondary)),
                   const SizedBox(height: 6),
                   Text(
-                    '${s.topics} konu · ${n == 0 ? 'henüz not yok' : '$n not'}',
+                    '${s.topics} konu · $notes',
                     style: const TextStyle(
                         fontSize: 12, color: AppTheme.textMuted),
                   ),

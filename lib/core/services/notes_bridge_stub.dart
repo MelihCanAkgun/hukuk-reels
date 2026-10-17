@@ -1,3 +1,5 @@
+import 'summary_notes.dart';
+
 /// Yerel derlemede not modu yok; özetler web uygulamasında açılır.
 bool get notesSupported => false;
 
@@ -5,5 +7,5 @@ bool get notesSupported => false;
 Future<String> openSummary(String id) async =>
     'error:Özetler ve not alma yalnız web uygulamasında çalışır.';
 
-/// Kaydedilmiş not sayısı (yoksa 0).
-Future<int> summaryNoteCount(String id) async => 0;
+/// Kaydedilmiş notlar (yoksa boş).
+Future<SummaryNotes> summaryNotes(String id) async => const SummaryNotes();
