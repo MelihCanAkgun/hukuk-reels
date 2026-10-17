@@ -20,6 +20,7 @@ import '../reels/screens/reels_screen.dart';
 import 'avatar_editor_screen.dart';
 import 'profile_avatar.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/widgets/readable_width.dart';
 
 /// Profil (takma ad, fotoğraf, ilerleme, sorular) + Ayarlar (ses, sıralama,
 /// veri) ekranı.
@@ -138,7 +139,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(
-                      16, 4, 16, 28 + MediaQuery.paddingOf(context).bottom),
+                      readableGutter(context),
+                      4,
+                      readableGutter(context),
+                      28 + MediaQuery.paddingOf(context).bottom),
                   children: [
                     _profileCard(pct, solvedInPool),
                     _sectionTitle('İLERLEME', Icons.insights_rounded),

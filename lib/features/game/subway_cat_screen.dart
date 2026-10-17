@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
+import '../../core/widgets/fit_panel.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../reels/widgets/music_button.dart';
 import 'arcade/arcade_kit.dart';
@@ -1085,7 +1086,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
     return ColoredBox(
       color: Colors.black.withValues(alpha: 0.35),
       child: Center(
-          child: _panel(
+          child: FitPanel(
+              child: _panel(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1105,7 +1107,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
                 primary: false, onTap: () => setState(() => _showHelp = true)),
           ],
         ),
-      )),
+      ))),
     );
   }
 
@@ -1233,7 +1235,8 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
         curve: Curves.easeOutBack,
         builder: (context, v, child) =>
             Transform.scale(scale: 0.7 + 0.3 * v, child: child),
-        child: _panel(
+        child: FitPanel(
+            child: _panel(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1276,7 +1279,7 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
                   onTap: () => Navigator.of(context).maybePop()),
             ],
           ),
-        ),
+        )),
       ),
     );
   }

@@ -22,6 +22,7 @@ import '../reels/widgets/music_button.dart';
 import '../summaries/summaries_screen.dart';
 import '../surprise/flower_surprise_flow.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/widgets/readable_width.dart';
 
 /// Mini oyunların listelendiği ayrı "Oyunlar" sekmesi. (Eskiden profilin
 /// içindeydi.) Oyun içinde de müziğe erişilebilsin diye üstte müzik düğmesi
@@ -127,7 +128,8 @@ class _GamesScreenState extends State<GamesScreen> {
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                  padding: EdgeInsets.fromLTRB(
+                      readableGutter(context), 8, readableGutter(context), 28),
                   children: [
                     if (_tripsStore.connected) ...[
                       _countdownCard(),

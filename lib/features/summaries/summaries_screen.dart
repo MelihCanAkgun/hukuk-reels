@@ -4,6 +4,7 @@ import '../../app/theme.dart';
 import '../../core/services/notes_bridge.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/widgets/readable_width.dart';
 
 /// Bir ders özeti. İçerik `web/notes/summaries/<id>.js` dosyasındadır;
 /// not modu (web/notes/notes.js) onu Flutter'ın üstünde açar.
@@ -134,7 +135,8 @@ class _SummariesScreenState extends State<SummariesScreen> {
               ),
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                  padding: EdgeInsets.fromLTRB(
+                      readableGutter(context), 8, readableGutter(context), 28),
                   children: [
                     _hint(),
                     const SizedBox(height: 16),

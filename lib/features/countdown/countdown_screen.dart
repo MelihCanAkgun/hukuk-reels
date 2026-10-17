@@ -10,6 +10,7 @@ import '../../core/widgets/pixel_logo.dart';
 import '../profile/profile_avatar.dart';
 import 'countdown_text.dart';
 import '../home/home_store.dart';
+import '../../core/widgets/readable_width.dart';
 
 /// Sunucudaki bir uçuş (yalnız iki oyuncu görebilir).
 class Trip {
@@ -188,7 +189,8 @@ class _CountdownScreenState extends State<CountdownScreen> {
             : RefreshIndicator(
                 onRefresh: _load,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+                  padding: EdgeInsets.fromLTRB(
+                      readableGutter(context), 8, readableGutter(context), 100),
                   children: [
                     if (_busy) const LinearProgressIndicator(),
                     if (!_store.connected)

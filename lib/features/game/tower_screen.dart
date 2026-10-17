@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
+import '../../core/widgets/fit_panel.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../reels/widgets/music_button.dart';
 import 'arcade/arcade_kit.dart';
@@ -201,6 +202,7 @@ class _TowerScreenState extends State<TowerScreen>
   int get nextFloor => floors.length;
   double get speed => towerSpeed(score);
   double get tolerance => towerTolerance(score);
+
   /// Kayan katın merkezden en uzak sapması. Kat ≤ 96 iken eski değerle aynı;
   /// seriyle genişleyen katta da kat tamamen dışarıda bırakılabilsin (ıska
   /// mümkün olsun) diye genişlikle büyür.
@@ -880,10 +882,13 @@ class _TowerScreenState extends State<TowerScreen>
 
   Widget _overOverlay(int best) {
     final era = kTowerEras[eraOf(score)];
+    // Yatay ekranda panel sağda durur; biten kule ve taht görünür kalır.
+    final size = MediaQuery.sizeOf(context);
+    final wide = size.width > size.height * 1.15;
     return Align(
-      alignment: Alignment.bottomCenter,
+      alignment: wide ? Alignment.centerRight : Alignment.bottomCenter,
       child: SafeArea(
-        top: false,
+        top: wide,
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 0, end: 1),
           duration: const Duration(milliseconds: 460),
@@ -893,63 +898,73 @@ class _TowerScreenState extends State<TowerScreen>
               child: Opacity(opacity: v.clamp(0.0, 1.0), child: child)),
           child: GestureDetector(
             onTap: () {}, // panel dokunuşu kuleye geçmesin
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(22, 0, 22, 14),
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-              constraints: const BoxConstraints(maxWidth: 380),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4E3C1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: const Color(0xFF2B1220), width: 3),
-                boxShadow: const [
-                  BoxShadow(color: Color(0xFF2B1220), offset: Offset(0, 6)),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(_newRecord ? 'Yeni Rekor!' : 'Kule Tamamlandı',
-                      style: const TextStyle(
-                        fontFamily: _pixelFont,
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFFD63F78),
-                      )),
-                  const SizedBox(height: 4),
-                  Row(
+            child: FitPanel(
+                padding: EdgeInsets.zero,
+                alignment:
+                    wide ? Alignment.centerRight : Alignment.bottomCenter,
+                child: Container(
+                  margin: wide
+                      ? EdgeInsets.fromLTRB(
+                          22, 52, math.max(22, size.width * 0.04), 14)
+                      : const EdgeInsets.fromLTRB(22, 0, 22, 14),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
+                  constraints: BoxConstraints(
+                      maxWidth: wide ? math.min(380, size.width * 0.36) : 380),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF4E3C1),
+                    borderRadius: BorderRadius.circular(6),
+                    border:
+                        Border.all(color: const Color(0xFF2B1220), width: 3),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0xFF2B1220), offset: Offset(0, 6)),
+                    ],
+                  ),
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      PixelLogo(era.flag, size: 18, palette: kArcadePalette),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Text('${era.city} · ${era.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF8A5A3A))),
+                      Text(_newRecord ? 'Yeni Rekor!' : 'Kule Tamamlandı',
+                          style: const TextStyle(
+                            fontFamily: _pixelFont,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFD63F78),
+                          )),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          PixelLogo(era.flag,
+                              size: 18, palette: kArcadePalette),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text('${era.city} · ${era.name}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF8A5A3A))),
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(child: _stat('KAT', '$score')),
+                          Expanded(child: _stat('EN İYİ', '$best')),
+                          Expanded(child: _stat('MÜKEMMEL', '$perfects')),
+                          Expanded(child: _stat('SERİ', '$maxStreak')),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      _btn('Tekrar Oyna', primary: true, onTap: _restart),
+                      const SizedBox(height: 8),
+                      _btn('Oyunlara Dön',
+                          primary: false,
+                          onTap: () => Navigator.of(context).maybePop()),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(child: _stat('KAT', '$score')),
-                      Expanded(child: _stat('EN İYİ', '$best')),
-                      Expanded(child: _stat('MÜKEMMEL', '$perfects')),
-                      Expanded(child: _stat('SERİ', '$maxStreak')),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  _btn('Tekrar Oyna', primary: true, onTap: _restart),
-                  const SizedBox(height: 8),
-                  _btn('Oyunlara Dön',
-                      primary: false,
-                      onTap: () => Navigator.of(context).maybePop()),
-                ],
-              ),
-            ),
+                )),
           ),
         ),
       ),
