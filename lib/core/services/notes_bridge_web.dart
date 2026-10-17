@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:js_interop';
 
+import 'summary_notes.dart';
+
 @JS('hukukNotesOpen')
 external JSPromise<JSString> _open(JSString id);
 
@@ -19,12 +21,16 @@ Future<String> openSummary(String id) async {
   }
 }
 
-/// Bu özete cihazda kaydedilmiş not (çizgi) sayısı.
-Future<int> summaryNoteCount(String id) async {
+/// Bu özete cihazda kaydedilmiş notlar: sayı ve son düzenleme zamanı.
+Future<SummaryNotes> summaryNotes(String id) async {
   try {
     final info = jsonDecode((await _info(id.toJS).toDart).toDart);
-    return (info['strokes'] as num?)?.toInt() ?? 0;
+    final edited = (info['edited'] as num?)?.toInt() ?? 0;
+    return SummaryNotes(
+      count: (info['strokes'] as num?)?.toInt() ?? 0,
+      edited: edited > 0 ? DateTime.fromMillisecondsSinceEpoch(edited) : null,
+    );
   } catch (_) {
-    return 0;
+    return const SummaryNotes();
   }
 }

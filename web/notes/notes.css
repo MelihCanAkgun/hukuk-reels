@@ -1,6 +1,8 @@
 /* Özetler + Apple Pencil not modu. Flutter'ın dışında, tam ekran bir katman.
    Sayfa sabit genişlikte bir "kâğıt"tır (1180 birim): notlar bu koordinatlarda
-   saklanır, yazı tipi pakettedir; böylece her iPad'de notlar aynı yere oturur. */
+   saklanır, yazı tipi pakettedir; böylece her iPad'de notlar aynı yere oturur.
+   Özet içeriğinin yerleşimini değiştiren bir kural eklenirse eski sürümlerin
+   ölçümü bozulmasın diye .hn-legacy altında eski hâli korunur. */
 @font-face {
   font-family: 'HNInter';
   src: url('../assets/assets/fonts/Inter.ttf') format('truetype');
@@ -30,7 +32,10 @@
 #hn-root.hn-open { display: block; }
 #hn-root *, #hn-root *::before, #hn-root *::after { box-sizing: border-box; }
 
-/* ───────── Araç çubuğu ───────── */
+/* ───────── Araç çubuğu ─────────
+   Sığmazsa notes.js sırayla sıkıştırır: hn-c1 başlık gizlenir, hn-c2 "Özetler"
+   etiketi, hn-c3 arama düğmesi (içindekilerden açılır), hn-c4 renk ve
+   kalınlıklar tek düğmeye toplanır, hn-c5 küçük düğmeler. */
 .hn-bar {
   position: absolute;
   left: 0; right: 0; top: 0;
@@ -38,18 +43,26 @@
   padding: env(safe-area-inset-top) 10px 0;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: rgba(252, 250, 254, 0.92);
   -webkit-backdrop-filter: saturate(1.6) blur(14px);
   backdrop-filter: saturate(1.6) blur(14px);
   border-bottom: 1px solid rgba(40, 20, 60, 0.12);
   z-index: 5;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
 }
+.hn-bar::-webkit-scrollbar { display: none; }
 .hn-bar .hn-sp { flex: 1 1 auto; min-width: 4px; }
 .hn-title {
-  font-weight: 700; font-size: 15px; white-space: nowrap; overflow: hidden;
-  text-overflow: ellipsis; max-width: 220px; color: var(--hn-ink);
+  flex: 0 1 auto; min-width: 120px; max-width: 260px;
+  display: flex; flex-direction: column; justify-content: center; gap: 2px; padding-left: 4px;
 }
+.hn-title b, .hn-title small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hn-title b { font-weight: 700; font-size: 15px; line-height: 1.15; color: var(--hn-ink); }
+.hn-title small { font-weight: 600; font-size: 12px; line-height: 1.15; color: var(--hn-muted); }
+.hn-title small:empty { display: none; }
 .hn-sep { width: 1px; height: 28px; background: rgba(40, 20, 60, 0.14); margin: 0 4px; flex: none; }
 .hn-btn {
   appearance: none; border: 0; background: transparent; color: var(--hn-ink);
@@ -62,8 +75,13 @@
 .hn-btn:active { transform: scale(0.94); background: rgba(40, 20, 60, 0.08); }
 .hn-btn[disabled] { opacity: .32; pointer-events: none; }
 .hn-btn.hn-on { background: rgba(214, 51, 108, 0.13); color: var(--hn-accent); }
+.hn-btn:focus-visible { outline: 2px solid var(--hn-accent); outline-offset: 1px; }
 .hn-back { padding-right: 12px; }
 .hn-tool { width: 44px; }
+.hn-opts { display: flex; align-items: center; gap: 2px; flex: none; }
+.hn-opts .hn-gap { width: 6px; flex: none; }
+.hn-hint { font: 600 13px 'HNInter', sans-serif; color: var(--hn-muted); padding: 0 6px; white-space: nowrap; }
+.hn-emode { font-size: 13px; white-space: nowrap; }
 .hn-sw {
   width: 30px; height: 30px; min-width: 30px; padding: 0; border-radius: 50%;
   position: relative;
@@ -81,6 +99,30 @@
 .hn-size i { display: block; border-radius: 50%; background: var(--hn-ink); }
 .hn-size.hn-on { background: rgba(214, 51, 108, 0.13); }
 .hn-size.hn-on i { background: var(--hn-accent); }
+/* Sıkışık çubukta renk + kalınlık düğmesi */
+.hn-style { display: none; width: 52px; padding: 0; gap: 2px; }
+.hn-style svg { width: 12px; height: 12px; color: var(--hn-muted); }
+.hn-style i {
+  width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2), 0 0 0 2px #fff, 0 0 0 3px rgba(40, 20, 60, 0.16);
+}
+.hn-style i b { display: block; border-radius: 50%; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15); }
+.hn-style i.hn-er { background: #fff; box-shadow: inset 0 0 0 1.5px rgba(40, 20, 60, 0.45); }
+.hn-style i.hn-er b { background: transparent; box-shadow: inset 0 0 0 1.5px var(--hn-ink); }
+.hn-bar.hn-c1 .hn-title { display: none; }
+.hn-bar.hn-c2 .hn-back span { display: none; }
+.hn-bar.hn-c2 .hn-back { padding-right: 8px; }
+/* Renkler toplanınca açılan yerde arama düğmesi geri gelir. */
+.hn-bar.hn-c3:not(.hn-c4) .hn-findbtn, .hn-bar.hn-c5 .hn-findbtn { display: none; }
+.hn-bar.hn-c4 .hn-opts { display: none; }
+.hn-bar.hn-c4 .hn-style { display: inline-flex; }
+.hn-bar.hn-c4 .hn-style.hn-none { display: none; }
+.hn-bar.hn-c5 { gap: 1px; padding-left: 4px; padding-right: 4px; }
+.hn-bar.hn-c5 .hn-btn { min-width: 31px; padding: 0 3px; }
+.hn-bar.hn-c5 .hn-tool { width: 33px; }
+.hn-bar.hn-c5 .hn-style { width: 36px; }
+.hn-bar.hn-c5 .hn-style svg { display: none; }
+.hn-bar.hn-c5 .hn-sep, .hn-bar.hn-c5 .hn-redo { display: none; }
 
 /* ───────── Kaydırma alanı + kâğıt ───────── */
 .hn-scroller {
@@ -104,6 +146,8 @@
   border-radius: 4px;
   overflow: hidden;
 }
+/* Eski sürümleri ölçmek için görünmez sayfa */
+.hn-page.hn-measure { left: -40000px; visibility: hidden; transform: none; box-shadow: none; pointer-events: none; }
 /* Kenar boşlukları not alanıdır: ince nokta ızgarası. */
 .hn-margin {
   position: absolute; top: 0; bottom: 0; width: 180px;
@@ -133,11 +177,23 @@
   z-index: 3;
 }
 .hn-sel {
+  --hn-inv: 1;
   position: absolute; pointer-events: none;
-  border: 1.5px dashed var(--hn-accent);
-  border-radius: 6px;
+  border: calc(1.5px * var(--hn-inv)) dashed var(--hn-accent);
+  border-radius: calc(6px * var(--hn-inv));
   background: rgba(214, 51, 108, 0.05);
 }
+/* Sağ alt köşe: boyutlandırma tutamacı (ekranda sabit boyutta) */
+.hn-selh {
+  position: absolute; right: calc(-9px * var(--hn-inv)); bottom: calc(-9px * var(--hn-inv));
+  width: calc(18px * var(--hn-inv)); height: calc(18px * var(--hn-inv)); border-radius: 50%;
+  background: #fff; border: calc(2px * var(--hn-inv)) solid var(--hn-accent);
+  box-shadow: 0 1px 4px rgba(30, 10, 40, .25);
+}
+/* Arama sonuçları: metnin üstünde, notların altında */
+.hn-findlayer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: multiply; }
+.hn-findlayer i { position: absolute; display: block; border-radius: 3px; background: rgba(255, 210, 40, 0.55); }
+.hn-findlayer i.hn-cur { background: rgba(255, 140, 0, 0.75); box-shadow: 0 0 0 2px rgba(255, 120, 0, 0.6); }
 
 /* ───────── Alt bilgi ve menüler ───────── */
 .hn-chip {
@@ -149,13 +205,14 @@
   font: 600 13px/1 'HNInter', -apple-system, sans-serif;
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
 }
-.hn-zoom { left: 14px; }
+.hn-zoom { left: 14px; cursor: pointer; }
 .hn-save { right: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; }
 .hn-save.hn-show { opacity: 1; }
 .hn-toast {
   left: 50%; transform: translateX(-50%) translateY(8px);
   opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none;
   bottom: calc(60px + env(safe-area-inset-bottom));
+  max-width: calc(100% - 28px); height: auto; min-height: 34px; padding: 8px 14px; line-height: 1.35; text-align: center;
 }
 .hn-toast.hn-show { opacity: 1; transform: translateX(-50%); }
 .hn-selbar {
@@ -167,7 +224,7 @@
 .hn-notice {
   position: absolute; z-index: 4; left: 50%; transform: translateX(-50%);
   top: calc(var(--hn-bar) + env(safe-area-inset-top) + 10px);
-  width: min(620px, calc(100% - 24px));
+  width: min(640px, calc(100% - 24px));
   display: none; align-items: center; gap: 6px;
   padding: 8px 8px 8px 14px; border-radius: 14px;
   background: #fff7e0; border: 1px solid #f0d488; color: #4a3a10;
@@ -175,15 +232,39 @@
   box-shadow: 0 6px 20px rgba(30, 10, 40, .12);
 }
 .hn-notice.hn-show { display: flex; }
+.hn-notice[data-kind="error"] { background: #fdeef0; border-color: #f2c2ca; color: #5a1420; }
 .hn-notice span { flex: 1 1 auto; }
+.hn-notice .hn-nb { display: flex; flex: none; gap: 2px; }
 .hn-notice .hn-btn { height: 34px; font-size: 13.5px; font-weight: 700; color: #7a5a00; }
+.hn-notice[data-kind="error"] .hn-btn { color: #a3203a; }
 .hn-selbar .hn-btn { color: #fff; height: 36px; font-size: 13.5px; }
-.hn-selbar span { padding: 0 8px; opacity: .75; font-size: 13px; }
+.hn-selbar span { padding: 0 8px; opacity: .75; font-size: 13px; white-space: nowrap; }
+
+/* Arama çubuğu */
+.hn-find {
+  position: absolute; z-index: 6; right: 10px;
+  top: calc(var(--hn-bar) + env(safe-area-inset-top) + 8px);
+  width: min(420px, calc(100% - 20px)); height: 48px;
+  display: none; align-items: center; gap: 2px; padding: 0 4px 0 12px;
+  background: #fff; border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(30, 10, 40, .22), 0 0 0 1px rgba(30, 10, 40, .07);
+}
+.hn-find.hn-show { display: flex; }
+.hn-find > svg { width: 18px; height: 18px; color: var(--hn-muted); flex: none; }
+.hn-find input {
+  flex: 1 1 auto; min-width: 0; height: 40px; border: 0; outline: 0; background: transparent;
+  font: 500 16px 'HNInter', -apple-system, sans-serif; color: var(--hn-ink); padding: 0 6px;
+  -webkit-user-select: text; user-select: text; -webkit-appearance: none; appearance: none;
+}
+.hn-find input::-webkit-search-cancel-button { display: none; }
+.hn-fcount { font: 600 12.5px 'HNInter', sans-serif; color: var(--hn-muted); white-space: nowrap; padding: 0 4px; }
+.hn-find .hn-btn { min-width: 36px; height: 36px; padding: 0 6px; }
+.hn-find .hn-btn svg { width: 20px; height: 20px; }
 
 .hn-pop {
   position: absolute; z-index: 6;
   top: calc(var(--hn-bar) + env(safe-area-inset-top) + 6px);
-  min-width: 250px; max-width: 340px;
+  min-width: 250px; max-width: min(360px, calc(100% - 16px));
   background: #fff; border-radius: 16px; padding: 6px;
   box-shadow: 0 10px 40px rgba(30, 10, 40, .24), 0 0 0 1px rgba(30, 10, 40, .06);
   display: none;
@@ -200,19 +281,51 @@
 .hn-pop button.hn-on { color: var(--hn-accent); font-weight: 700; }
 .hn-pop hr { border: 0; border-top: 1px solid rgba(40, 20, 60, .1); margin: 4px 6px; }
 .hn-pop .hn-h { font: 700 12px/1 'HNInter', sans-serif; letter-spacing: .06em; text-transform: uppercase; color: var(--hn-muted); padding: 10px 12px 6px; }
-.hn-pop.hn-toc { max-height: calc(100vh - 120px); overflow: auto; left: 10px; min-width: 300px; }
+.hn-pop .hn-tick { width: 16px; flex: none; color: var(--hn-accent); font-weight: 800; }
+.hn-pop .hn-tips { font: 400 13px/1.5 'HNInter', sans-serif; color: var(--hn-muted); padding: 0 12px 8px; }
+.hn-pop .hn-stat { font: 600 12px/1 'HNInter', sans-serif; color: #9a92a8; padding: 4px 12px 8px; }
+.hn-menu { right: 10px; }
+.hn-pop.hn-toc { max-height: calc(100% - var(--hn-bar) - env(safe-area-inset-top) - 24px); overflow: auto; left: 10px; min-width: 320px; }
 .hn-pop.hn-toc button { font-size: 14.5px; padding: 9px 12px; }
-.hn-pop.hn-toc button b { color: var(--hn-accent); min-width: 22px; display: inline-block; }
+.hn-pop.hn-toc button b { color: var(--hn-accent); min-width: 22px; display: inline-block; flex: none; }
+.hn-pop.hn-toc button span { flex: 1 1 auto; }
+.hn-pop.hn-toc button em {
+  flex: none; font: 700 11.5px/1 'HNInter', sans-serif; font-style: normal; color: #6236c2;
+  background: #f1ebff; border-radius: 9px; padding: 4px 7px;
+}
+.hn-pop.hn-toc button.hn-cur { background: rgba(214, 51, 108, 0.08); }
+.hn-pop.hn-toc button.hn-cur span { font-weight: 700; }
+.hn-pop.hn-toc .hn-tfind { color: var(--hn-muted); }
+.hn-pop.hn-toc .hn-tfind svg { width: 18px; height: 18px; flex: none; }
 .hn-pop.hn-toc .hn-part { font: 800 11px/1 'HNInter', sans-serif; letter-spacing: .1em; color: var(--hn-muted); padding: 12px 12px 4px; }
-
-.hn-loading {
-  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-  font: 600 15px 'HNInter', -apple-system, sans-serif; color: var(--hn-muted);
+.hn-pop .hn-swrow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 2px 8px 8px; }
+.hn-pop .hn-swrow .hn-btn { width: auto; }
+.hn-pop .hn-swrow .hn-sw { width: 36px; height: 36px; min-width: 36px; padding: 0; justify-content: center; }
+.hn-pop .hn-swrow .hn-sw i { width: 26px; height: 26px; }
+.hn-pop .hn-swrow .hn-size { width: 40px; min-width: 40px; height: 40px; padding: 0; justify-content: center; }
+.hn-pop .hn-swrow .hn-emode { width: auto; padding: 0 10px; font-size: 14px; }
+.hn-stylepop, .hn-eopts { min-width: 0; }
+.hn-recolor {
+  top: auto; left: 50%; transform: translateX(-50%); min-width: 0;
+  bottom: calc(66px + env(safe-area-inset-bottom));
 }
 
-/* Dar ekran (dikey iPad mini / telefon): başlık ve bazı boyutlar gizlenir. */
-@media (max-width: 900px) { .hn-title { display: none; } }
-@media (max-width: 760px) { .hn-size.hn-m2, .hn-sw.hn-x { display: none; } .hn-back span { display: none; } }
+.hn-loading {
+  position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; gap: 14px;
+  align-items: center; justify-content: center; padding: 24px; text-align: center;
+  background: var(--hn-desk);
+  font: 600 15px/1.45 'HNInter', -apple-system, sans-serif; color: var(--hn-muted);
+}
+.hn-loading p { margin: 0; max-width: 420px; color: var(--hn-ink); }
+.hn-loading > div { display: flex; gap: 8px; }
+.hn-loading .hn-btn { background: #fff; box-shadow: 0 0 0 1px rgba(40, 20, 60, .12); padding: 0 16px; }
+.hn-loading .hn-primary { background: var(--hn-accent); color: #fff; box-shadow: none; }
+.hn-spin {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid rgba(40, 20, 60, 0.12); border-top-color: var(--hn-accent);
+  animation: hn-spin .8s linear infinite;
+}
+@keyframes hn-spin { to { transform: rotate(360deg); } }
 
 /* ═══════════════════ Özet içeriği (kâğıt) ═══════════════════ */
 .hn-content {
@@ -233,6 +346,11 @@
 .cover .kicker { font: 800 12.5px/1 'HNInter'; letter-spacing: .22em; color: var(--hn-accent); text-transform: uppercase; }
 .cover h1 { font: 800 46px/1.08 'HNInter'; letter-spacing: -.02em; margin: 14px 0 10px; }
 .cover .sub { color: #6b6478; font-size: 17px; }
+.cover .stamp {
+  display: inline-block; margin-top: 16px; padding: 7px 14px; border-radius: 999px;
+  background: #eef7f1; border: 1px solid #bfe3cc; color: #1f6b3f;
+  font: 600 12.5px/1.3 'HNInter';
+}
 .legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 14px; margin: 26px 0 6px; font-size: 13.5px; color: #4b4458; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 16px; height: 16px; border-radius: 5px; border: 1.5px solid; display: inline-block; }
@@ -303,6 +421,9 @@ b.t.k { background: #6a5a7d; }
 .n.borclu { background: #fff2ea; border-color: #e07a3a; }
 .n.borclu .k { color: #c25a17; }
 .n.end { background: #eaf6ee; border-color: #2f9a5c; font-weight: 700; }
+/* Açıklama satırı kalın başlığın altında normal ağırlıkta (1. sürümde kalındı). */
+.n.end .d, .n.start .d, .n.q .d { font-weight: 400; }
+.hn-legacy .n.end .d, .hn-legacy .n.start .d, .hn-legacy .n.q .d { font-weight: inherit; }
 .n.stop { background: #fdeef0; border-color: #d24357; }
 .n.stop .k { color: #b92b40; }
 .legend .daire { background: #edf3ff; border-color: #4a78d6; }
@@ -403,7 +524,7 @@ table.tb .c-d { color: #2d5bbf; font-weight: 700; }
 table.tb .c-m { color: #6236c2; font-weight: 700; }
 table.tb .c-g { color: #237a48; font-weight: 700; }
 
-/* Kutular: ipucu, uyarı, tanım */
+/* Kutular: ipucu, uyarı, tanım, yeni düzenleme */
 .box { border-radius: 12px; padding: 12px 16px 12px 46px; margin: 14px 0 18px; position: relative; font-size: 15px; }
 .box::before {
   position: absolute; left: 14px; top: 12px; width: 22px; height: 22px; border-radius: 7px;
@@ -415,6 +536,8 @@ table.tb .c-g { color: #237a48; font-weight: 700; }
 .box.warn::before { content: '!'; background: #d24357; }
 .box.def { background: #f4f1f8; border: 1px solid #e2dbeb; }
 .box.def::before { content: 'i'; background: #6a5a7d; font-style: italic; }
+.box.new { background: #eef4ff; border: 1px solid #c4d6fb; }
+.box.new::before { content: '✦'; background: #3d6fe0; }
 .box b:first-child { color: #2a1838; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 20px; }
 .card { border: 1.6px solid #e2dbeb; border-radius: 13px; padding: 12px 15px; background: #fff; font-size: 14.8px; }
@@ -426,24 +549,56 @@ table.tb .c-g { color: #237a48; font-weight: 700; }
 .card.ceza { border-color: #f0a3ae; background: #fff7f8; }
 .foot { margin-top: 60px; padding-top: 16px; border-top: 1px solid #ece6f2; color: #8a8199; font-size: 13px; }
 
-/* ───────── Yazdır / PDF ───────── */
-@media print {
-  @page { size: A4 portrait; margin: 8mm; }
-  html, body { overflow: visible !important; height: auto !important; background: #fff !important; }
-  body > *:not(#hn-root) { display: none !important; }
-  #hn-root { position: static !important; background: #fff !important; }
-  #hn-root .hn-bar, #hn-root .hn-chip, #hn-root .hn-pop, #hn-root .hn-live, #hn-root .hn-sel { display: none !important; }
-  #hn-root .hn-scroller { position: static !important; overflow: visible !important; }
-  #hn-root .hn-sizer { width: auto !important; height: auto !important; }
-  #hn-root .hn-page {
-    position: relative !important; transform: none !important; left: 0 !important; top: 0 !important;
-    box-shadow: none !important; zoom: 0.62;
-  }
-  #hn-root .hn-margin { background-image: none; }
-  .n, .card, .box, table.tb tr { break-inside: avoid; }
-}
-
 /* Büyük harfli başlıklarda madde çipi olduğu gibi kalsın; karşılaştırma tablosu eşit sütunlu. */
 h4 i.m, table.tb th i.m { text-transform: none; letter-spacing: 0; }
 table.tb.cmp { table-layout: fixed; }
 table.tb.cmp th:first-child { width: 150px; }
+
+/* ───────── Yazdır / PDF ─────────
+   notes.js sayfayı A4 dilimlerine böler (.hn-print). Her dilim içerik ve
+   notlarla birlikte kırpılmış bir penceredir; ekranda gizlidir. */
+.hn-print { display: none; }
+.hn-print.hn-measuring { display: block; position: absolute; left: -40000px; top: 0; visibility: hidden; }
+.hn-ppw { line-height: 0; font-size: 0; }
+.hn-pp {
+  position: relative; display: inline-block; vertical-align: top;
+  width: 190mm; height: 268mm; overflow: hidden; background: #fff; contain: strict;
+}
+.hn-pw { position: relative; width: 100%; overflow: hidden; }
+.hn-pc { position: absolute; left: 0; top: 0; width: 1180px; height: 1px; transform-origin: 0 0; }
+.hn-pf {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 9mm;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  border-top: 0.3mm solid #e5dfee; color: #8a8199;
+  font: 500 8pt/1.2 'HNInter', -apple-system, sans-serif;
+}
+.hn-pf span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hn-pf span:last-child { font-weight: 700; color: #6b6478; }
+@media print {
+  @page { size: A4 portrait; margin: 10mm; }
+  html.hn-noting, html.hn-noting body {
+    background: #fff !important; overflow: visible !important; height: auto !important; position: static !important;
+  }
+  body.hn-noting > *:not(#hn-root) { display: none !important; }
+  body.hn-noting #hn-root {
+    position: static !important; inset: auto !important; display: block !important; background: #fff !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  body.hn-noting #hn-root * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body.hn-noting #hn-root .hn-bar, body.hn-noting #hn-root .hn-chip, body.hn-noting #hn-root .hn-pop,
+  body.hn-noting #hn-root .hn-live, body.hn-noting #hn-root .hn-sel, body.hn-noting #hn-root .hn-notice,
+  body.hn-noting #hn-root .hn-find, body.hn-noting #hn-root .hn-loading, body.hn-noting #hn-root .hn-findlayer { display: none !important; }
+  /* Sayfalı baskı hazırsa yalnız o basılır. */
+  body.hn-hasprint #hn-root > *:not(.hn-print) { display: none !important; }
+  body.hn-hasprint #hn-root .hn-print { display: block !important; position: static !important; visibility: visible !important; }
+  .hn-ppw { break-after: page; page-break-after: always; break-inside: avoid; page-break-inside: avoid; }
+  .hn-ppw:last-child { break-after: auto; page-break-after: auto; }
+  /* Yedek: tarayıcı beforeprint göndermediyse sayfa tek parça, küçültülerek basılır. */
+  body.hn-noting:not(.hn-hasprint) #hn-root .hn-scroller { position: static !important; overflow: visible !important; }
+  body.hn-noting:not(.hn-hasprint) #hn-root .hn-sizer { width: auto !important; height: auto !important; }
+  body.hn-noting:not(.hn-hasprint) #hn-root .hn-page {
+    position: relative !important; transform: none !important; left: 0 !important; top: 0 !important;
+    box-shadow: none !important; zoom: 0.6;
+  }
+  body.hn-noting:not(.hn-hasprint) #hn-root .hn-margin, body.hn-noting:not(.hn-hasprint) #hn-root .hn-extra { background-image: none; border: 0; }
+}
