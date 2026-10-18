@@ -132,7 +132,7 @@ class _GamesScreenState extends State<GamesScreen> {
                     const Padding(
                       padding: EdgeInsets.fromLTRB(4, 26, 4, 10),
                       child: Text(
-                        'ARKADAŞINLA',
+                        'SEVGİLİNLE',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
