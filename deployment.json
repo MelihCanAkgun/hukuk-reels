@@ -1,9 +1,9 @@
 {
-  "source_commit": "bb95dbab05291653939848aedee16554b92ef2c7",
-  "built_at": "2026-10-18T13:13:55Z",
-  "checks": "flutter analyze (no issues); flutter test (361) incl. activity_screen_test (labels, 3 sizes, filter, 404, Aktiflik only for Player 1); backend npm test (55) incl. activity sessions, admin-only /activity, 90-day pruning, client /seen; web runtime/update and notes checks; live API: /activity 200 for Player 1, 404 for Player 2; release build with base-href /hukuk-reels/",
-  "change": "Admin-only Aktiflik view in Profile: son görülme, live status and entries per player; web client reports app opens and heartbeats to POST /seen",
-  "backend_version": "f5f49221-a66f-42e6-b232-4b4a1af0eace",
-  "pubspec_lock_sha256": "fded44df6063fcea317b8ec06d7175e2992bb2467385200438407562ac9d23e7",
-  "app_build": "50bc2683e4e293f0"
+  "source_commit": "9d199e3e310fa1ce36f2434a84a1e48f7b74eea9",
+  "built_at": "2026-10-18T19:02:15Z",
+  "checks": "flutter analyze (no issues); flutter test (372) incl. swipe_back_test (iOS edge swipe leaves each game, not during a Subway/Tower run, back button still exits, Block Blast tray clear of the edge) and activity_screen_test (stats splitting, periods, filters, areas, 3 sizes, Tower record); backend npm test (58); web runtime/update and notes checks; headless Chrome: startup adds no history entry (before the fix: {flutter:true}); live API /activity 200 for Player 1 with usage, 404 for Player 2",
+  "change": "iPhone swipe-back no longer shows the loading screen; Adliye Kulesi in profile records; activity view with areas, daily chart, heat map and 7/30-day periods",
+  "backend_version": "d6e4d55c-05b3-4c4e-80d0-388e77cb03e0",
+  "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
+  "app_build": "431ebb9a894d7769"
 }

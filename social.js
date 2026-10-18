@@ -75,8 +75,10 @@
     finally { sending = false; }
   }
   // Son görülme: uygulama açılınca ya da öne gelince bir "giriş", ekrandayken
-  // iki dakikada bir nabız. Sunucu yakın girişleri tek oturumda birleştirir;
-  // yalnız Oyuncu 1 GET /activity ile görebilir. Hata sessizce yutulur.
+  // iki dakikada bir nabız, bölüm değişince ve uygulama arka plana geçerken
+  // birer bildirim. Sunucu yakın girişleri tek oturumda birleştirir ve süreyi
+  // önceki bildirimin bölümüne yazar; yalnız Oyuncu 1 GET /activity ile
+  // görebilir. Hata sessizce yutulur.
   const device = (() => {
     const ua = navigator.userAgent || '';
     if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ipad';
@@ -87,10 +89,18 @@
     return 'other';
   })();
   let seenAt = 0;
-  async function seen(open) {
-    if (!config.token || !config.url || document.hidden) return;
+  let area = 'home';
+  let areaTimer;
+  async function seen(open, hiding = false) {
+    if (!config.token || !config.url || (document.hidden && !hiding)) return;
     seenAt = Date.now();
-    try { await api('/seen', {open, device}); } catch (_) { /* çevrimdışı: bir sonraki nabız */ }
+    try {
+      if (!hiding) { await api('/seen', {open, device, area}); return; }
+      // Sayfa kapanırken de gitsin (keepalive); yanıt beklenmez.
+      void fetch(config.url + '/seen', {method: 'POST', keepalive: true, cache: 'no-store',
+        headers: {Authorization: 'Bearer ' + config.token, 'Content-Type': 'application/json'},
+        body: JSON.stringify({open: false, device, area})}).catch(() => {});
+    } catch (_) { /* çevrimdışı: bir sonraki nabız */ }
   }
   async function pushState() {
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
@@ -257,6 +267,16 @@
     if (action === 'noteAdd') return {...saveTrips(await api('/notes', {text: data.text})), connected: true};
     if (action === 'noteDelete') return {...saveTrips(await api('/notes/delete', {id: data.id})), connected: true};
     if (action === 'message') return api('/message', {message: data.message});
+    if (action === 'area') {
+      // Flutter hangi bölümde olunduğunu bildirir; hızlı geçişler birleşir.
+      const next = String(data.area || 'other');
+      if (next !== area) {
+        clearTimeout(areaTimer);
+        areaTimer = setTimeout(() => { void seen(false); }, 2000);
+      }
+      area = next;
+      return {};
+    }
     if (action === 'activity') {
       if (!config.token) return {connected: false};
       return {...await api('/activity'), connected: true};
@@ -266,7 +286,9 @@
   window.hukukSocialCall = (action, raw) => call(action, JSON.parse(raw)).then(
     data=>JSON.stringify(data), e=>JSON.stringify({error:e.message || 'Bağlantı kurulamadı.', status:e.status}));
   window.addEventListener('online', () => void flush());
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { void flush(); void seen(true); } });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { void flush(); void seen(true); } else { clearTimeout(areaTimer); void seen(false, true); }
+  });
   setInterval(flush, 30000);
   void seen(true);
   setInterval(() => { if (Date.now() - seenAt >= 110000) void seen(false); }, 30000);
