@@ -8,6 +8,7 @@ import 'package:hukuk_reels/features/intro/confidence_gate_screen.dart';
 import 'package:hukuk_reels/features/surprise/bouquet_sprite.dart';
 import 'package:hukuk_reels/features/surprise/flower_surprise_screen.dart';
 import 'package:hukuk_reels/features/surprise/pixel_font.dart';
+import 'package:hukuk_reels/features/shell/home_shell.dart';
 
 Future<void> _play(WidgetTester tester, double seconds) async {
   for (var i = 0; i < seconds * 10; i++) {
@@ -88,7 +89,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
     expect(find.byType(FlowerSurpriseScreen), findsNothing);
-    expect(find.text('Block Blast'), findsOneWidget);
+    expect(find.byType(HomeShell), findsOneWidget);
+    expect(find.text('Hukuk Reels'), findsOneWidget);
     // Ana menü kök rotadır: sürpriz kapanınca işe yaramaz geri oku kalmasın.
     expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
 

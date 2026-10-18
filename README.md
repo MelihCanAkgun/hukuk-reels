@@ -1,6 +1,6 @@
 # Hukuk Reels · Oyunlar
 
-Flutter ile mini oyunlar (Block Blast, Flappy Silly Cat, Subway Silly) ve hukuk soru bankası. Açılışta oyun menüsü gösterilir; testler, profil ve mevcut rekorlar korunur.
+Flutter ile mini oyunlar (Block Blast, Flappy Silly Cat, Subway Silly, Adliye Kulesi), ders özetleri ve hukuk soru bankası. Uygulama dört sekmeden oluşur (`lib/features/shell/home_shell.dart`): **Ana sayfa** (selam, kavuşma sayacı, mantar pano, kaldığın yerden), **Oyunlar**, **Çalış** (özetler ve soru pratiği) ve **Profil**. Sekme çubuğu telefonda ve dikey iPad'de altta, geniş yatay ekranda soldadır; etkin sekmeye yeniden dokunmak başa kaydırır.
 
 ## Çalıştırma
 
@@ -28,7 +28,7 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory build/web
 
 ## Özetler ve not modu
 
-Oyunlar sekmesindeki **Özetler** girişi ders özetlerini listeler (şimdilik İcra Hukuku). Özet, Flutter'ın üstünde açılan ayrı bir DOM katmanında gösterilir (`web/notes/notes.js`, `notes.css`). Kalem gecikmesi Flutter'ın kare zamanlamasına bağlı olmasın diye bu katman Flutter'ın dışındadır. Not modu iPad ve Apple Pencil için tasarlanmıştır.
+**Çalış** sekmesindeki **Özetler** bölümü ders özetlerini listeler (şimdilik İcra Hukuku). Özet, Flutter'ın üstünde açılan ayrı bir DOM katmanında gösterilir (`web/notes/notes.js`, `notes.css`). Kalem gecikmesi Flutter'ın kare zamanlamasına bağlı olmasın diye bu katman Flutter'ın dışındadır. Not modu iPad ve Apple Pencil için tasarlanmıştır.
 
 - **Girdi:** Apple Pencil (`pointerType: pen`) yazar, parmak kaydırır, iki parmak yakınlaştırır. İki parmakla dokunma geri alır, üç parmakla dokunma yineler, tek parmakla çift dokunma 2 kat yakınlaştırır ya da sayfaya sığdırır. Kalem değerken ve büyük temas alanlı dokunuşlarda kaydırma yapılmaz (avuç içi). Yakınlaştırma oranı ekran döndürülünce korunur. Masaüstünde fare de yazar.
 - **Araçlar:** basınca duyarlı kalem, fosforlu kalem, çizgi ve hassas silgi (istenirse yalnız fosforluyu siler), kement. Kement seçimi taşınır, köşesindeki tutamaçla büyütülür, çoğaltılır, silinir ya da renklendirilir (kalem ve fosforlu kendi paletinden renk alır). Çizerken kalemi bekletmek çizgiyi düzeltir. Fosforlu çizgi düzleşir ve altındaki satırın ortasına oturur; daire ve karalamalar korunur (menüden kapatılabilir).

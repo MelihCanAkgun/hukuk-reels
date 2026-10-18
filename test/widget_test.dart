@@ -9,6 +9,7 @@ import 'package:hukuk_reels/features/game/game_leaderboard.dart';
 import 'package:hukuk_reels/features/game/block_blast_engine.dart';
 import 'package:hukuk_reels/features/game/flappy_cat_screen.dart';
 import 'package:hukuk_reels/features/game/subway_cat_screen.dart';
+import 'package:hukuk_reels/features/shell/home_shell.dart';
 
 void main() {
   setUpAll(() async {
@@ -23,6 +24,9 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     tester.view.physicalSize = const Size(1179, 2556);
     await tester.pumpWidget(const HukukReelsApp());
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('tab-games')));
+    await tester.pump(const Duration(milliseconds: 300));
     for (final size in [
       const Size(1179, 2556),
       const Size(2556, 1179),
@@ -47,11 +51,24 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('games are the entry point and questions remain reachable',
+  testWidgets('tabs reach games, study and profile from the home page',
       (tester) async {
     await tester.pumpWidget(const HukukReelsApp());
-    expect(find.text('Block Blast'), findsOneWidget);
+    await tester.pump();
+    expect(find.byType(HomeShell), findsOneWidget);
+    expect(find.text('Hukuk Reels'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tab-study')));
+    await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Soru bankası'), findsOneWidget);
+    expect(find.text('İcra Hukuku'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tab-profile')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Profil & Ayarlar'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_back_rounded), findsNothing,
+        reason: 'tabs have no back button');
+    await tester.tap(find.byKey(const ValueKey('tab-games')));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Block Blast'), findsOneWidget);
     await tester.tap(find.text('Block Blast'));
     await tester.pumpAndSettle();
     expect(find.byType(BlockBlastScreen), findsOneWidget);

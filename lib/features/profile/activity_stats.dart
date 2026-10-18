@@ -66,7 +66,9 @@ List<ActivityUsage> parseActivityUsage(Map<String, dynamic> r) => [
 int trDay(DateTime t) => (t.millisecondsSinceEpoch ~/ 1000 + 10800) ~/ 86400;
 
 const kAreaNames = {
-  'home': 'Ana ekran',
+  'home': 'Ana sayfa',
+  'games': 'Oyunlar',
+  'study': 'Çalış',
   'block': 'Block Blast',
   'battle': '1v1 Battle',
   'flappy': 'Flappy Cat',

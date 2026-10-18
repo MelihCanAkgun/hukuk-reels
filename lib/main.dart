@@ -6,7 +6,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
 import 'core/services/progress_service.dart';
-import 'features/games/games_screen.dart';
+import 'features/shell/home_shell.dart';
 import 'core/services/sfx_service.dart';
 
 void main() async {
@@ -44,8 +44,8 @@ class HukukReelsApp extends StatelessWidget {
       locale: const Locale('tr'),
       supportedLocales: const [Locale('tr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      // Oyunlara doğrudan erişim; soru bankası oyun menüsünde.
-      home: const GamesScreen(),
+      // Alt sekmeler: Ana sayfa, Oyunlar, Çalış, Profil.
+      home: const HomeShell(),
     );
   }
 }
