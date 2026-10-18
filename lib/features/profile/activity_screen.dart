@@ -1,14 +1,20 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/services/activity_area.dart';
 import '../../core/services/social_bridge.dart';
 import '../../core/widgets/readable_width.dart';
+import 'activity_stats.dart';
 
-/// Yalnız Oyuncu 1 (yönetici) için: oyuncuların son görülmesi ve giriş
-/// saatleri. Sunucu `/activity` isteğini diğer oyuncuya 404 ile reddeder;
-/// Profil ekranı da bu bölümü yalnız yöneticiye gösterir.
+export 'activity_stats.dart';
+
+/// Yalnız Oyuncu 1 (yönetici) için: oyuncuların son görülmesi, günlük süre,
+/// saat haritası, bölümler ve girişler. Sunucu `/activity` isteğini diğer
+/// oyuncuya 404 ile reddeder; Profil ekranı da bu bölümü yalnız yöneticiye
+/// gösterir.
 class ActivityScreen extends StatefulWidget {
   const ActivityScreen({super.key, this.load, this.clock = DateTime.now});
 
@@ -23,9 +29,12 @@ class ActivityScreen extends StatefulWidget {
 /// Ekran açıkken sayfa bu aralıkla tazelenir.
 const _refreshEvery = Duration(seconds: 30);
 
-/// Son nabızdan bu kadar süre geçmediyse oyuncu "şu an aktif" sayılır
+/// Son bildirimden bu kadar süre geçmediyse oyuncu "şu an aktif" sayılır
 /// (uygulama ekrandayken iki dakikada bir nabız gönderir).
 const kActiveWindow = Duration(seconds: 150);
+
+/// Girişler listesinde ilk gösterilen satır sayısı.
+const _previewEntries = 20;
 
 const _months = [
   'Ocak',
@@ -50,45 +59,10 @@ const _weekdays = [
   'Cumartesi',
   'Pazar'
 ];
+const _weekdaysShort = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
 const _playerColors = [AppTheme.accent, Color(0xFF7FD8E8)];
 Color _colorOf(int player) => _playerColors[(player - 1).clamp(0, 1)];
-
-class ActivityPlayer {
-  ActivityPlayer(this.id, this.name, this.lastSeen);
-  final int id;
-  final String name;
-
-  /// Hiç görülmediyse null.
-  final DateTime? lastSeen;
-}
-
-class ActivitySession {
-  ActivitySession(this.player, this.started, this.last, this.device);
-  final int player;
-  final DateTime started, last;
-  final String device;
-
-  Duration get length => last.difference(started);
-}
-
-DateTime _at(Object? seconds) =>
-    DateTime.fromMillisecondsSinceEpoch((seconds as int) * 1000);
-
-List<ActivityPlayer> parseActivityPlayers(Map<String, dynamic> r) => [
-      for (final p in (r['players'] as List? ?? const []).whereType<Map>())
-        ActivityPlayer(
-          p['id'] as int,
-          (p['name'] as String?) ?? 'Oyuncu ${p['id']}',
-          (p['lastSeen'] as int? ?? 0) > 0 ? _at(p['lastSeen']) : null,
-        )
-    ];
-
-List<ActivitySession> parseActivitySessions(Map<String, dynamic> r) => [
-      for (final s in (r['sessions'] as List? ?? const []).whereType<Map>())
-        ActivitySession(s['player'] as int, _at(s['started']), _at(s['last']),
-            (s['device'] as String?) ?? 'other')
-    ];
 
 String _two(int n) => n.toString().padLeft(2, '0');
 String clockLabel(DateTime t) => '${_two(t.hour)}:${_two(t.minute)}';
@@ -132,6 +106,13 @@ String lengthLabel(Duration d) {
   return m == 0 ? '${d.inHours} sa' : '${d.inHours} sa $m dk';
 }
 
+/// Kısa süre: "0", "45 dk", "2 sa 5 dk" (özet kutuları ve grafik için).
+String shortLength(Duration d) => d.inMinutes < 1 ? '0 dk' : lengthLabel(d);
+
+/// "Cumartesi 21:00–22:00".
+String peakLabel((int, int) peak) =>
+    '${_weekdays[peak.$1 - 1]} ${_two(peak.$2)}:00–${_two((peak.$2 + 1) % 24)}:00';
+
 const _devices = {
   'ipad': ('iPad', Icons.tablet_mac_rounded),
   'iphone': ('iPhone', Icons.phone_iphone_rounded),
@@ -146,11 +127,15 @@ class _ActivityScreenState extends State<ActivityScreen>
     with WidgetsBindingObserver {
   List<ActivityPlayer> _players = const [];
   List<ActivitySession> _sessions = const [];
+  List<ActivityUsage> _usage = const [];
+  int? _today;
   bool _loading = true;
   String? _error;
 
-  /// null: herkes; aksi hâlde yalnız bu oyuncunun girişleri.
+  /// null: herkes; aksi hâlde yalnız bu oyuncu.
   int? _filter;
+  int _days = 7;
+  bool _allEntries = false;
   Timer? _timer;
 
   @override
@@ -194,6 +179,8 @@ class _ActivityScreenState extends State<ActivityScreen>
       _error = null;
       _players = parseActivityPlayers(r);
       _sessions = parseActivitySessions(r);
+      _usage = parseActivityUsage(r);
+      _today = r['today'] as int?;
     });
   }
 
@@ -205,7 +192,10 @@ class _ActivityScreenState extends State<ActivityScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'profile', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     final now = widget.clock();
     final gutter = readableGutter(context);
     return Scaffold(
@@ -276,11 +266,22 @@ class _ActivityScreenState extends State<ActivityScreen>
       );
 
   List<Widget> _content(DateTime now) {
-    final shown = _filter == null
-        ? _sessions
-        : _sessions.where((s) => s.player == _filter).toList();
+    final stats = ActivityStats(
+        sessions: _sessions,
+        usage: _usage,
+        now: now,
+        days: _days,
+        player: _filter,
+        today: _today);
+    final shown = [
+      for (final s in _sessions)
+        if ((_filter == null || s.player == _filter) &&
+            s.last.isAfter(stats.start))
+          s
+    ];
+    final visible = _allEntries ? shown : shown.take(_previewEntries).toList();
     final days = <String, List<ActivitySession>>{};
-    for (final s in shown) {
+    for (final s in visible) {
       days.putIfAbsent(dayLabel(s.started, now), () => []).add(s);
     }
     return [
@@ -288,49 +289,26 @@ class _ActivityScreenState extends State<ActivityScreen>
         _message(Icons.cloud_off_rounded, _error!),
         const SizedBox(height: 12),
       ],
-      LayoutBuilder(builder: (context, c) {
-        final cards = [for (final p in _players) _playerCard(p, now)];
-        if (c.maxWidth < 520) {
-          return Column(children: [
-            for (final card in cards) ...[card, const SizedBox(height: 10)]
-          ]);
-        }
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < cards.length; i++) ...[
-                if (i > 0) const SizedBox(width: 10),
-                Expanded(child: cards[i]),
-              ],
-            ],
-          ),
-        );
-      }),
-      const SizedBox(height: 18),
-      const Text(
-        'GİRİŞLER',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.1,
-          color: AppTheme.textSecondary,
-        ),
-      ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          _chip('Tümü', null),
-          for (final p in _players) _chip(p.name, p.id),
-        ],
-      ),
-      const SizedBox(height: 10),
+      _playerCards(now),
+      const SizedBox(height: 16),
+      _controls(),
+      const SizedBox(height: 12),
+      _summary(stats),
+      _sectionTitle('GÜNLÜK SÜRE', Icons.bar_chart_rounded),
+      _card(_DailyChart(
+          stats: stats,
+          now: now,
+          filter: _filter,
+          names: {for (final p in _players) p.id: p.name})),
+      _sectionTitle('SAATLER', Icons.grid_on_rounded),
+      _card(_HeatMap(stats: stats, color: _heatColor)),
+      _sectionTitle('BÖLÜMLER', Icons.donut_small_rounded),
+      _card(_areas(stats)),
+      _sectionTitle('GİRİŞLER', Icons.login_rounded),
       if (shown.isEmpty)
         _message(Icons.hourglass_empty_rounded,
-            'Henüz giriş kaydı yok. Uygulama açıldıkça burada görünür.')
-      else
+            'Bu dönemde giriş kaydı yok. Uygulama açıldıkça burada görünür.')
+      else ...[
         for (final day in days.entries) ...[
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
@@ -346,6 +324,14 @@ class _ActivityScreenState extends State<ActivityScreen>
           _sessionGroup(day.value, now),
           const SizedBox(height: 8),
         ],
+        if (shown.length > visible.length)
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _allEntries = true),
+              child: Text('Tümünü göster (${shown.length})'),
+            ),
+          ),
+      ],
       const SizedBox(height: 10),
       const Text(
         'Son 30 gün gösterilir; kayıtlar 90 gün sonra silinir. '
@@ -356,15 +342,212 @@ class _ActivityScreenState extends State<ActivityScreen>
     ];
   }
 
+  Color get _heatColor =>
+      _filter == null ? AppTheme.success : _colorOf(_filter!);
+
+  Widget _sectionTitle(String title, IconData icon) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: AppTheme.accent),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.1,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _card(Widget child) => Container(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: child,
+      );
+
+  Widget _playerCards(DateTime now) => LayoutBuilder(builder: (context, c) {
+        final cards = [for (final p in _players) _playerCard(p, now)];
+        if (c.maxWidth < 520) {
+          return Column(children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              cards[i],
+            ]
+          ]);
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < cards.length; i++) ...[
+                if (i > 0) const SizedBox(width: 10),
+                Expanded(child: cards[i]),
+              ],
+            ],
+          ),
+        );
+      });
+
+  Widget _controls() => Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _chip('Tümü', null),
+              for (final p in _players) _chip(p.name, p.id),
+            ],
+          ),
+          SegmentedButton<int>(
+            showSelectedIcon: false,
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            segments: const [
+              ButtonSegment(value: 7, label: Text('7 gün')),
+              ButtonSegment(value: 30, label: Text('30 gün')),
+            ],
+            selected: {_days},
+            onSelectionChanged: (s) => setState(() {
+              _days = s.first;
+              _allEntries = false;
+            }),
+          ),
+        ],
+      );
+
+  Widget _summary(ActivityStats s) {
+    final tiles = [
+      _stat('Toplam süre', shortLength(s.total), Icons.timer_outlined),
+      _stat('Giriş', '${s.entries}', Icons.login_rounded),
+      _stat('Günlük ortalama', shortLength(s.dailyAverage),
+          Icons.calendar_today_rounded),
+      _stat(
+          'En uzun oturum', shortLength(s.longest), Icons.trending_up_rounded),
+    ];
+    return LayoutBuilder(builder: (context, c) {
+      final perRow = c.maxWidth < 520 ? 2 : 4;
+      final w = (c.maxWidth - 8 * (perRow - 1)) / perRow;
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [for (final t in tiles) SizedBox(width: w, child: t)],
+      );
+    });
+  }
+
+  Widget _stat(String label, String value, IconData icon) => Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppTheme.textMuted),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    value,
+                    key: ValueKey('activity-stat-$label'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11, color: AppTheme.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+
+  Widget _areas(ActivityStats s) {
+    if (s.areas.isEmpty) {
+      return const Text(
+        'Bölüm süreleri bu güncellemeden sonra toplanmaya başladı; '
+        'uygulama kullanıldıkça burada görünür.',
+        style: TextStyle(fontSize: 12.5, color: AppTheme.textMuted),
+      );
+    }
+    final sum = s.areas.fold(Duration.zero, (a, b) => a + b.$2);
+    final top = s.areas.first.$2;
+    return Column(
+      children: [
+        for (final (area, time) in s.areas)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        areaName(area),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${shortLength(time)} · '
+                      '%${(time.inSeconds / sum.inSeconds * 100).round()}',
+                      key: ValueKey('activity-area-$area'),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppTheme.textSecondary),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: time.inSeconds / top.inSeconds,
+                    minHeight: 6,
+                    color: _heatColor,
+                    backgroundColor: AppTheme.bgElevated,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _playerCard(ActivityPlayer p, DateTime now) {
     final seen = p.lastSeen;
     final active = seen != null && now.difference(seen) < kActiveWindow;
-    final week = _sessions
-        .where((s) =>
-            s.player == p.id &&
-            now.difference(s.started) < const Duration(days: 7))
-        .toList();
-    final total = week.fold(Duration.zero, (sum, s) => sum + s.length);
     ActivitySession? latest;
     for (final s in _sessions) {
       if (s.player == p.id) {
@@ -372,6 +555,11 @@ class _ActivityScreenState extends State<ActivityScreen>
         break;
       }
     }
+    final where = active && latest != null && latest.area != 'other'
+        ? ' · ${areaName(latest.area)}'
+        : '';
+    final week = ActivityStats(
+        sessions: _sessions, usage: const [], now: now, days: 7, player: p.id);
     final color = _colorOf(p.id);
     return Container(
       key: ValueKey('activity-player-${p.id}'),
@@ -435,7 +623,7 @@ class _ActivityScreenState extends State<ActivityScreen>
                         Flexible(
                           child: Text(
                             active
-                                ? 'Şu an aktif'
+                                ? 'Şu an aktif$where'
                                 : seen == null
                                     ? 'Henüz görülmedi'
                                     : 'Son görülme: ${seenLabel(seen, now)}',
@@ -469,7 +657,7 @@ class _ActivityScreenState extends State<ActivityScreen>
                       ? '—'
                       : 'Son giriş ${whenLabel(latest.started, now)}'),
               _fact(Icons.calendar_view_week_rounded,
-                  '7 gün: ${week.length} giriş · ${lengthLabel(total)}'),
+                  '7 gün: ${week.entries} giriş · ${lengthLabel(week.total)}'),
               if (latest != null)
                 _fact(_device(latest.device).$2, _device(latest.device).$1),
             ],
@@ -500,7 +688,10 @@ class _ActivityScreenState extends State<ActivityScreen>
       label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
       selected: selected,
       visualDensity: VisualDensity.compact,
-      onSelected: (_) => setState(() => _filter = player),
+      onSelected: (_) => setState(() {
+        _filter = player;
+        _allEntries = false;
+      }),
     );
   }
 
@@ -616,4 +807,216 @@ class _ActivityScreenState extends State<ActivityScreen>
           ],
         ),
       );
+}
+
+/// Gün gün toplam süre; "Tümü" seçiliyse iki oyuncu üst üste.
+class _DailyChart extends StatelessWidget {
+  const _DailyChart(
+      {required this.stats,
+      required this.now,
+      required this.filter,
+      required this.names});
+
+  final ActivityStats stats;
+  final DateTime now;
+  final int? filter;
+  final Map<int, String> names;
+
+  static const _barArea = 110.0;
+
+  String _label(int i) {
+    final d =
+        DateTime(stats.start.year, stats.start.month, stats.start.day + i);
+    if (stats.days <= 7) return _weekdaysShort[d.weekday - 1];
+    final last = i == stats.days - 1;
+    return last || (stats.days - 1 - i) % 7 == 0 ? '${d.day}' : '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final max = stats.dayMax;
+    final players = filter == null ? const [1, 2] : [filter!];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          max == Duration.zero
+              ? 'Bu dönemde kayıt yok.'
+              : 'En yoğun gün: ${lengthLabel(max)} · '
+                  'günlük ortalama ${shortLength(stats.dailyAverage)}',
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: _barArea + 18,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              for (var i = 0; i < stats.days; i++)
+                Expanded(
+                  child: Tooltip(
+                    message:
+                        '${dayLabel(DateTime(stats.start.year, stats.start.month, stats.start.day + i), now)}: '
+                        '${shortLength(stats.dayTotal(i))}',
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                          horizontal: stats.days <= 7 ? 6 : 1.5),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          for (final p in players.reversed)
+                            Container(
+                              height: max == Duration.zero
+                                  ? 0
+                                  : _barArea *
+                                      (stats.daily[i][p] ?? Duration.zero)
+                                          .inSeconds /
+                                      max.inSeconds,
+                              decoration: BoxDecoration(
+                                color: _colorOf(p),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          Container(
+                              height: 2,
+                              color: AppTheme.border,
+                              margin: const EdgeInsets.only(top: 1)),
+                          SizedBox(
+                            height: 15,
+                            child: Text(
+                              _label(i),
+                              maxLines: 1,
+                              overflow: TextOverflow.visible,
+                              softWrap: false,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: i == stats.days - 1
+                                    ? AppTheme.textPrimary
+                                    : AppTheme.textMuted,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        if (filter == null) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 14,
+            runSpacing: 4,
+            children: [
+              for (final e in names.entries)
+                _Legend(color: _colorOf(e.key), label: e.value),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend({required this.color, required this.label});
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                  color: color, borderRadius: BorderRadius.circular(3))),
+          const SizedBox(width: 6),
+          Text(label,
+              style:
+                  const TextStyle(fontSize: 11.5, color: AppTheme.textMuted)),
+        ],
+      );
+}
+
+/// Haftanın günü × saat ısı haritası: hangi saatlerde aktif olunduğu.
+class _HeatMap extends StatelessWidget {
+  const _HeatMap({required this.stats, required this.color});
+
+  final ActivityStats stats;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final peak = stats.peak;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          peak == null
+              ? 'Bu dönemde kayıt yok.'
+              : 'En aktif saat: ${peakLabel(peak)}',
+          key: const ValueKey('activity-peak'),
+          style: const TextStyle(fontSize: 12, color: AppTheme.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(builder: (context, c) {
+          const labelW = 30.0;
+          final cell = math.min(22.0, (c.maxWidth - labelW) / 24);
+          final h = math.min(cell * 1.15, 20.0);
+          return Column(
+            children: [
+              for (var d = 0; d < 7; d++)
+                SizedBox(
+                  height: h,
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: labelW,
+                        child: Text(_weekdaysShort[d],
+                            style: const TextStyle(
+                                fontSize: 10, color: AppTheme.textMuted)),
+                      ),
+                      for (var hour = 0; hour < 24; hour++)
+                        Container(
+                          width: cell,
+                          height: h,
+                          padding: const EdgeInsets.all(1),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: stats.heat[d][hour] == Duration.zero
+                                  ? AppTheme.bgElevated
+                                  : Color.lerp(color.withValues(alpha: .25),
+                                      color, stats.heatLevel(d, hour)),
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const SizedBox(width: labelW),
+                  for (final hour in const [0, 6, 12, 18])
+                    SizedBox(
+                      width: cell * 6,
+                      child: Text(
+                        _two(hour),
+                        style: const TextStyle(
+                            fontSize: 10, color: AppTheme.textMuted),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          );
+        }),
+      ],
+    );
+  }
 }

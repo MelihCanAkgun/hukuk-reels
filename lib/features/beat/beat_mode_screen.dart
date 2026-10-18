@@ -11,6 +11,7 @@ import '../../core/services/sfx_service.dart';
 import '../surprise/pixel_font.dart';
 import '../surprise/pixel_sprites.dart';
 import '../../core/widgets/pressable.dart';
+import '../../core/services/activity_area.dart';
 
 /// "Yanlış Soruları Döv" modu 🏏
 ///
@@ -28,11 +29,15 @@ class BeatModeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.bg,
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
-        child: _BeatPager(questions: questions),
+    return ActivityAreaScope(
+      area: 'beat',
+      child: Scaffold(
+        backgroundColor: AppTheme.bg,
+        body: Container(
+          decoration:
+              const BoxDecoration(gradient: AppTheme.backgroundGradient),
+          child: _BeatPager(questions: questions),
+        ),
       ),
     );
   }

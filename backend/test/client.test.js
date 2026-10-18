@@ -108,7 +108,7 @@ test('activity: an entry on join, none without a code; admin view is a GET',asyn
   await c.call('init',{url:'https://worker.example'});
   assert.deepEqual(seen(),[]);
   await c.call('join',{token:'a'.repeat(43),name:'A',score:0});
-  assert.deepEqual(seen(),[{open:true,device:'other'}]);
+  assert.deepEqual(seen(),[{open:true,device:'other',area:'home'}]);
   // Another init right after does not count as a new entry.
   await c.call('init',{url:'https://worker.example'});
   assert.equal(seen().length,1);
@@ -116,4 +116,18 @@ test('activity: an entry on join, none without a code; admin view is a GET',asyn
   assert.equal(r.connected,true);
   assert.ok(c.requests.at(-1).url.endsWith('/activity'));
   assert.equal(c.requests.at(-1).body,undefined);
+});
+test('activity: changing area reports once after a short pause',async()=>{
+  const c=client();
+  const seen=()=>c.requests.filter(r=>r.url.endsWith('/seen')).map(r=>JSON.parse(r.body));
+  await c.call('init',{url:'https://worker.example'});
+  await c.call('join',{token:'a'.repeat(43),name:'A',score:0});
+  const before=c.timers.length;
+  await c.call('area',{area:'flappy'});
+  await c.call('area',{area:'block'});
+  await c.call('area',{area:'block'});
+  assert.equal(c.timers.length,before+2, 'one timer per change, none for the same area');
+  await c.timers.at(-1)();
+  await new Promise(r=>setImmediate(r));
+  assert.deepEqual(seen().at(-1),{open:false,device:'other',area:'block'});
 });

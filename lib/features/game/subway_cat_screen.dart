@@ -17,6 +17,8 @@ import 'game_leaderboard.dart';
 import 'game_pause_overlay.dart';
 import 'revive_overlay.dart';
 import '../../core/widgets/pressable.dart';
+import 'game_pop_scope.dart';
+import '../../core/services/activity_area.dart';
 
 part 'subway_painter.dart';
 
@@ -873,7 +875,13 @@ class _SubwayCatScreenState extends State<SubwayCatScreen>
 
   // ───────────────────────── Arayüz ─────────────────────────
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'subway', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) => GamePopScope(
+      playing: _phase == _Phase.playing && !_paused, child: _screen(context));
+
+  Widget _screen(BuildContext context) {
     final best = ProgressService.instance.subwayHigh;
     return Scaffold(
       backgroundColor: AppTheme.bg,

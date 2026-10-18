@@ -15,6 +15,7 @@ import '../widgets/music_control_panel.dart';
 import '../widgets/question_card.dart';
 import 'reels_maintenance_screen.dart';
 import '../../../core/widgets/pressable.dart';
+import '../../../core/services/activity_area.dart';
 
 /// Dikey kaydırmalı soru çözme ekranı (reels formatı).
 ///
@@ -263,7 +264,10 @@ class _ReelsScreenState extends State<ReelsScreen> with WidgetsBindingObserver {
       : AppTheme.accent;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'questions', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     if (_maintenance) return const ReelsMaintenanceScreen();
     if (_loading) {
       return Scaffold(

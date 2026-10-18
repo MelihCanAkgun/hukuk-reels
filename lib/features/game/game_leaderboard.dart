@@ -8,6 +8,7 @@ import '../../core/services/avatar_sync.dart';
 import '../../core/services/avatar_bridge.dart';
 import '../profile/profile_avatar.dart';
 import '../../core/widgets/pixel_logo.dart';
+import '../../core/services/activity_area.dart';
 
 const socialApiUrl = String.fromEnvironment('SOCIAL_API_URL',
     defaultValue: 'https://hukuk-games-social.hukuk-games-social.workers.dev');
@@ -288,7 +289,10 @@ class _GameLeaderboardState extends State<GameLeaderboard>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'leaderboard', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     final connected = _data['connected'] == true;
     final configured = _data['configured'] == true;
     final players = leaderboardRows(_data, _game);

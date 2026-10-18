@@ -23,6 +23,7 @@ import '../summaries/summaries_screen.dart';
 import '../surprise/flower_surprise_flow.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/readable_width.dart';
+import '../../core/services/activity_area.dart';
 
 /// Mini oyunların listelendiği ayrı "Oyunlar" sekmesi. (Eskiden profilin
 /// içindeydi.) Oyun içinde de müziğe erişilebilsin diye üstte müzik düğmesi
@@ -85,7 +86,10 @@ class _GamesScreenState extends State<GamesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'home', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: Container(

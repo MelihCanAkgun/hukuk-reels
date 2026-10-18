@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
@@ -9,6 +10,11 @@ import 'features/games/games_screen.dart';
 import 'core/services/sfx_service.dart';
 
 void main() async {
+  // Tarayıcı geçmişine giriş eklenmez. Böylece iPhone'da kenardan sağa
+  // kaydırma Safari'nin "geri" gezinmesini (açılıştaki yükleme ekranının
+  // eski görüntüsü, birkaç saniyelik takılma) tetiklemez; hareketi
+  // Flutter'ın kendi iOS geri kaydırması karşılar ve önceki ekrana döner.
+  setUrlStrategy(null);
   WidgetsFlutterBinding.ensureInitialized();
 
   // Kalıcı ilerleme deposunu ve müziği hazırla.

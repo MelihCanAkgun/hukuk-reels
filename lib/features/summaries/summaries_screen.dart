@@ -5,6 +5,7 @@ import '../../core/services/notes_bridge.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/readable_width.dart';
+import '../../core/services/activity_area.dart';
 
 /// Bir ders özeti. İçerik `web/notes/summaries/<id>.js` dosyasındadır;
 /// not modu (web/notes/notes.js) onu Flutter'ın üstünde açar.
@@ -102,7 +103,10 @@ class _SummariesScreenState extends State<SummariesScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'summaries', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: Container(

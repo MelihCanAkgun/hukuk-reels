@@ -92,3 +92,41 @@ test('inactive players cannot report activity', async () => {
   assert.equal((await call('/seen', {open: true}, 1)).status, 403);
   assert.deepEqual((await call('/activity')).data.players.map(p => p.id), [1]);
 });
+
+test('time is added to the area of the previous report, never across a hidden gap', async t => {
+  const {db, call} = await setup();
+  const c = clock(1_800_000_000);
+  t.after(c.restore);
+  const usage = () => Object.fromEntries(db.prepare('SELECT area, seconds FROM usage WHERE player_id = 1 ORDER BY area')
+    .all().map(r => [r.area, r.seconds]));
+  await call('/seen', {open: true, device: 'ipad', area: 'home'});
+  c.t += 40; await call('/seen', {device: 'ipad', area: 'block'});       // 40 s on home
+  c.t += 120; await call('/seen', {device: 'ipad', area: 'block'});      // heartbeat: 120 s block
+  c.t += 30; await call('/seen', {device: 'ipad', area: 'summaries'});   // hidden report / switch
+  assert.deepEqual(usage(), {home: 40, block: 150});
+  c.t += 90; await call('/seen', {open: true, device: 'ipad', area: 'summaries'}); // back after 90 s hidden
+  assert.deepEqual(usage(), {home: 40, block: 150}, 'hidden time is not counted');
+  c.t += 400; await call('/seen', {device: 'ipad', area: 'summaries'});  // a long gap counts at most 150 s
+  assert.deepEqual(usage(), {home: 40, block: 150, summaries: 150});
+  assert.equal(db.prepare('SELECT area FROM sessions ORDER BY id DESC').get().area, 'summaries');
+  await call('/seen', {device: 'ipad', area: 'nope'});
+  assert.equal(db.prepare('SELECT area FROM sessions ORDER BY id DESC').get().area, 'other');
+  const r = (await call('/activity')).data;
+  assert.equal(r.today, Math.floor((1_800_000_680 + 10800) / 86400));
+  assert.deepEqual(r.usage.map(u => [u.player, u.day, u.area, u.seconds]).sort(),
+    [[1, r.today, 'block', 150], [1, r.today, 'home', 40], [1, r.today, 'summaries', 150]]);
+  assert.equal(r.sessions[0].area, 'other');
+});
+
+test('usage counts on the Turkey calendar day and old days are pruned', async t => {
+  const {db, call} = await setup();
+  // 20:59:00 UTC = 23:59 in Turkey; one minute later is the next Turkish day.
+  const c = clock(Date.UTC(2026, 9, 18, 20, 59) / 1000);
+  t.after(c.restore);
+  await call('/seen', {open: true, device: 'mac', area: 'tower'});
+  c.t += 120; await call('/seen', {device: 'mac', area: 'tower'});
+  const days = db.prepare('SELECT DISTINCT day FROM usage').all().map(r => r.day);
+  assert.deepEqual(days, [Math.floor((c.t + 10800) / 86400)]);
+  c.t += 91 * 86400; await call('/seen', {open: true, device: 'mac', area: 'tower'});
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM usage').get().n, 0);
+});
