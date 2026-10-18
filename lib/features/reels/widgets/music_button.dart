@@ -39,7 +39,20 @@ class _MusicButtonState extends State<MusicButton> {
           Positioned(
             top: MediaQuery.of(ctx).padding.top + 54,
             right: 12,
-            child: MusicControlPanel(onClose: _close),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOutCubic,
+              builder: (context, t, child) => Opacity(
+                opacity: t,
+                child: Transform.scale(
+                  scale: 0.94 + 0.06 * t,
+                  alignment: Alignment.topRight,
+                  child: child,
+                ),
+              ),
+              child: MusicControlPanel(onClose: _close),
+            ),
           ),
         ],
       ),

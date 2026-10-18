@@ -101,8 +101,7 @@ class _GamesScreenState extends State<GamesScreen> {
                     IconButton(
                       tooltip: 'Sıralama',
                       onPressed: () => _push(const GameLeaderboard()),
-                      icon: const Icon(Icons.leaderboard_rounded,
-                          color: AppTheme.textSecondary),
+                      icon: const PixelLogo(kLogoLeaderboard, size: 24),
                     ),
                     const MusicButton(),
                   ],
@@ -150,10 +149,9 @@ class _GamesScreenState extends State<GamesScreen> {
                     ),
                     const SizedBox(height: 10),
                     _rowCard(
-                      logo: kLogoBlockBlast,
+                      logo: kLogoLeaderboard,
                       title: 'Sıralama',
                       subtitle: 'Her oyunda ikinizin rekoru',
-                      icon: Icons.leaderboard_rounded,
                       onTap: () => _push(const GameLeaderboard()),
                     ),
                   ],
@@ -237,7 +235,6 @@ class _GamesScreenState extends State<GamesScreen> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    IconData icon = Icons.chevron_right_rounded,
   }) =>
       Pressable(
         semanticLabel: title,
@@ -271,7 +268,8 @@ class _GamesScreenState extends State<GamesScreen> {
                   ],
                 ),
               ),
-              Icon(icon, color: AppTheme.textMuted),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppTheme.textMuted),
             ],
           ),
         ),

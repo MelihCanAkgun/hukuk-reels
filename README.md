@@ -1,6 +1,8 @@
 # Hukuk Reels · Oyunlar
 
-Flutter ile mini oyunlar (Block Blast, Flappy Silly Cat, Subway Silly, Adliye Kulesi), ders özetleri ve hukuk soru bankası. Uygulama dört sekmeden oluşur (`lib/features/shell/home_shell.dart`): **Ana sayfa** (selam, kavuşma sayacı, mantar pano, kaldığın yerden), **Oyunlar**, **Çalış** (özetler ve soru pratiği) ve **Profil**. Sekme çubuğu telefonda ve dikey iPad'de altta, geniş yatay ekranda soldadır; etkin sekmeye yeniden dokunmak başa kaydırır.
+Flutter ile mini oyunlar (Block Blast, Flappy Silly Cat, Subway Silly, Adliye Kulesi), ders özetleri ve hukuk soru bankası. Uygulama dört sekmeden oluşur (`lib/features/shell/home_shell.dart`): **Ana sayfa** (selam, kavuşma sayacı, mantar pano, kaldığın yerden), **Oyunlar**, **Çalış** (özetler ve soru pratiği) ve **Profil**. Sekme çubuğu telefonda ve dikey iPad'de altta, geniş yatay ekranda soldadır; etkin sekmeye yeniden dokunmak başa kaydırır. Flutter web iOS'un güvenli alanını bilmediği için `web/pwa.js` alt boşluğu (ana ekran çizgisi) CSS `env(safe-area-inset-*)` ile ölçer, `WebSafeArea` bunu MediaQuery'ye ekler; ana ekrandan açılan uygulamada değer gelmezse Face ID'li iPhone'larda 34 (yatayda 21) piksel varsayılır.
+
+Sağ üstteki müzik düğmesi **Ses** panelini açar: çalan parça, ilerleme ve sarma, çal/durdur, önceki/sonraki, parça listesi; müzik ve oyun efektleri için ayrı ses düzeyi ve sessize alma.
 
 ## Çalıştırma
 

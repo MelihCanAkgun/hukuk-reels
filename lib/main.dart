@@ -8,6 +8,7 @@ import 'core/services/audio_service.dart';
 import 'core/services/progress_service.dart';
 import 'features/shell/home_shell.dart';
 import 'core/services/sfx_service.dart';
+import 'core/widgets/web_safe_area.dart';
 
 void main() async {
   // Tarayıcı geçmişine giriş eklenmez. Böylece iPhone'da kenardan sağa
@@ -44,6 +45,8 @@ class HukukReelsApp extends StatelessWidget {
       locale: const Locale('tr'),
       supportedLocales: const [Locale('tr')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      // iPhone'un ana ekran çizgisi ve çentiği için güvenli alan (web).
+      builder: (context, child) => WebSafeArea(child: child!),
       // Alt sekmeler: Ana sayfa, Oyunlar, Çalış, Profil.
       home: const HomeShell(),
     );
