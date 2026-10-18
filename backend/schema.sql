@@ -4,7 +4,8 @@ CREATE TABLE IF NOT EXISTS players (
  name TEXT NOT NULL,
  active INTEGER NOT NULL DEFAULT 0,
  best INTEGER NOT NULL DEFAULT 0 CHECK (best >= 0),
- last_message INTEGER NOT NULL DEFAULT 0
+ last_message INTEGER NOT NULL DEFAULT 0,
+ last_seen INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS subscriptions (
  endpoint TEXT PRIMARY KEY,
@@ -97,3 +98,12 @@ BEGIN
   AND OLD.best <= COALESCE((SELECT g.best FROM game_scores g WHERE g.player_id = p.id AND g.game = NEW.game), 0)
   AND NEW.best > COALESCE((SELECT g.best FROM game_scores g WHERE g.player_id = p.id AND g.game = NEW.game), 0);
 END;
+CREATE TABLE IF NOT EXISTS sessions (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ player_id INTEGER NOT NULL REFERENCES players(id),
+ started INTEGER NOT NULL,
+ last INTEGER NOT NULL,
+ device TEXT NOT NULL DEFAULT 'other'
+);
+CREATE INDEX IF NOT EXISTS sessions_player ON sessions(player_id, id);
+CREATE INDEX IF NOT EXISTS sessions_last ON sessions(last);

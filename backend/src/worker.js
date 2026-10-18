@@ -65,6 +65,36 @@ async function home(env, me) {
 }
 const pruneNotes = env => env.DB.prepare('DELETE FROM notes WHERE created <= ?')
   .bind(Math.floor(Date.now() / 1000) - NOTE_TTL).run();
+// Activity ("son görülme"): POST /seen from every player, GET /activity only
+// for Player 1. Opening the app (or returning to it) within SESSION_JOIN of the
+// last heartbeat continues that session; otherwise a new one starts.
+// Heartbeats extend a session that was active within SESSION_GAP.
+export const DEVICES = ['ipad', 'iphone', 'android', 'mac', 'windows', 'other'];
+const SESSION_JOIN = 120, SESSION_GAP = 600, ACTIVITY_TTL = 90 * 86400;
+async function seen(env, player, data) {
+  const now = Math.floor(Date.now() / 1000);
+  const device = DEVICES.includes(data.device) ? data.device : 'other';
+  await env.DB.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(now, player.id).run();
+  const last = await env.DB.prepare('SELECT id, last, device FROM sessions WHERE player_id = ? ORDER BY id DESC LIMIT 1')
+    .bind(player.id).first();
+  const join = data.open === true ? SESSION_JOIN : SESSION_GAP;
+  if (last && now - last.last <= join && last.device === device) {
+    await env.DB.prepare('UPDATE sessions SET last = ? WHERE id = ?').bind(now, last.id).run();
+  } else {
+    await env.DB.prepare('INSERT INTO sessions(player_id, started, last, device) VALUES (?, ?, ?, ?)')
+      .bind(player.id, now, now, device).run();
+    await env.DB.prepare('DELETE FROM sessions WHERE last < ?').bind(now - ACTIVITY_TTL).run();
+  }
+  return {ok: true};
+}
+async function activity(env) {
+  const now = Math.floor(Date.now() / 1000);
+  const {results: players} = await env.DB.prepare(
+    'SELECT id, name, last_seen AS lastSeen FROM players WHERE active = 1 ORDER BY id').all();
+  const {results: sessions} = await env.DB.prepare(`SELECT id, player_id AS player, started, last, device
+    FROM sessions WHERE last >= ? ORDER BY started DESC, id DESC LIMIT 400`).bind(now - 30 * 86400).all();
+  return {now, players, sessions};
+}
 const pruneTrips = env => env.DB.prepare('DELETE FROM trips WHERE arrival < ?')
   .bind(Math.floor(Date.now() / 1000) - 86400).run();
 
@@ -103,6 +133,15 @@ export async function route(request, env, ctx) {
   const isTestPlayer = player.id === 0;
   if (path === '/message' && player.id !== 1) fail('Bildirim gönderme yetkisi yalnızca Oyuncu 1\u2019e aittir.', 403);
   if (path === '/board' && request.method === 'GET') return json(await board(env, player.id));
+  if (path === '/activity' || path === '/seen') {
+    // Not even the existence of the admin view is revealed to Player 2.
+    if (path === '/activity' && player.id !== 1) fail('Bulunamadı.', 404);
+    if (isTestPlayer) return json({ok: true});
+    if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
+    if (path === '/activity' && request.method === 'GET') return json(await activity(env));
+    if (path === '/seen' && request.method === 'POST') return json(await seen(env, player, await body(request)));
+    fail('Bulunamadı.', 404);
+  }
   if (['/home', '/trips', '/trips/delete', '/notes', '/notes/delete'].includes(path)) {
     if (isTestPlayer) fail('Bu bölüm yalnız kayıtlı oyunculara açıktır.', 403);
     if (!player.active) fail('Önce oyuncu adını kaydet.', 403);

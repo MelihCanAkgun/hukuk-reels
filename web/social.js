@@ -74,6 +74,24 @@
     } catch (_) { /* The local maximum is retained for online/resume/timer retry. */ }
     finally { sending = false; }
   }
+  // Son görülme: uygulama açılınca ya da öne gelince bir "giriş", ekrandayken
+  // iki dakikada bir nabız. Sunucu yakın girişleri tek oturumda birleştirir;
+  // yalnız Oyuncu 1 GET /activity ile görebilir. Hata sessizce yutulur.
+  const device = (() => {
+    const ua = navigator.userAgent || '';
+    if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return 'ipad';
+    if (/iPhone|iPod/.test(ua)) return 'iphone';
+    if (/Android/.test(ua)) return 'android';
+    if (/Macintosh/.test(ua)) return 'mac';
+    if (/Windows/.test(ua)) return 'windows';
+    return 'other';
+  })();
+  let seenAt = 0;
+  async function seen(open) {
+    if (!config.token || !config.url || document.hidden) return;
+    seenAt = Date.now();
+    try { await api('/seen', {open, device}); } catch (_) { /* çevrimdışı: bir sonraki nabız */ }
+  }
   async function pushState() {
     const supported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
     const reg = supported ? await navigator.serviceWorker.getRegistration() : null;
@@ -105,6 +123,7 @@
     if (action === 'init') {
       if (data.url && /^https:\/\//.test(data.url)) config.url = data.url.replace(/\/$/, '');
       if (!data.url) config.url = '';
+      if (Date.now() - seenAt > 120000) void seen(true);
       return state(false);
     }
     if (action === 'state') return state();
@@ -125,6 +144,7 @@
       persist();
       lastBoard = result;
       await flush();
+      void seen(true);
       return state(false);
     }
     if (action === 'score') {
@@ -237,11 +257,17 @@
     if (action === 'noteAdd') return {...saveTrips(await api('/notes', {text: data.text})), connected: true};
     if (action === 'noteDelete') return {...saveTrips(await api('/notes/delete', {id: data.id})), connected: true};
     if (action === 'message') return api('/message', {message: data.message});
+    if (action === 'activity') {
+      if (!config.token) return {connected: false};
+      return {...await api('/activity'), connected: true};
+    }
     throw new Error('İşlem bulunamadı.');
   }
   window.hukukSocialCall = (action, raw) => call(action, JSON.parse(raw)).then(
     data=>JSON.stringify(data), e=>JSON.stringify({error:e.message || 'Bağlantı kurulamadı.', status:e.status}));
   window.addEventListener('online', () => void flush());
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) void flush(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { void flush(); void seen(true); } });
   setInterval(flush, 30000);
+  void seen(true);
+  setInterval(() => { if (Date.now() - seenAt >= 110000) void seen(false); }, 30000);
 })();
