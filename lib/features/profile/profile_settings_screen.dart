@@ -22,7 +22,6 @@ import 'avatar_editor_screen.dart';
 import 'profile_avatar.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/readable_width.dart';
-import '../../core/services/activity_area.dart';
 
 /// Profil (takma ad, fotoğraf, ilerleme, sorular) + Ayarlar (ses, sıralama,
 /// veri) ekranı.
@@ -110,11 +109,9 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return n is String && n.trim().isNotEmpty ? n.trim() : null;
   }
 
+  // Bölüm bilgisini (Aktiflik) sekme kabuğu verir.
   @override
-  Widget build(BuildContext context) =>
-      ActivityAreaScope(area: 'profile', child: _areaBody(context));
-
-  Widget _areaBody(BuildContext context) {
+  Widget build(BuildContext context) {
     final stats = _progress.stats;
     final byId = {for (final q in kQuestions) q.id: q};
 
@@ -148,6 +145,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               _topBar(),
               Expanded(
                 child: ListView(
+                  primary: true,
                   padding: EdgeInsets.fromLTRB(
                       readableGutter(context),
                       4,
@@ -270,12 +268,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         padding: const EdgeInsets.fromLTRB(8, 6, 16, 6),
         child: Row(
           children: [
-            IconButton(
-              tooltip: 'Geri',
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded,
-                  color: AppTheme.textPrimary),
-            ),
+            // Sekmede geri tuşu yok; ayrı sayfa olarak açıldıysa var.
+            if (ModalRoute.of(context)?.canPop ?? false)
+              IconButton(
+                tooltip: 'Geri',
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back_rounded,
+                    color: AppTheme.textPrimary),
+              )
+            else
+              const SizedBox(width: 8),
             const SizedBox(width: 2),
             const Expanded(
               child: Text(

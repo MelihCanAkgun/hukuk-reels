@@ -1,33 +1,20 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-import '../countdown/countdown_screen.dart';
-import '../countdown/countdown_text.dart';
-import '../home/cork_board.dart';
-import '../home/home_store.dart';
-import '../../core/services/battle_bridge.dart';
-import '../game/block_battle_lobby.dart';
 
 import '../../app/theme.dart';
-import '../../core/widgets/pixel_logo.dart';
 import '../../core/services/progress_service.dart';
-import '../game/block_blast_screen.dart';
-import '../reels/screens/reels_screen.dart';
-import '../profile/profile_settings_screen.dart';
-import '../profile/profile_avatar.dart';
-import '../game/flappy_cat_screen.dart';
-import '../game/tower_screen.dart';
-import '../game/subway_cat_screen.dart';
-import '../reels/widgets/music_button.dart';
-import '../summaries/summaries_screen.dart';
-import '../surprise/flower_surprise_flow.dart';
+import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/readable_width.dart';
-import '../../core/services/activity_area.dart';
+import '../game/block_battle_lobby.dart';
+import '../game/block_blast_screen.dart';
+import '../game/flappy_cat_screen.dart';
+import '../game/game_leaderboard.dart';
+import '../game/subway_cat_screen.dart';
+import '../game/tower_screen.dart';
+import '../reels/widgets/music_button.dart';
 
-/// Mini oyunların listelendiği ayrı "Oyunlar" sekmesi. (Eskiden profilin
-/// içindeydi.) Oyun içinde de müziğe erişilebilsin diye üstte müzik düğmesi
-/// var; oyundan dönünce rekorlar tazelenir. Kullanıcı verileri SİLİNMEZ.
+/// "Oyunlar" sekmesi: dört mini oyun ızgarası ve arkadaşla oynama
+/// (1v1 Battle, sıralama). Oyundan dönünce rekorlar tazelenir.
 class GamesScreen extends StatefulWidget {
   const GamesScreen({super.key});
 
@@ -37,178 +24,138 @@ class GamesScreen extends StatefulWidget {
 
 class _GamesScreenState extends State<GamesScreen> {
   final _progress = ProgressService.instance;
-  // Kavuşma sayacı (yalnız oyuncu koduyla bağlıyken görünür).
-  final _tripsStore = HomeStore.instance;
-  Timer? _tick;
 
-  void _tripsChanged() {
-    if (mounted) setState(() {});
+  Future<void> _push(Widget screen) async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => screen));
+    if (mounted) setState(() {}); // dönüşte rekor güncellensin
   }
 
   @override
-  void dispose() {
-    _tick?.cancel();
-    _tripsStore
-      ..changes.removeListener(_tripsChanged)
-      ..stop();
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _tripsStore
-      ..changes.addListener(_tripsChanged)
-      ..start()
-      ..refresh(force: true);
-    // Yalnız kart yazısı (gün/saat); sunucuya istek atmaz.
-    _tick = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted &&
-          (_tripsStore.trips.isNotEmpty || _tripsStore.notes.isNotEmpty)) {
-        setState(() {});
-      }
-    });
-    // A refresh returns directly to the saved room, within its reconnect window.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final saved = await battleCall('inspect');
-      if (!mounted) return;
-      if (saved['room'] != null) {
-        Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const BlockBattleLobby()));
-        return;
-      }
-      // Güncellemeyle gelen çiçek sürprizi: ilk açılışta bir kez.
-      if (!_progress.flowerSurpriseSeen) {
-        await showFlowerSurpriseGate(context);
-        if (mounted) setState(() {});
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      ActivityAreaScope(area: 'home', child: _areaBody(context));
-
-  Widget _areaBody(BuildContext context) {
+  Widget build(BuildContext context) {
+    final gutter = readableGutter(context);
+    final games = [
+      _gameCard(
+        logo: kLogoBlockBlast,
+        title: 'Block Blast',
+        record: '${_progress.blockHigh}',
+        colors: const [Color(0xFF2E4C80), Color(0xFF1C2D52)],
+        screen: const BlockBlastScreen(),
+      ),
+      _gameCard(
+        logo: kLogoFlappyCat,
+        title: 'Flappy Silly Cat',
+        record: '${_progress.flappyHigh}',
+        colors: const [Color(0xFF2F6A73), Color(0xFF1B3A44)],
+        screen: const FlappyCatScreen(),
+      ),
+      _gameCard(
+        logo: kLogoSubwaySilly,
+        title: 'Subway Silly',
+        record: '${_progress.subwayHigh}',
+        colors: const [Color(0xFF5B2C6F), Color(0xFF32183F)],
+        screen: const SubwayCatScreen(),
+      ),
+      _gameCard(
+        logo: kLogoAdliyeKulesi,
+        title: 'Adliye Kulesi',
+        record: '${_progress.towerHigh} kat',
+        colors: const [Color(0xFF7A4A2A), Color(0xFF452817)],
+        screen: const TowerScreen(),
+      ),
+    ];
     return Scaffold(
       backgroundColor: AppTheme.bg,
       body: Container(
         decoration: const BoxDecoration(gradient: AppTheme.backgroundGradient),
         child: SafeArea(
+          bottom: false,
           child: Column(
             children: [
-              // ── Üst bar ──
               Padding(
                 padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
                 child: Row(
                   children: [
-                    // Rotanın kendisi geri alınabiliyorsa (üstteki rotalar değil).
+                    // Ayrı bir sayfa olarak açıldıysa geri tuşu.
                     if (ModalRoute.of(context)?.canPop ?? false)
                       IconButton(
                         tooltip: 'Geri',
                         onPressed: () => Navigator.of(context).maybePop(),
                         icon: const Icon(Icons.arrow_back_rounded,
                             color: AppTheme.textPrimary),
-                      ),
+                      )
+                    else
+                      const SizedBox(width: 8),
                     const PixelLogo(kLogoGames, size: 24),
                     const SizedBox(width: 8),
-                    const Text(
-                      'Oyunlar',
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
+                    const Expanded(
+                      child: Text(
+                        'Oyunlar',
+                        style: TextStyle(
+                          color: AppTheme.textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
-                    const Spacer(),
-                    // Sürpriz görülmeden 🌷 görünmesin (spoiler olmasın).
-                    if (_progress.flowerSurpriseSeen) ...[
-                      _flowerButton(),
-                      const SizedBox(width: 6),
-                    ],
+                    IconButton(
+                      tooltip: 'Sıralama',
+                      onPressed: () => _push(const GameLeaderboard()),
+                      icon: const Icon(Icons.leaderboard_rounded,
+                          color: AppTheme.textSecondary),
+                    ),
                     const MusicButton(),
                   ],
                 ),
               ),
               Expanded(
                 child: ListView(
-                  padding: EdgeInsets.fromLTRB(
-                      readableGutter(context), 8, readableGutter(context), 28),
+                  primary: true,
+                  padding: EdgeInsets.fromLTRB(gutter, 6, gutter, 24),
                   children: [
-                    if (_tripsStore.connected) ...[
-                      _countdownCard(),
-                      const SizedBox(height: 16),
-                    ],
                     const Text(
                       'Canın mı sıkıldı? Birini seç 👇',
                       style: TextStyle(
                           fontSize: 13.5, color: AppTheme.textSecondary),
                     ),
                     const SizedBox(height: 14),
-                    _gameTile(
+                    LayoutBuilder(builder: (context, c) {
+                      final cols = c.maxWidth >= 640 ? 4 : 2;
+                      final w = (c.maxWidth - 12 * (cols - 1)) / cols;
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          for (final g in games) SizedBox(width: w, child: g)
+                        ],
+                      );
+                    }),
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(4, 26, 4, 10),
+                      child: Text(
+                        'ARKADAŞINLA',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                    ),
+                    _rowCard(
+                      logo: kLogoBattle,
+                      title: '1v1 Battle',
+                      subtitle: 'Block Blast\'ta aynı anda yarış',
+                      onTap: () => _push(const BlockBattleLobby()),
+                    ),
+                    const SizedBox(height: 10),
+                    _rowCard(
                       logo: kLogoBlockBlast,
-                      title: 'Block Blast',
-                      subtitle: 'Rekor: ${_progress.blockHigh}',
-                      screen: const BlockBlastScreen(),
+                      title: 'Sıralama',
+                      subtitle: 'Her oyunda ikinizin rekoru',
+                      icon: Icons.leaderboard_rounded,
+                      onTap: () => _push(const GameLeaderboard()),
                     ),
-                    const SizedBox(height: 10),
-                    _gameTile(
-                      logo: kLogoFlappyCat,
-                      title: 'Flappy Silly Cat',
-                      subtitle: 'Rekor: ${_progress.flappyHigh}',
-                      screen: const FlappyCatScreen(),
-                    ),
-                    const SizedBox(height: 10),
-                    _gameTile(
-                      logo: kLogoSubwaySilly,
-                      title: 'Subway Silly',
-                      subtitle: 'Rekor: ${_progress.subwayHigh}',
-                      screen: const SubwayCatScreen(),
-                    ),
-                    const SizedBox(height: 10),
-                    _gameTile(
-                      logo: kLogoAdliyeKulesi,
-                      title: 'Adliye Kulesi',
-                      subtitle: 'Rekor: ${_progress.towerHigh} kat',
-                      screen: const TowerScreen(),
-                    ),
-                    const SizedBox(height: 24),
-                    const Divider(),
-                    ListTile(
-                      leading: const PixelLogo(kLogoQuestionBank, size: 30),
-                      title: const Text('Soru bankası'),
-                      subtitle: Text(ReelsScreen.maintenance
-                          ? 'Bakımda · çok yakında 🛠️'
-                          : 'Hukuk testlerine devam et'),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => const ReelsScreen())),
-                    ),
-                    ListTile(
-                      leading: const PixelLogo(kLogoLawBook, size: 30),
-                      title: const Text('Özetler'),
-                      subtitle:
-                          const Text('Şema özetler · iPad\'de kalemle not al'),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                          builder: (_) => const SummariesScreen())),
-                    ),
-                    ListTile(
-                      leading: const ProfileAvatar(size: 36),
-                      title: const Text('Profil ve ayarlar'),
-                      subtitle: _progress.nick == null
-                          ? null
-                          : Text(_progress.nick!,
-                              maxLines: 1, overflow: TextOverflow.ellipsis),
-                      onTap: () async {
-                        await Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => const ProfileSettingsScreen()));
-                        if (mounted) setState(() {});
-                      },
-                    ),
-                    // Mantar pano: yalnız oyuncu koduyla bağlıyken.
-                    if (_tripsStore.connected) ...[
-                      const SizedBox(height: 18),
-                      const CorkBoard(),
-                    ],
                   ],
                 ),
               ),
@@ -219,162 +166,114 @@ class _GamesScreenState extends State<GamesScreen> {
     );
   }
 
-  Widget _countdownCard() {
-    final now = DateTime.now();
-    final trips = _tripsStore.trips;
-    final next = trips.isEmpty ? null : trips.first;
-    final left =
-        next == null ? null : remainingText(next.arrival.difference(now));
-    return Pressable(
-      onTap: () async {
-        // Liste ortak depoda; dönüşte ayrıca istek gerekmez.
-        await Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const CountdownScreen()));
-      },
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF4A2340), Color(0xFF2A1521)],
-          ),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.55)),
-        ),
-        child: Row(
-          children: [
-            const PixelLogo(kLogoPlane, size: 40),
-            const SizedBox(width: 12),
-            Expanded(
-              child: next == null
-                  ? const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Kavuşma Sayacı',
-                            style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
-                                color: AppTheme.textPrimary)),
-                        SizedBox(height: 2),
-                        Text('Bileti alınca uçuşunu ekle ✈️',
-                            style: TextStyle(
-                                fontSize: 12.5, color: AppTheme.textSecondary)),
-                      ],
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                            left == null
-                                ? '${next.name} ${dative(next.destination)} vardı!'
-                                : next.sentence,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 12.5, color: AppTheme.textSecondary)),
-                        const SizedBox(height: 2),
-                        Text(left == null ? 'Kavuştunuz 💞' : '$left kaldı 💕',
-                            style: const TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w900,
-                                color: AppTheme.accent)),
-                      ],
-                    ),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Sürprizden sonra kalan çiçek. Dokununca çiçek yeniden açılır; uzun
-  /// basınca sürpriz bir sonraki açılış için sıfırlanır (test amaçlı).
-  Widget _flowerButton() {
-    return Semantics(
-      button: true,
-      label: 'Çiçeğin',
-      child: Pressable(
-        onTap: () => openFlower(context),
-        onLongPress: () async {
-          await _progress.setFlowerSurpriseSeen(false);
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text(
-                'Sürpriz sıfırlandı: uygulama yeniden açılınca gösterilecek.'),
-          ));
-        },
-        child: Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppTheme.accent.withValues(alpha: 0.12),
-            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.45)),
-          ),
-          child: const PixelLogo(kLogoTulip, size: 24),
-        ),
-      ),
-    );
-  }
-
-  Widget _gameTile({
+  Widget _gameCard({
     required List<String> logo,
     required String title,
-    required String subtitle,
+    required String record,
+    required List<Color> colors,
     required Widget screen,
   }) {
     return Pressable(
-      onTap: () async {
-        await Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => screen));
-        if (mounted) setState(() {}); // dönüşte rekor güncellensin
-      },
+      key: ValueKey('game-$title'),
+      semanticLabel: '$title oyna',
+      onTap: () => _push(screen),
       child: Container(
-        padding: const EdgeInsets.all(12),
+        height: 156,
+        padding: const EdgeInsets.fromLTRB(14, 14, 12, 12),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF3A1E30), Color(0xFF2A1521)],
+            colors: colors,
           ),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.4)),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: .10)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            PixelLogo(logo, size: 44),
-            const SizedBox(width: 13),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                ],
+            PixelLogo(logo, size: 50),
+            const Spacer(),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
               ),
             ),
-            const Icon(Icons.play_circle_fill_rounded,
-                color: AppTheme.accent, size: 30),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.emoji_events_rounded,
+                    size: 14, color: Color(0xFFFFD36A)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    record,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white.withValues(alpha: .8),
+                    ),
+                  ),
+                ),
+                const Icon(Icons.play_circle_fill_rounded,
+                    color: Colors.white, size: 28),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _rowCard({
+    required List<String> logo,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    IconData icon = Icons.chevron_right_rounded,
+  }) =>
+      Pressable(
+        semanticLabel: title,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+          decoration: BoxDecoration(
+            color: AppTheme.surface,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Row(
+            children: [
+              PixelLogo(logo, size: 34),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: AppTheme.textPrimary)),
+                    const SizedBox(height: 2),
+                    Text(subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppTheme.textSecondary)),
+                  ],
+                ),
+              ),
+              Icon(icon, color: AppTheme.textMuted),
+            ],
+          ),
+        ),
+      );
 }

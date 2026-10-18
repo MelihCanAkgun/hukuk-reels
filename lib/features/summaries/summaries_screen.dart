@@ -71,37 +71,6 @@ class SummariesScreen extends StatefulWidget {
 }
 
 class _SummariesScreenState extends State<SummariesScreen> {
-  final Map<String, SummaryNotes> _notes = {};
-  bool _opening = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshCounts();
-  }
-
-  Future<void> _refreshCounts() async {
-    for (final s in widget.summaries) {
-      final info = await summaryNotes(s.id);
-      if (!mounted) return;
-      setState(() => _notes[s.id] = info);
-    }
-  }
-
-  Future<void> _open(SummaryInfo s) async {
-    if (_opening) return;
-    _opening = true;
-    final result = await openSummary(s.id);
-    _opening = false;
-    if (!mounted) return;
-    if (result.startsWith('error:')) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(result.substring(6))));
-      return;
-    }
-    await _refreshCounts();
-  }
-
   @override
   Widget build(BuildContext context) =>
       ActivityAreaScope(area: 'summaries', child: _areaBody(context));
@@ -142,12 +111,9 @@ class _SummariesScreenState extends State<SummariesScreen> {
                   padding: EdgeInsets.fromLTRB(
                       readableGutter(context), 8, readableGutter(context), 28),
                   children: [
-                    _hint(),
+                    const SummaryHint(),
                     const SizedBox(height: 16),
-                    for (final s in widget.summaries) ...[
-                      _tile(s),
-                      const SizedBox(height: 10),
-                    ],
+                    SummaryTiles(summaries: widget.summaries),
                     const SizedBox(height: 8),
                     const Text(
                       'Yeni dersler ve kategoriler yakında eklenecek.',
@@ -164,8 +130,14 @@ class _SummariesScreenState extends State<SummariesScreen> {
       ),
     );
   }
+}
 
-  Widget _hint() {
+/// Not alma ipucu (Özetler ekranı ve Çalış sekmesi).
+class SummaryHint extends StatelessWidget {
+  const SummaryHint({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
@@ -194,6 +166,63 @@ class _SummariesScreenState extends State<SummariesScreen> {
       ),
     );
   }
+}
+
+/// Özet kartları: not sayısı ve son düzenleme; dokununca not modu açılır.
+/// Özet açıkken geçen süre Aktiflik'te "Özetler" bölümüne yazılır.
+class SummaryTiles extends StatefulWidget {
+  const SummaryTiles({super.key, this.summaries = kSummaries});
+
+  final List<SummaryInfo> summaries;
+
+  @override
+  State<SummaryTiles> createState() => _SummaryTilesState();
+}
+
+class _SummaryTilesState extends State<SummaryTiles> {
+  final Map<String, SummaryNotes> _notes = {};
+  bool _opening = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshCounts();
+  }
+
+  Future<void> _refreshCounts() async {
+    for (final s in widget.summaries) {
+      final info = await summaryNotes(s.id);
+      if (!mounted) return;
+      setState(() => _notes[s.id] = info);
+    }
+  }
+
+  Future<void> _open(SummaryInfo s) async {
+    if (_opening) return;
+    _opening = true;
+    final area = Object();
+    ActivityArea.instance.enter(area, 'summaries');
+    final result = await openSummary(s.id);
+    ActivityArea.instance.leave(area);
+    _opening = false;
+    if (!mounted) return;
+    if (result.startsWith('error:')) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(result.substring(6))));
+      return;
+    }
+    await _refreshCounts();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+        children: [
+          for (var i = 0; i < widget.summaries.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            _tile(widget.summaries[i]),
+          ],
+        ],
+      );
 
   Widget _tile(SummaryInfo s) {
     final info = _notes[s.id] ?? const SummaryNotes();

@@ -73,7 +73,7 @@ const pruneNotes = env => env.DB.prepare('DELETE FROM notes WHERE created <= ?')
 // the elapsed time (at most MAX_STEP) to the area of the previous report.
 // An open never adds time: the app was hidden before it.
 export const DEVICES = ['ipad', 'iphone', 'android', 'mac', 'windows', 'other'];
-export const AREAS = ['home', 'block', 'battle', 'flappy', 'subway', 'tower', 'summaries',
+export const AREAS = ['home', 'games', 'study', 'block', 'battle', 'flappy', 'subway', 'tower', 'summaries',
   'questions', 'beat', 'profile', 'countdown', 'leaderboard', 'other'];
 const SESSION_JOIN = 120, SESSION_GAP = 600, MAX_STEP = 150, ACTIVITY_TTL = 90 * 86400;
 // Turkey has used UTC+3 all year since 2016.

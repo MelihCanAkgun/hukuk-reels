@@ -17,11 +17,14 @@ import 'package:hukuk_reels/features/game/game_pause_overlay.dart';
 import 'package:hukuk_reels/features/game/subway_cat_screen.dart';
 import 'package:hukuk_reels/features/game/tower_screen.dart';
 import 'package:hukuk_reels/features/games/games_screen.dart';
+import 'package:hukuk_reels/features/home/home_tab.dart';
 import 'package:hukuk_reels/features/intro/confidence_gate_screen.dart';
 import 'package:hukuk_reels/features/profile/avatar_editor_screen.dart';
 import 'package:hukuk_reels/features/profile/profile_settings_screen.dart';
 import 'package:hukuk_reels/features/reels/screens/reels_maintenance_screen.dart';
 import 'package:hukuk_reels/features/reels/screens/reels_screen.dart';
+import 'package:hukuk_reels/features/shell/home_shell.dart';
+import 'package:hukuk_reels/features/study/study_screen.dart';
 import 'package:hukuk_reels/features/summaries/summaries_screen.dart';
 import 'package:hukuk_reels/features/surprise/flower_surprise_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -40,6 +43,9 @@ const _devices = <String, Size>{
 };
 
 final _screens = <String, Widget Function()>{
+  'Sekme kabuğu': () => const HomeShell(),
+  'Ana sayfa': () => const HomeTab(),
+  'Çalış': () => const StudyScreen(),
   'Oyunlar': () => const GamesScreen(),
   'Soru bankası': () => const ReelsScreen(),
   'Bakım': () => const ReelsMaintenanceScreen(),
