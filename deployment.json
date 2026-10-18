@@ -1,9 +1,9 @@
 {
-  "source_commit": "18615b36389e87d3e536fb5a569767aeccff0e19",
-  "built_at": "2026-10-18T19:48:29Z",
-  "checks": "flutter analyze (no issues); flutter test (423) incl. music_panel_test (panel fits on iPhone 17 portrait/landscape and iPad, track list, effects mute/restore, podium logo, safe area lifts tab labels above the home indicator) and home_shell_test; node web runtime/update/notes checks; safe-area script cases (env value, standalone 34/21 fallback, Safari tab, iPhone SE, desktop); headless Chrome boot with no history entry",
-  "change": "Tab bar respects the iPhone home indicator (labels no longer clipped, taps no longer wake the indicator); own pixel podium logo for Sıralama; redesigned sound panel with progress, seeking, track list and separate music/effects levels",
+  "source_commit": "fca24f841ae2afd4dd27e38b4673bc18c85049e7",
+  "built_at": "2026-10-18T19:55:17Z",
+  "checks": "flutter analyze (no issues); flutter test home_shell_test, music_panel_test, widget_test (31)",
+  "change": "Games tab section title \"Arkadaşınla\" renamed to \"Sevgilinle\"",
   "backend_version": "07e6e337-9464-4566-ab53-7cbcc7b7fcea",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "5d6286836d2d766f"
+  "app_build": "1f76cea2eac0ec63"
 }
