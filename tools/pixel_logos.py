@@ -510,6 +510,24 @@ def trophy():
     ])
 
 
+def leaderboard():
+    # Kürsü: ortada altın 1. basamak ve taç, solda gümüş, sağda bronz.
+    return outlined([
+        '....Y.YY.Y....',
+        '....yyyyyy....',
+        '....dddddd....',
+        '..............',
+        '....YYYYYY....',
+        '....yWWyyd....',
+        '....yyWyyd....',
+        'CCCkyyWyydk...',
+        'AAAkyyWyydk...',
+        'AAAkyWWWydkLLL',
+        'AAAkyyyyydklll',
+        'aaakddddddkuuu',
+    ])
+
+
 def coin():
     g = grid(12, 12)
     disk(g, 6, 6, 6, 'd')
@@ -751,6 +769,7 @@ SPRITES = {
     'briefcase': briefcase(),
     'quill': quill(),
     'trophy': trophy(),
+    'leaderboard': leaderboard(),
     'coin': coin(),
     'crown': crown(),
     'joystick': joystick(),

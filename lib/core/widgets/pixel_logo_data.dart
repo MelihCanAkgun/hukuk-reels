@@ -336,6 +336,23 @@ const List<String> kLogoTrophy = [
   '...kkkkkkkkk...',
 ];
 
+const List<String> kLogoLeaderboard = [
+  '.....k.kk.k.....',
+  '....kYkYYkYk....',
+  '....kyyyyyyk....',
+  '....kddddddk....',
+  '.....kkkkkk.....',
+  '....kYYYYYYk....',
+  '....kyWWyydk....',
+  '.kkkkyyWyydk....',
+  'kCCCkyyWyydk....',
+  'kAAAkyyWyydkkkk.',
+  'kAAAkyWWWydkLLLk',
+  'kAAAkyyyyydklllk',
+  'kaaakddddddkuuuk',
+  '.kkk.kkkkkk.kkk.',
+];
+
 const List<String> kLogoCoin = [
   '.....kkkk.....',
   '...kkdyydkk...',

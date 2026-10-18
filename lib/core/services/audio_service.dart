@@ -30,15 +30,26 @@ class AudioService {
   Stream<int?> get currentIndexStream => _player.currentIndexStream;
   Stream<double> get volumeStream => _player.volumeStream;
 
+  Stream<Duration> get positionStream => _player.positionStream;
+  Stream<Duration?> get durationStream => _player.durationStream;
+
   bool get isPlaying => _player.playing;
   double get volume => _player.volume;
+  Duration get position => _player.position;
+  Duration? get duration => _player.duration;
+
+  /// Çalan parçanın listedeki sırası (0'dan).
+  int get currentIndex => hasTracks
+      ? (_player.currentIndex ?? 0) % AppConfig.musicTracks.length
+      : 0;
+  int get trackCount => AppConfig.musicTracks.length;
 
   /// Şu an çalan parçanın dosya adı (uzantısız).
-  String get currentTrackName {
-    if (!hasTracks) return '';
-    final i = _player.currentIndex ?? 0;
-    final path = AppConfig.musicTracks[i % AppConfig.musicTracks.length];
-    final file = path.split('/').last;
+  String get currentTrackName => hasTracks ? trackName(currentIndex) : '';
+
+  /// [i]. parçanın okunur adı: "Bari_Ruyalarima_Gel_Be.m4a" → "Bari Ruyalarima Gel Be".
+  String trackName(int i) {
+    final file = AppConfig.musicTracks[i].split('/').last;
     final dot = file.lastIndexOf('.');
     final name = dot > 0 ? file.substring(0, dot) : file;
     return name.replaceAll('_', ' ').replaceAll('-', ' ').trim();
@@ -175,6 +186,26 @@ class AudioService {
     } catch (e) {
       debugPrint('[Audio] previous hatası: $e');
     }
+  }
+
+  /// Denetim masası: listeden parça seç.
+  Future<void> playTrack(int index) async {
+    if (index < 0 || index >= trackCount) return;
+    await init();
+    _userPaused = false;
+    try {
+      await _player.seek(Duration.zero, index: index);
+      if (!_player.playing) _play();
+    } catch (e) {
+      debugPrint('[Audio] parça seçme hatası: $e');
+    }
+  }
+
+  /// Denetim masası: parçada ileri/geri sar.
+  Future<void> seek(Duration position) async {
+    try {
+      await _player.seek(position);
+    } catch (_) {}
   }
 
   Future<void> setVolume(double v) async {

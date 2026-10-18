@@ -157,7 +157,7 @@ class HomeShellState extends State<HomeShell> {
           border: Border(top: BorderSide(color: AppTheme.border, width: 0.6)),
         ),
         child: NavigationBar(
-          height: 62,
+          height: 72,
           selectedIndex: _index,
           onDestinationSelected: select,
           backgroundColor: AppTheme.bgElevated,
