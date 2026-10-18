@@ -36,6 +36,14 @@ npx wrangler d1 migrations apply hukuk-games-social --remote
 npm run deploy
 ```
 
+## Activity (son görülme)
+
+Profile → **YÖNETİCİ → Aktiflik** shows when each player last used the app and their recent entries (time range, length, device). Only Player 1 sees the row; `GET /activity` answers Player 2 with 404, so the view is not revealed server-side either.
+
+- `web/social.js` sends `POST /seen {open, device}` when the app opens or returns to the foreground (`open: true`) and every two minutes while it stays visible. Hidden pages and devices without a player code send nothing.
+- `players.last_seen` is the latest report. `sessions` (migration `0007_activity.sql`) holds entries: an open within 2 minutes of the last report, or a heartbeat within 10 minutes, continues the current session on the same device; otherwise a new one starts.
+- `device` is one of `ipad, iphone, android, mac, windows, other` (from the user agent); nothing else about the device is stored. `/activity` lists 30 days; rows older than 90 days are deleted on writes.
+
 ## Security notes
 
 - Every endpoint except `/health` requires a player's 256-bit Bearer code; foreign origins are refused. Responses carry `nosniff`, `no-referrer`, `X-Frame-Options: DENY` and a deny-all CSP.

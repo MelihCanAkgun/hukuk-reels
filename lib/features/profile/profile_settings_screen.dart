@@ -17,6 +17,7 @@ import '../beat/beat_mode_screen.dart';
 import '../game/game_leaderboard.dart';
 import '../games/games_screen.dart';
 import '../reels/screens/reels_screen.dart';
+import 'activity_screen.dart';
 import 'avatar_editor_screen.dart';
 import 'profile_avatar.dart';
 import '../../core/widgets/pressable.dart';
@@ -25,7 +26,11 @@ import '../../core/widgets/readable_width.dart';
 /// Profil (takma ad, fotoğraf, ilerleme, sorular) + Ayarlar (ses, sıralama,
 /// veri) ekranı.
 class ProfileSettingsScreen extends StatefulWidget {
-  const ProfileSettingsScreen({super.key});
+  const ProfileSettingsScreen({super.key, this.loadState});
+
+  /// Testlerde sahte sıralama durumu (oyuncu 1/2) vermek için.
+  @visibleForTesting
+  final Future<Map<String, dynamic>> Function()? loadState;
 
   @override
   State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();
@@ -51,7 +56,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   Future<void> _loadSocial() async {
-    final result = await AvatarSync.instance.sync(await socialCall('state'));
+    final result = await AvatarSync.instance
+        .sync(await (widget.loadState ?? () => socialCall('state'))());
     if (!mounted) return;
     setState(() {
       _social = result;
@@ -182,6 +188,24 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     _sectionTitle(
                         'SIRALAMA VE BİLDİRİMLER', Icons.emoji_events_rounded),
                     _group([_leaderboardRow()]),
+                    // Yalnız yönetici (Oyuncu 1) görür; sunucu da diğer
+                    // oyuncuya /activity'yi 404 ile reddeder.
+                    if (_isAdmin) ...[
+                      _sectionTitle(
+                          'YÖNETİCİ', Icons.admin_panel_settings_rounded),
+                      _group([
+                        _actionRow(
+                          icon: Icons.insights_rounded,
+                          color: AppTheme.success,
+                          title: 'Aktiflik',
+                          subtitle: 'Oyuncuların son görülmesi ve giriş '
+                              'saatleri',
+                          onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                  builder: (_) => const ActivityScreen())),
+                        ),
+                      ]),
+                    ],
                     _sectionTitle('VERİ', Icons.storage_rounded),
                     _group([
                       _actionRow(

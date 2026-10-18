@@ -102,3 +102,18 @@ test('arcade games keep separate bests and upload only what the server lacks',as
   await c.call('leave');
   assert.deepEqual(JSON.parse(c.saved.get('hukuk_social_v1')).bests,{});
 });
+test('activity: an entry on join, none without a code; admin view is a GET',async()=>{
+  const c=client();
+  const seen=()=>c.requests.filter(r=>r.url.endsWith('/seen')).map(r=>JSON.parse(r.body));
+  await c.call('init',{url:'https://worker.example'});
+  assert.deepEqual(seen(),[]);
+  await c.call('join',{token:'a'.repeat(43),name:'A',score:0});
+  assert.deepEqual(seen(),[{open:true,device:'other'}]);
+  // Another init right after does not count as a new entry.
+  await c.call('init',{url:'https://worker.example'});
+  assert.equal(seen().length,1);
+  const r=await c.call('activity');
+  assert.equal(r.connected,true);
+  assert.ok(c.requests.at(-1).url.endsWith('/activity'));
+  assert.equal(c.requests.at(-1).body,undefined);
+});
