@@ -1,9 +1,9 @@
 {
-  "source_commit": "04cd4a7a143dff02e8cee2dd2c9bf2aef92fcc53",
-  "built_at": "2026-10-17T12:49:32Z",
-  "checks": "flutter analyze (no issues); flutter test (353) incl. orientation_test: 16 screens x 6 sizes rotated portrait/landscape both ways, mid-game rotation pause/resume for Flappy/Subway/Tower, Block Blast placement in both layouts; notes ink and web runtime/update checks; widget screenshots of phone/iPad in both orientations; release build with base-href /hukuk-reels/",
-  "change": "Portrait and landscape everywhere: Block Blast side layout and fitting end card, game panels scale to fit, Subway camera zoom on wide screens, Tower panel beside the tower, two-column Beat options, maintenance and avatar editor landscape layouts, readable width on tablets",
-  "backend_version": "7fb800b5-9635-4e13-b670-148db4e2a16d",
+  "source_commit": "bb95dbab05291653939848aedee16554b92ef2c7",
+  "built_at": "2026-10-18T13:13:55Z",
+  "checks": "flutter analyze (no issues); flutter test (361) incl. activity_screen_test (labels, 3 sizes, filter, 404, Aktiflik only for Player 1); backend npm test (55) incl. activity sessions, admin-only /activity, 90-day pruning, client /seen; web runtime/update and notes checks; live API: /activity 200 for Player 1, 404 for Player 2; release build with base-href /hukuk-reels/",
+  "change": "Admin-only Aktiflik view in Profile: son görülme, live status and entries per player; web client reports app opens and heartbeats to POST /seen",
+  "backend_version": "f5f49221-a66f-42e6-b232-4b4a1af0eace",
   "pubspec_lock_sha256": "fded44df6063fcea317b8ec06d7175e2992bb2467385200438407562ac9d23e7",
-  "app_build": "07e79a1b8bc658fb"
+  "app_build": "50bc2683e4e293f0"
 }
