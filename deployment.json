@@ -1,9 +1,9 @@
 {
-  "source_commit": "eae32ab537d549285b4de11986688c4ded9497ca",
-  "built_at": "2026-10-18T19:29:30Z",
-  "checks": "flutter analyze (no issues); flutter test (415) incl. home_shell_test (tab switching and area reporting, lazy tabs kept alive, re-tap scrolls to top, start/continue cards, beat card disabled without wrong answers, side rail on wide landscape) and orientation_test for the shell, home and study tabs on 6 sizes; backend npm test (58); web runtime/update and notes checks; screenshots of all tabs on phone and iPad in both orientations",
-  "change": "Instagram-style bottom tabs: Ana sayfa (greeting, countdown, cork board, continue cards), Oyunlar, Çalış (summaries and question practice), Profil; side rail on wide landscape; tabs reported as activity areas",
+  "source_commit": "18615b36389e87d3e536fb5a569767aeccff0e19",
+  "built_at": "2026-10-18T19:48:29Z",
+  "checks": "flutter analyze (no issues); flutter test (423) incl. music_panel_test (panel fits on iPhone 17 portrait/landscape and iPad, track list, effects mute/restore, podium logo, safe area lifts tab labels above the home indicator) and home_shell_test; node web runtime/update/notes checks; safe-area script cases (env value, standalone 34/21 fallback, Safari tab, iPhone SE, desktop); headless Chrome boot with no history entry",
+  "change": "Tab bar respects the iPhone home indicator (labels no longer clipped, taps no longer wake the indicator); own pixel podium logo for Sıralama; redesigned sound panel with progress, seeking, track list and separate music/effects levels",
   "backend_version": "07e6e337-9464-4566-ab53-7cbcc7b7fcea",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "21f94f5e3bf10795"
+  "app_build": "5d6286836d2d766f"
 }
