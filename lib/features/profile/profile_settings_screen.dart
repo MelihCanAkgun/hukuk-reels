@@ -22,6 +22,7 @@ import 'avatar_editor_screen.dart';
 import 'profile_avatar.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/readable_width.dart';
+import '../../core/services/activity_area.dart';
 
 /// Profil (takma ad, fotoğraf, ilerleme, sorular) + Ayarlar (ses, sıralama,
 /// veri) ekranı.
@@ -110,7 +111,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'profile', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     final stats = _progress.stats;
     final byId = {for (final q in kQuestions) q.id: q};
 
@@ -994,7 +998,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
   }
 
   Widget _recordsCard() {
-    Widget record(List<String> logo, String name, int value) => Expanded(
+    Widget record(List<String> logo, String name, String value) => Expanded(
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
             decoration: BoxDecoration(
@@ -1007,7 +1011,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 PixelLogo(logo, size: 26),
                 const SizedBox(height: 6),
                 Text(
-                  _formatScore(value),
+                  value,
+                  key: ValueKey('record-$name'),
                   maxLines: 1,
                   style: const TextStyle(
                     fontSize: 16,
@@ -1027,14 +1032,28 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             ),
           ),
         );
-    return Row(
-      children: [
-        record(kLogoBlockBlast, 'Block Blast', _progress.blockHigh),
-        const SizedBox(width: 8),
-        record(kLogoFlappyCat, 'Flappy Cat', _progress.flappyHigh),
-        const SizedBox(width: 8),
-        record(kLogoSubwaySilly, 'Subway Silly', _progress.subwayHigh),
-      ],
+    // Dört oyun: dar ekranda 2×2, genişte tek satır.
+    final tiles = [
+      record(kLogoBlockBlast, 'Block Blast', _formatScore(_progress.blockHigh)),
+      record(kLogoFlappyCat, 'Flappy Cat', _formatScore(_progress.flappyHigh)),
+      record(
+          kLogoSubwaySilly, 'Subway Silly', _formatScore(_progress.subwayHigh)),
+      record(kLogoAdliyeKulesi, 'Adliye Kulesi', '${_progress.towerHigh} kat'),
+    ];
+    Widget row(List<Widget> items) => Row(children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            items[i],
+          ],
+        ]);
+    return LayoutBuilder(
+      builder: (context, c) => c.maxWidth >= 520
+          ? row(tiles)
+          : Column(children: [
+              row(tiles.sublist(0, 2)),
+              const SizedBox(height: 8),
+              row(tiles.sublist(2)),
+            ]),
     );
   }
 

@@ -11,6 +11,7 @@ import '../profile/profile_avatar.dart';
 import 'countdown_text.dart';
 import '../home/home_store.dart';
 import '../../core/widgets/readable_width.dart';
+import '../../core/services/activity_area.dart';
 
 /// Sunucudaki bir uçuş (yalnız iki oyuncu görebilir).
 class Trip {
@@ -157,7 +158,10 @@ class _CountdownScreenState extends State<CountdownScreen> {
       : PeerAvatar(id: t.player, name: t.name, size: size);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'countdown', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(

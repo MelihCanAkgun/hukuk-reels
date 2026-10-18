@@ -16,6 +16,8 @@ import 'game_leaderboard.dart';
 import 'game_pause_overlay.dart';
 import 'revive_overlay.dart';
 import '../../core/widgets/pressable.dart';
+import 'game_pop_scope.dart';
+import '../../core/services/activity_area.dart';
 
 part 'flappy_painter.dart';
 
@@ -564,7 +566,13 @@ class _FlappyCatScreenState extends State<FlappyCatScreen>
 
   // ───────────────────────── Arayüz ─────────────────────────
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'flappy', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) => GamePopScope(
+      playing: _phase == _Phase.playing && !_paused, child: _screen(context));
+
+  Widget _screen(BuildContext context) {
     final best = ProgressService.instance.flappyHigh;
     return Scaffold(
       backgroundColor: AppTheme.bg,

@@ -103,7 +103,15 @@ CREATE TABLE IF NOT EXISTS sessions (
  player_id INTEGER NOT NULL REFERENCES players(id),
  started INTEGER NOT NULL,
  last INTEGER NOT NULL,
- device TEXT NOT NULL DEFAULT 'other'
+ device TEXT NOT NULL DEFAULT 'other',
+ area TEXT NOT NULL DEFAULT 'other'
 );
 CREATE INDEX IF NOT EXISTS sessions_player ON sessions(player_id, id);
 CREATE INDEX IF NOT EXISTS sessions_last ON sessions(last);
+CREATE TABLE IF NOT EXISTS usage (
+ player_id INTEGER NOT NULL REFERENCES players(id),
+ day INTEGER NOT NULL,
+ area TEXT NOT NULL,
+ seconds INTEGER NOT NULL DEFAULT 0 CHECK (seconds >= 0),
+ PRIMARY KEY (player_id, day, area)
+);

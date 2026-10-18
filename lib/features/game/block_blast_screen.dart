@@ -23,6 +23,7 @@ import '../../core/services/sfx_service.dart';
 import '../reels/widgets/music_button.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/fit_panel.dart';
+import '../../core/services/activity_area.dart';
 
 /// Block Blast benzeri bulmaca: 8×8 ızgaraya 3 parçayı sürükleyip yerleştir;
 /// dolan satır/sütunlar patlar. Hiçbir parça sığmazsa oyun biter.
@@ -496,7 +497,10 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'block', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     final best = ProgressService.instance.blockHigh;
     return PopScope(
         canPop: _battle == null,
@@ -823,15 +827,24 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   /// Üç parçalık tepsi. [vertical]: yatay ekranda tahtanın yanında, [extent]
   /// yüksekliğinde üst üste üç bölme.
+  /// iOS geri kaydırma şeridinin genişliği (Flutter: kBackGestureWidth).
+  static const double _edge = 20;
+
   Widget _trayWidget(
       {bool vertical = false, double extent = 0, double cross = 0}) {
     // Dikey tepside 5 hücrelik parça hem 1/3 yüksekliğe hem sütun genişliğine
     // sığmalı.
     final tc = vertical
         ? min(_cell * 0.58, min(extent / 3 - 12, cross - 16) / 5)
-        : min(_cell * 0.58, (MediaQuery.sizeOf(context).width / 3 - 12) / 5);
-    return SizedBox(
+        : min(_cell * 0.58,
+            ((MediaQuery.sizeOf(context).width - 2 * _edge) / 3 - 12) / 5);
+    return Container(
       height: vertical ? extent : tc * 5 + 16,
+      // Kenardaki 20 px iOS'ta geri kaydırmaya ayrılır; parça sürüklemesi
+      // oradan başlamaz.
+      padding: vertical
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: _edge),
       child: Flex(
         direction: vertical ? Axis.vertical : Axis.horizontal,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,

@@ -7,6 +7,7 @@ import '../../core/services/social_bridge.dart';
 import 'game_leaderboard.dart';
 import 'block_battle_session.dart';
 import 'block_blast_screen.dart';
+import '../../core/services/activity_area.dart';
 
 class BlockBattleLobby extends StatefulWidget {
   const BlockBattleLobby({super.key});
@@ -76,7 +77,10 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'battle', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) => Scaffold(
         backgroundColor: const Color(0xFF182B50),
         appBar: AppBar(
             title: const Text('1v1 Battle'),

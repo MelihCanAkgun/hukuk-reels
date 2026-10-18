@@ -67,23 +67,38 @@ const pruneNotes = env => env.DB.prepare('DELETE FROM notes WHERE created <= ?')
   .bind(Math.floor(Date.now() / 1000) - NOTE_TTL).run();
 // Activity ("son görülme"): POST /seen from every player, GET /activity only
 // for Player 1. Opening the app (or returning to it) within SESSION_JOIN of the
-// last heartbeat continues that session; otherwise a new one starts.
-// Heartbeats extend a session that was active within SESSION_GAP.
+// last report continues that session; otherwise a new one starts. Heartbeats
+// (every two minutes while visible), area changes and the report sent when the
+// app is hidden extend a session that was active within SESSION_GAP and add
+// the elapsed time (at most MAX_STEP) to the area of the previous report.
+// An open never adds time: the app was hidden before it.
 export const DEVICES = ['ipad', 'iphone', 'android', 'mac', 'windows', 'other'];
-const SESSION_JOIN = 120, SESSION_GAP = 600, ACTIVITY_TTL = 90 * 86400;
+export const AREAS = ['home', 'block', 'battle', 'flappy', 'subway', 'tower', 'summaries',
+  'questions', 'beat', 'profile', 'countdown', 'leaderboard', 'other'];
+const SESSION_JOIN = 120, SESSION_GAP = 600, MAX_STEP = 150, ACTIVITY_TTL = 90 * 86400;
+// Turkey has used UTC+3 all year since 2016.
+export const trDay = seconds => Math.floor((seconds + 10800) / 86400);
 async function seen(env, player, data) {
   const now = Math.floor(Date.now() / 1000);
   const device = DEVICES.includes(data.device) ? data.device : 'other';
+  const area = AREAS.includes(data.area) ? data.area : 'other';
   await env.DB.prepare('UPDATE players SET last_seen = ? WHERE id = ?').bind(now, player.id).run();
-  const last = await env.DB.prepare('SELECT id, last, device FROM sessions WHERE player_id = ? ORDER BY id DESC LIMIT 1')
+  const last = await env.DB.prepare('SELECT id, last, device, area FROM sessions WHERE player_id = ? ORDER BY id DESC LIMIT 1')
     .bind(player.id).first();
-  const join = data.open === true ? SESSION_JOIN : SESSION_GAP;
-  if (last && now - last.last <= join && last.device === device) {
-    await env.DB.prepare('UPDATE sessions SET last = ? WHERE id = ?').bind(now, last.id).run();
+  const open = data.open === true;
+  if (last && now - last.last <= (open ? SESSION_JOIN : SESSION_GAP) && last.device === device) {
+    await env.DB.prepare('UPDATE sessions SET last = ?, area = ? WHERE id = ?').bind(now, area, last.id).run();
+    const step = Math.min(Math.max(now - last.last, 0), MAX_STEP);
+    if (!open && step > 0) {
+      await env.DB.prepare(`INSERT INTO usage(player_id, day, area, seconds) VALUES (?, ?, ?, ?)
+        ON CONFLICT(player_id, day, area) DO UPDATE SET seconds = seconds + excluded.seconds`)
+        .bind(player.id, trDay(now), last.area, step).run();
+    }
   } else {
-    await env.DB.prepare('INSERT INTO sessions(player_id, started, last, device) VALUES (?, ?, ?, ?)')
-      .bind(player.id, now, now, device).run();
+    await env.DB.prepare('INSERT INTO sessions(player_id, started, last, device, area) VALUES (?, ?, ?, ?, ?)')
+      .bind(player.id, now, now, device, area).run();
     await env.DB.prepare('DELETE FROM sessions WHERE last < ?').bind(now - ACTIVITY_TTL).run();
+    await env.DB.prepare('DELETE FROM usage WHERE day < ?').bind(trDay(now - ACTIVITY_TTL)).run();
   }
   return {ok: true};
 }
@@ -91,9 +106,11 @@ async function activity(env) {
   const now = Math.floor(Date.now() / 1000);
   const {results: players} = await env.DB.prepare(
     'SELECT id, name, last_seen AS lastSeen FROM players WHERE active = 1 ORDER BY id').all();
-  const {results: sessions} = await env.DB.prepare(`SELECT id, player_id AS player, started, last, device
-    FROM sessions WHERE last >= ? ORDER BY started DESC, id DESC LIMIT 400`).bind(now - 30 * 86400).all();
-  return {now, players, sessions};
+  const {results: sessions} = await env.DB.prepare(`SELECT id, player_id AS player, started, last, device, area
+    FROM sessions WHERE last >= ? ORDER BY started DESC, id DESC LIMIT 600`).bind(now - 30 * 86400).all();
+  const {results: usage} = await env.DB.prepare(`SELECT player_id AS player, day, area, seconds
+    FROM usage WHERE day > ? ORDER BY day, player_id, area`).bind(trDay(now) - 30).all();
+  return {now, today: trDay(now), players, sessions, usage};
 }
 const pruneTrips = env => env.DB.prepare('DELETE FROM trips WHERE arrival < ?')
   .bind(Math.floor(Date.now() / 1000) - 86400).run();

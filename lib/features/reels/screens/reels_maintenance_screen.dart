@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../../app/theme.dart';
 import '../../surprise/pixel_font.dart';
 import '../../surprise/pixel_sprites.dart';
+import '../../../core/services/activity_area.dart';
 
 /// Soru bölümü bakımdayken gösterilen ekran (piksel yazı).
 class ReelsMaintenanceScreen extends StatefulWidget {
@@ -47,7 +48,10 @@ class _ReelsMaintenanceScreenState extends State<ReelsMaintenanceScreen>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ActivityAreaScope(area: 'questions', child: _areaBody(context));
+
+  Widget _areaBody(BuildContext context) {
     final pad = MediaQuery.paddingOf(context);
     return Scaffold(
       backgroundColor: AppTheme.bg,
