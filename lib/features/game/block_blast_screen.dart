@@ -70,6 +70,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   late final AnimationController _fxClock;
   // Ekran sarsıntısı (yalnız görsel): kombo büyüdükçe sertleşir ve uzar.
   late final AnimationController _shake;
+  // Sarsıntı adımı (~30 kare/sn; -1 = durgun). Yalnız adım değişince
+  // ekran yeniden konumlanır.
+  final _shakeStep = ValueNotifier<int>(-1);
   double _shakePower = 0;
   final _boardFx = BlockBoardFx();
   String _feedback = '';
@@ -117,7 +120,13 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     }
     SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
     WidgetsBinding.instance.addObserver(this);
-    _shake = AnimationController(vsync: this);
+    _shake = AnimationController(vsync: this)
+      ..addListener(() => _shakeStep.value = _shake.isAnimating
+          ? (_shake.value * _shake.duration!.inMilliseconds / 33).floor()
+          : -1)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _shakeStep.value = -1;
+      });
     _fxClock = AnimationController.unbounded(vsync: this)
       ..addListener(() {
         if (_boardFx.retire(_fxClock.value) && mounted) setState(() {});
@@ -161,6 +170,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _battle?.removeListener(_battleChanged);
     _fxClock.dispose();
     _shake.dispose();
+    _shakeStep.dispose();
     _dragPosition.dispose();
     super.dispose();
   }
@@ -369,17 +379,18 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   }
 
   /// Ağaç yapısı hep aynı kalır (durağanken sıfır kayma), böylece sarsıntı
-  /// başlayıp bitince alt ağaç yeniden kurulmaz.
-  Widget _shaking(Widget child) => AnimatedBuilder(
-        animation: _shake,
-        child: child,
-        builder: (context, child) {
+  /// başlayıp bitince alt ağaç yeniden kurulmaz. Ekran kendi katmanında
+  /// (RepaintBoundary) bir kez çizilir; sarsıntı yalnız o katmanı kaydırır,
+  /// her karede tüm ekranı yeniden çizmez.
+  Widget _shaking(Widget child) => ValueListenableBuilder<int>(
+        valueListenable: _shakeStep,
+        child: RepaintBoundary(child: child),
+        builder: (context, step, child) {
           var offset = Offset.zero, turn = 0.0;
-          if (_shake.isAnimating) {
-            final t = _shake.value;
-            final decay = (1 - t) * (1 - t);
+          if (step >= 0) {
             // Piksel hissi: ~30 kare/sn adımlar, tam piksele yuvarlanmış kayma.
-            final step = (t * _shake.duration!.inMilliseconds / 33).floor();
+            final t = min(1.0, step * 33 / _shake.duration!.inMilliseconds);
+            final decay = (1 - t) * (1 - t);
             final amp = (1.5 + _shakePower * 1.3) * decay;
             offset = Offset((sin(step * 2.7) * amp).roundToDouble(),
                 (cos(step * 3.9) * amp * .7).roundToDouble());
@@ -572,12 +583,15 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                           Expanded(
                             child: LayoutBuilder(
                               builder: (context, c) {
-                                final hud = _battle == null
-                                    ? _scoreText()
-                                    : BattleHud(
-                                        session: _battle!,
-                                        palette: _palette,
-                                        feedback: _battleFeedback);
+                                // Skor sayacı ve kombo çipi canlanırken
+                                // ekranın geri kalanı yeniden çizilmesin.
+                                final hud = RepaintBoundary(
+                                    child: _battle == null
+                                        ? _scoreText()
+                                        : BattleHud(
+                                            session: _battle!,
+                                            palette: _palette,
+                                            feedback: _battleFeedback));
                                 // Dikey: skor, tahta, tepsi alt alta. Ekran
                                 // yataysa ve tahta yükseklikten kısılıyorsa
                                 // skor solda, tahta ortada, tepsi sağda.

@@ -1,4 +1,7 @@
 import 'dart:math';
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/widgets/pixel_text.dart';
@@ -46,6 +49,9 @@ class BlockCelebration extends StatefulWidget {
 class _BlockCelebrationState extends State<BlockCelebration>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  // Görüntü ~30 kare/sn değişir; ekran 60/120 Hz yenilense de yalnız kare
+  // değişince yeniden çizilir.
+  final _frame = ValueNotifier<int>(0);
   bool _finished = false;
   _CelebrationPainter? _painter;
   @override
@@ -53,6 +59,8 @@ class _BlockCelebrationState extends State<BlockCelebration>
     super.initState();
     _controller = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 700))
+      ..addListener(() => _frame.value =
+          _CelebrationPainter.frameAt(_controller.value, _controller.duration!))
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed && mounted) {
           setState(() => _finished = true);
@@ -64,23 +72,30 @@ class _BlockCelebrationState extends State<BlockCelebration>
   @override
   void dispose() {
     _controller.dispose();
+    _frame.dispose();
+    _painter?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_finished) {
+      _painter?.dispose();
       _painter = null;
       return const SizedBox.shrink();
     }
     final reduced = MediaQuery.disableAnimationsOf(context);
+    final dpr = MediaQuery.devicePixelRatioOf(context);
     if (_painter == null ||
         _painter!.data != widget.data ||
         _painter!.compact != widget.compact ||
-        _painter!.reducedMotion != reduced) {
-      _painter = _CelebrationPainter(_controller, widget.data,
+        _painter!.reducedMotion != reduced ||
+        _painter!.dpr != dpr) {
+      _painter?.dispose();
+      _painter = _CelebrationPainter(_controller, _frame, widget.data,
           reducedMotion: reduced,
           compact: widget.compact,
+          dpr: dpr,
           duration: _controller.duration!);
     }
     return IgnorePointer(
@@ -101,17 +116,20 @@ class _BlockCelebrationState extends State<BlockCelebration>
 /// yıldızlar ve sonunda yanıp sönerek kaybolma.
 class _CelebrationPainter extends CustomPainter {
   final Animation<double> animation;
+  final ValueListenable<int> frames;
   final BlockCelebrationData data;
   final bool reducedMotion, compact;
+  final double dpr;
   final Duration duration;
   late final PixelTextLayout _title, _combo, _points;
   late final bool _perfect = data.title == 'PERFECT!';
   late final bool _wave = data.legendary || data.title == 'SUPER!';
-  _CelebrationPainter(this.animation, this.data,
+  _CelebrationPainter(this.animation, this.frames, this.data,
       {required this.reducedMotion,
       required this.compact,
+      required this.dpr,
       required this.duration})
-      : super(repaint: reducedMotion ? null : animation) {
+      : super(repaint: reducedMotion ? null : frames) {
     _title = PixelTextLayout(data.title, color: data.color);
     _combo = PixelTextLayout('KOMBO ×${data.combo}', color: data.color);
     _points = PixelTextLayout('+${data.points}', color: _gold);
@@ -123,12 +141,59 @@ class _CelebrationPainter extends CustomPainter {
   // Basamaklı giriş: küçük → taşkın → yerine otur (kare kare).
   static const _pop = [0.6, 1.1, 1.0];
 
+  static int frameAt(double t, Duration duration) =>
+      (t * duration.inMilliseconds / 33).floor(); // ~30 kare/sn
+
+  // Yazı ve levha bir kez görüntüye çizilir; her karede yalnız bu
+  // görüntüler kopyalanır (yüzlerce küçük karelik yolu yeniden çizmek
+  // iPhone'da sarsıntıyla birlikte takılmaya yol açıyordu).
+  final Map<int, ui.Image> _letterImages = {};
+  ui.Image? _plateImage;
+  double _cachedTitlePx = 0, _cachedDetailPx = 0;
+  final _imagePaint = Paint()..filterQuality = FilterQuality.none;
+
+  void dispose() {
+    for (final image in _letterImages.values) {
+      image.dispose();
+    }
+    _letterImages.clear();
+    _plateImage?.dispose();
+    _plateImage = null;
+  }
+
+  void _prepare(double titlePx, double detailPx) {
+    if (titlePx == _cachedTitlePx && detailPx == _cachedDetailPx) return;
+    dispose();
+    _cachedTitlePx = titlePx;
+    _cachedDetailPx = detailPx;
+    final u = detailPx, plateUnits = _combo.width + 3 + _points.width + 4;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(dpr);
+    _plateAt(canvas, Offset.zero, u);
+    final picture = recorder.endRecording();
+    _plateImage = picture.toImageSync(
+        ((plateUnits + 1) * u * dpr).ceil(), (15 * u * dpr).ceil());
+    picture.dispose();
+  }
+
+  /// [tint] -1: harfin kendi rengi, 0..2: SSS'in gökkuşağı renkleri.
+  ui.Image _letter(int i, int tint) => _letterImages.putIfAbsent(
+      i * 4 + tint + 1,
+      () => _title.letterImage(i, _cachedTitlePx, dpr,
+          tint: tint < 0 ? null : _rainbow[tint]));
+
+  void _image(Canvas canvas, ui.Image image, Offset at) {
+    canvas.drawImageRect(
+        image,
+        Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble()),
+        at & Size(image.width / dpr, image.height / dpr),
+        _imagePaint);
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final t = reducedMotion ? 1.0 : animation.value;
-    final frame = reducedMotion
-        ? 999
-        : (t * duration.inMilliseconds / 33).floor(); // ~30 kare/sn
+    final frame = reducedMotion ? 999 : frameAt(t, duration);
     // Son %30'da yanıp sönerek çıkar; piksel oyunlarında solma olmaz.
     if (!reducedMotion && t >= 1) return;
     if (!reducedMotion && t > .7 && frame.isOdd) return;
@@ -149,6 +214,7 @@ class _CelebrationPainter extends CustomPainter {
     final cy = (size.height * (compact ? .2 : .42) - rise)
         .clamp(badgeH / 2 + 4, max(badgeH / 2 + 4, size.height - badgeH / 2));
     final center = Offset((size.width / 2).roundToDouble(), cy.roundToDouble());
+    _prepare(titlePx, detailPx);
 
     if (!reducedMotion) {
       _flash(canvas, size, frame);
@@ -160,17 +226,20 @@ class _CelebrationPainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
     canvas.scale(scale);
     final top = (-badgeH / 2).roundToDouble();
-    _title.paint(canvas, Offset((-titleW / 2).roundToDouble(), top), titlePx,
-        lift: _wave && !reducedMotion
-            ? (i) => sin(frame * .7 - i * 1.3) > .2 ? 1.0 : 0.0
-            : null,
-        tint: data.legendary && !reducedMotion
-            ? (i) => _rainbow[(i + frame ~/ 4) % _rainbow.length]
-            : null);
-    _plateAt(
-        canvas,
-        Offset((-plateW / 2).roundToDouble(), top + titleH + 2 * detailPx),
-        detailPx);
+    final left = (-titleW / 2).roundToDouble();
+    for (var i = 0; i < _title.letterCount; i++) {
+      final lift = _wave && !reducedMotion && sin(frame * .7 - i * 1.3) > .2;
+      final tint = data.legendary && !reducedMotion
+          ? (i + frame ~/ 4) % _rainbow.length
+          : -1;
+      _image(
+          canvas,
+          _letter(i, tint),
+          Offset(left + _title.letterBox(i).left * titlePx,
+              top - (lift ? titlePx : 0)));
+    }
+    _image(canvas, _plateImage!,
+        Offset((-plateW / 2).roundToDouble(), top + titleH + 2 * detailPx));
     canvas.restore();
 
     if (!reducedMotion) {
@@ -297,5 +366,6 @@ class _CelebrationPainter extends CustomPainter {
   bool shouldRepaint(_CelebrationPainter old) =>
       old.data != data ||
       old.reducedMotion != reducedMotion ||
-      old.compact != compact;
+      old.compact != compact ||
+      old.dpr != dpr;
 }
