@@ -52,7 +52,7 @@ class _BlockCelebrationState extends State<BlockCelebration>
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1250))
+        vsync: this, duration: const Duration(milliseconds: 700))
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed && mounted) {
           setState(() => _finished = true);
@@ -121,7 +121,7 @@ class _CelebrationPainter extends CustomPainter {
   static const _rainbow = [_gold, Color(0xFFFF7EB6), Color(0xFF80F8EE)];
   static const _plate = Color(0xFF162645);
   // Basamaklı giriş: küçük → taşkın → yerine otur (kare kare).
-  static const _pop = [0.5, 1.15, 1.08, 0.97, 1.0];
+  static const _pop = [0.6, 1.1, 1.0];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -129,25 +129,23 @@ class _CelebrationPainter extends CustomPainter {
     final frame = reducedMotion
         ? 999
         : (t * duration.inMilliseconds / 33).floor(); // ~30 kare/sn
-    // Son %22'de yanıp sönerek çıkar; piksel oyunlarında solma olmaz.
+    // Son %30'da yanıp sönerek çıkar; piksel oyunlarında solma olmaz.
     if (!reducedMotion && t >= 1) return;
-    if (!reducedMotion && t > .78 && frame.isOdd) return;
+    if (!reducedMotion && t > .7 && frame.isOdd) return;
 
     final titlePx = max(
         2.0,
-        min(size.width * .8 / _title.width, data.legendary ? 11.0 : 7.0)
+        min(size.width * .55 / _title.width, data.legendary ? 6.0 : 4.0)
                 .floorToDouble() *
             (compact ? 1 : 1.5));
     final plateUnits = _combo.width + 3 + _points.width + 4;
-    final detailPx = max(
-        1.0,
-        min((titlePx * .5).ceilToDouble(),
-            (size.width * .82 / plateUnits).floorToDouble()));
+    final detailPx =
+        max(1.0, min(2.0, (size.width * .82 / plateUnits).floorToDouble()));
     final titleW = _title.width * titlePx,
         titleH = PixelTextLayout.height * titlePx;
     final plateW = plateUnits * detailPx, plateH = 14 * detailPx;
     final badgeH = titleH + 2 * detailPx + plateH;
-    final rise = reducedMotion ? 0.0 : min(frame ~/ 8, 3) * titlePx * .5;
+    final rise = reducedMotion ? 0.0 : min(frame ~/ 5, 3) * titlePx * .5;
     final cy = (size.height * (compact ? .2 : .42) - rise)
         .clamp(badgeH / 2 + 4, max(badgeH / 2 + 4, size.height - badgeH / 2));
     final center = Offset((size.width / 2).roundToDouble(), cy.roundToDouble());
@@ -208,7 +206,7 @@ class _CelebrationPainter extends CustomPainter {
 
   /// Büyük anlarda tahtayı bir an renge boyar (2-3 kare).
   void _flash(Canvas canvas, Size size, int frame) {
-    if (!(data.legendary || _perfect) || frame > 2) return;
+    if (!(data.legendary || _perfect) || frame > 1) return;
     final alpha = const [.26, .14, .05][frame];
     canvas.drawRect(
         Offset.zero & size,
@@ -220,13 +218,13 @@ class _CelebrationPainter extends CustomPainter {
   /// Merkezden saçılan kare parçacıklar + genişleyen piksel elmas halka.
   void _burst(Canvas canvas, Offset c, Size size, double t, double titlePx) {
     final cell = max(2.0, (titlePx * .6).roundToDouble());
-    final reach = size.width * (compact ? .46 : .5);
+    final reach = size.width * (compact ? .3 : .36);
     final paint = Paint()..isAntiAlias = false;
     Offset snap(Offset p) => Offset((p.dx / cell).roundToDouble() * cell,
         (p.dy / cell).roundToDouble() * cell);
 
     // Halka: elmasın kenarları boyunca aralıklı kareler.
-    final ringT = (t / .4).clamp(0.0, 1.0);
+    final ringT = (t / .35).clamp(0.0, 1.0);
     if (ringT < 1) {
       final r = reach * .3 + reach * .7 * Curves.easeOut.transform(ringT);
       final steps = max(8, (r / cell / 1.5).floor());
@@ -244,7 +242,7 @@ class _CelebrationPainter extends CustomPainter {
       }
     }
 
-    final count = data.legendary ? 30 : (_perfect ? 24 : 16);
+    final count = data.legendary ? 18 : (_perfect ? 14 : 10);
     for (var i = 0; i < count; i++) {
       final life = .5 + (i % 4) * .1;
       final lt = t / life;

@@ -363,7 +363,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
         (_game.combo - 1) + (move.lines - 1) * 1.5 + (move.allClear ? 3 : 0);
     if (power <= 0 || MediaQuery.disableAnimationsOf(context)) return;
     _shakePower = min(power, 10.0);
-    _shake.duration = Duration(milliseconds: (220 + _shakePower * 45).round());
+    _shake.duration = Duration(milliseconds: (180 + _shakePower * 30).round());
     _shake.forward(from: 0);
     if (_shakePower >= 4) HapticFeedback.heavyImpact();
   }
