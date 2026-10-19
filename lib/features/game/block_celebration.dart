@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../../core/widgets/pixel_text.dart';
+
 /// Presentation only: ranks never change the scoring or block generator.
 class BlockCelebrationData {
   final String title;
@@ -62,14 +64,12 @@ class _BlockCelebrationState extends State<BlockCelebration>
   @override
   void dispose() {
     _controller.dispose();
-    _painter?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_finished) {
-      _painter?.dispose();
       _painter = null;
       return const SizedBox.shrink();
     }
@@ -78,9 +78,10 @@ class _BlockCelebrationState extends State<BlockCelebration>
         _painter!.data != widget.data ||
         _painter!.compact != widget.compact ||
         _painter!.reducedMotion != reduced) {
-      _painter?.dispose();
       _painter = _CelebrationPainter(_controller, widget.data,
-          reducedMotion: reduced, compact: widget.compact);
+          reducedMotion: reduced,
+          compact: widget.compact,
+          duration: _controller.duration!);
     }
     return IgnorePointer(
         child: Semantics(
@@ -95,166 +96,203 @@ class _BlockCelebrationState extends State<BlockCelebration>
   }
 }
 
+/// Piksel-art ödül yazısı. Hareket 30 kare/sn adımlarla ilerler (retro
+/// his): basamaklı büyüme, harf dalgası, kare parçacıklar, kırpışan
+/// yıldızlar ve sonunda yanıp sönerek kaybolma.
 class _CelebrationPainter extends CustomPainter {
   final Animation<double> animation;
   final BlockCelebrationData data;
   final bool reducedMotion, compact;
-  late final TextPainter _outline, _title, _detail;
-  late final Rect _badgeBounds;
+  final Duration duration;
+  late final PixelTextLayout _title, _combo, _points;
+  late final bool _perfect = data.title == 'PERFECT!';
+  late final bool _wave = data.legendary || data.title == 'SUPER!';
   _CelebrationPainter(this.animation, this.data,
-      {required this.reducedMotion, required this.compact})
+      {required this.reducedMotion,
+      required this.compact,
+      required this.duration})
       : super(repaint: reducedMotion ? null : animation) {
-    final style = TextStyle(
-        fontFamily: 'Inter',
-        fontSize:
-            compact ? (data.legendary ? 42 : 34) : (data.legendary ? 88 : 52),
-        fontWeight: FontWeight.w900,
-        letterSpacing: compact ? 0 : (data.legendary ? 6 : -1),
-        height: 1);
-    _outline = _text(
-        data.title,
-        style.copyWith(
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = compact ? 3 : 7
-              ..color = const Color(0xFF19254B)));
-    _title = _text(
-        data.title,
-        style.copyWith(
-            foreground: Paint()
-              ..shader = LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white,
-                  data.color,
-                  Color.lerp(data.color, const Color(0xFFE89B36), .4)!
-                ],
-                stops: const [0, .45, 1],
-              ).createShader(
-                  Rect.fromLTWH(0, 0, _outline.width, _outline.height))));
-    _detail = _text(
-        'KOMBO ×${data.combo}   +${data.points}',
-        const TextStyle(
-            fontFamily: 'Inter',
-            fontSize: 17,
-            height: 1,
-            fontWeight: FontWeight.w800,
-            color: Colors.white));
-    // SSS is narrower than its score pill: include BOTH in the compositing bounds.
-    final width = max(_title.width + 24, _detail.width + 40);
-    _badgeBounds = Rect.fromLTRB(-width / 2, -12, width / 2,
-        _title.height + max(50, _detail.height + 26));
+    _title = PixelTextLayout(data.title, color: data.color);
+    _combo = PixelTextLayout('KOMBO ×${data.combo}', color: data.color);
+    _points = PixelTextLayout('+${data.points}', color: _gold);
   }
 
-  void dispose() {
-    _outline.dispose();
-    _title.dispose();
-    _detail.dispose();
-  }
-
-  TextPainter _text(String text, TextStyle style) => TextPainter(
-        text: TextSpan(text: text, style: style),
-        textDirection: TextDirection.ltr,
-      )..layout();
+  static const _gold = Color(0xFFFFD568);
+  static const _rainbow = [_gold, Color(0xFFFF7EB6), Color(0xFF80F8EE)];
+  static const _plate = Color(0xFF162645);
+  // Basamaklı giriş: küçük → taşkın → yerine otur (kare kare).
+  static const _pop = [0.5, 1.15, 1.08, 0.97, 1.0];
 
   @override
   void paint(Canvas canvas, Size size) {
-    final t = animation.value;
-    final alpha =
-        reducedMotion ? 1.0 : (min(t / .07, (1 - t) / .22)).clamp(0.0, 1.0);
-    if (alpha <= 0) return;
-    final center = Offset(size.width / 2, size.height * (compact ? .12 : .44));
-    if (!reducedMotion && !compact) {
-      // Expanding shockwave, followed by deterministic confetti and sparks.
-      final wave = Curves.easeOutCubic.transform((t / .65).clamp(0.0, 1.0));
-      canvas.drawCircle(
-          center,
-          size.width * (.1 + .38 * wave),
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3 * (1 - wave)
-            ..color = data.color.withValues(alpha: (1 - wave) * .65));
-      final count = data.legendary ? 36 : 22;
-      for (var i = 0; i < count; i++) {
-        final angle = i * 2.399963;
-        final travel =
-            size.width * (.12 + (i % 5) * .037) * Curves.easeOut.transform(t);
-        final position = center +
-            Offset(cos(angle) * travel, sin(angle) * travel + 45 * t * t);
-        final color = i % 3 == 0 ? Colors.white : data.color;
-        canvas.save();
-        canvas.translate(position.dx, position.dy);
-        canvas.rotate(angle + t * (i.isEven ? 4 : -4));
-        final paint = Paint()
-          ..color = color.withValues(alpha: alpha * (1 - t * .6));
-        if (i % 4 == 0) {
-          canvas.drawLine(
-              const Offset(-5, 0), const Offset(5, 0), paint..strokeWidth = 2);
-          canvas.drawLine(const Offset(0, -5), const Offset(0, 5), paint);
-        } else {
-          canvas.drawRRect(
-              RRect.fromRectAndRadius(
-                  const Rect.fromLTWH(-2, -4, 4, 8), const Radius.circular(1)),
-              paint);
+    final t = reducedMotion ? 1.0 : animation.value;
+    final frame = reducedMotion
+        ? 999
+        : (t * duration.inMilliseconds / 33).floor(); // ~30 kare/sn
+    // Son %22'de yanıp sönerek çıkar; piksel oyunlarında solma olmaz.
+    if (!reducedMotion && t >= 1) return;
+    if (!reducedMotion && t > .78 && frame.isOdd) return;
+
+    final titlePx = max(
+        2.0,
+        min(size.width * .8 / _title.width, data.legendary ? 11.0 : 7.0)
+                .floorToDouble() *
+            (compact ? 1 : 1.5));
+    final plateUnits = _combo.width + 3 + _points.width + 4;
+    final detailPx = max(
+        1.0,
+        min((titlePx * .5).ceilToDouble(),
+            (size.width * .82 / plateUnits).floorToDouble()));
+    final titleW = _title.width * titlePx,
+        titleH = PixelTextLayout.height * titlePx;
+    final plateW = plateUnits * detailPx, plateH = 14 * detailPx;
+    final badgeH = titleH + 2 * detailPx + plateH;
+    final rise = reducedMotion ? 0.0 : min(frame ~/ 8, 3) * titlePx * .5;
+    final cy = (size.height * (compact ? .2 : .42) - rise)
+        .clamp(badgeH / 2 + 4, max(badgeH / 2 + 4, size.height - badgeH / 2));
+    final center = Offset((size.width / 2).roundToDouble(), cy.roundToDouble());
+
+    if (!reducedMotion) {
+      _flash(canvas, size, frame);
+      _burst(canvas, center, size, t, titlePx);
+    }
+
+    final scale = reducedMotion ? 1.0 : _pop[min(frame, _pop.length - 1)];
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.scale(scale);
+    final top = (-badgeH / 2).roundToDouble();
+    _title.paint(canvas, Offset((-titleW / 2).roundToDouble(), top), titlePx,
+        lift: _wave && !reducedMotion
+            ? (i) => sin(frame * .7 - i * 1.3) > .2 ? 1.0 : 0.0
+            : null,
+        tint: data.legendary && !reducedMotion
+            ? (i) => _rainbow[(i + frame ~/ 4) % _rainbow.length]
+            : null);
+    _plateAt(
+        canvas,
+        Offset((-plateW / 2).roundToDouble(), top + titleH + 2 * detailPx),
+        detailPx);
+    canvas.restore();
+
+    if (!reducedMotion) {
+      _sparkles(canvas, center, max(titleW, plateW) + titlePx * 2, badgeH,
+          frame, max(2, titlePx * .5));
+    }
+  }
+
+  /// Çentikli köşeli piksel levha: "KOMBO ×N  +puan".
+  void _plateAt(Canvas canvas, Offset o, double u) {
+    final w = (_combo.width + 3 + _points.width + 4) * u, h = 14 * u;
+    final paint = Paint()..isAntiAlias = false;
+    void notched(Rect r, Color color) {
+      paint.color = color;
+      canvas.drawRect(
+          Rect.fromLTRB(r.left + u, r.top, r.right - u, r.bottom), paint);
+      canvas.drawRect(
+          Rect.fromLTRB(r.left, r.top + u, r.right, r.bottom - u), paint);
+    }
+
+    final outer = o & Size(w, h);
+    notched(outer.shift(Offset(u, u)), const Color(0xFF070B18));
+    notched(outer, Color.lerp(data.color, const Color(0xFF000000), .35)!);
+    final inner = outer.deflate(u);
+    notched(inner, _plate);
+    paint.color = Color.lerp(_plate, data.color, .22)!;
+    canvas.drawRect(
+        Rect.fromLTWH(inner.left + u, inner.top, inner.width - 2 * u, u),
+        paint);
+    _combo.paint(canvas, o + Offset(2 * u, 2 * u), u);
+    _points.paint(canvas, o + Offset((2 + _combo.width + 3) * u, 2 * u), u);
+  }
+
+  /// Büyük anlarda tahtayı bir an renge boyar (2-3 kare).
+  void _flash(Canvas canvas, Size size, int frame) {
+    if (!(data.legendary || _perfect) || frame > 2) return;
+    final alpha = const [.26, .14, .05][frame];
+    canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..color = Color.lerp(data.color, const Color(0xFFFFFFFF), .5)!
+              .withValues(alpha: alpha));
+  }
+
+  /// Merkezden saçılan kare parçacıklar + genişleyen piksel elmas halka.
+  void _burst(Canvas canvas, Offset c, Size size, double t, double titlePx) {
+    final cell = max(2.0, (titlePx * .6).roundToDouble());
+    final reach = size.width * (compact ? .46 : .5);
+    final paint = Paint()..isAntiAlias = false;
+    Offset snap(Offset p) => Offset((p.dx / cell).roundToDouble() * cell,
+        (p.dy / cell).roundToDouble() * cell);
+
+    // Halka: elmasın kenarları boyunca aralıklı kareler.
+    final ringT = (t / .4).clamp(0.0, 1.0);
+    if (ringT < 1) {
+      final r = reach * .3 + reach * .7 * Curves.easeOut.transform(ringT);
+      final steps = max(8, (r / cell / 1.5).floor());
+      paint.color = data.color.withValues(alpha: 1 - ringT * .6);
+      for (var side = 0; side < 4; side++) {
+        final a = side * pi / 2, b = a + pi / 2;
+        for (var k = 0; k < steps; k += 2) {
+          final f = k / steps;
+          final p = c +
+              Offset(cos(a) * (1 - f) + cos(b) * f,
+                      sin(a) * (1 - f) + sin(b) * f) *
+                  r;
+          canvas.drawRect(snap(p) & Size(cell, cell), paint);
         }
-        canvas.restore();
       }
     }
-    final entrance = reducedMotion
-        ? 1.0
-        : Curves.easeOutBack.transform((t / .22).clamp(0.0, 1.0));
-    final fit = min(
-            1.0,
-            min(size.width * .9 / _badgeBounds.width,
-                size.height * .7 / _badgeBounds.height)) /
-        1.05;
-    final scale = (.65 + entrance * .35) * fit;
-    final y = (center.dy - (reducedMotion ? 0 : t * 14)).clamp(
-        4 - _badgeBounds.top * scale,
-        size.height - 4 - _badgeBounds.bottom * scale);
-    canvas.save();
-    canvas.translate(center.dx, y);
-    canvas.scale(scale);
-    // Fade the full badge, including long combo scores, within the board edges.
-    canvas.saveLayer(
-        _badgeBounds, Paint()..color = Colors.white.withValues(alpha: alpha));
-    final origin = Offset(-_title.width / 2, 0);
-    _outline.paint(canvas, origin + const Offset(0, 4));
-    _title.paint(canvas, origin);
-    if (!reducedMotion && !compact && t > .18 && t < .6) {
-      final textRect = (origin & _title.size).inflate(8);
-      final sweep = (t - .18) / .42;
-      final x = textRect.left - 60 + (_title.width + 120) * sweep;
-      canvas.saveLayer(textRect, Paint());
-      _title.paint(canvas, origin);
-      canvas.drawRect(
-          textRect,
-          Paint()
-            ..blendMode = BlendMode.srcIn
-            ..shader = const LinearGradient(colors: [
-              Colors.transparent,
-              Color(0xB3FFFFFF),
-              Colors.transparent
-            ]).createShader(Rect.fromLTWH(x - 40, 0, 80, _title.height)));
-      canvas.restore();
+
+    final count = data.legendary ? 30 : (_perfect ? 24 : 16);
+    for (var i = 0; i < count; i++) {
+      final life = .5 + (i % 4) * .1;
+      final lt = t / life;
+      if (lt >= 1 || (lt > .75 && (t * 60).floor().isOdd)) continue;
+      final angle = i * 2 * pi / count + (i * 0.37) % .5;
+      final dist =
+          reach * (.45 + (i * 7 % 5) * .12) * Curves.easeOutCubic.transform(lt);
+      final p = c +
+          Offset(cos(angle) * dist, sin(angle) * dist + reach * .35 * lt * lt);
+      final s = cell * (i % 3 == 0 ? 2 : 1);
+      paint.color = switch (i % 3) {
+        0 => const Color(0xFFFFFFFF),
+        1 => data.color,
+        _ => data.legendary ? _gold : Color.lerp(data.color, _plate, .3)!,
+      };
+      canvas.drawRect(snap(p) & Size(s, s), paint);
     }
-    final detailBox = RRect.fromRectAndRadius(
-        Rect.fromCenter(
-            center: Offset(0, _title.height + 27),
-            width: _detail.width + 28,
-            height: 34),
-        const Radius.circular(17));
-    canvas.drawRRect(detailBox, Paint()..color = const Color(0xEA162645));
-    canvas.drawRRect(
-        detailBox,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = data.color.withValues(alpha: .65));
-    _detail.paint(canvas, Offset(-_detail.width / 2, _title.height + 18));
-    canvas.restore();
-    canvas.restore();
+  }
+
+  /// Yazının çevresinde sırayla kırpışan artı biçimli yıldızlar.
+  void _sparkles(
+      Canvas canvas, Offset c, double w, double h, int frame, double u) {
+    final paint = Paint()
+      ..isAntiAlias = false
+      ..color = const Color(0xFFFFFFFF);
+    final count = data.legendary ? 6 : 4;
+    for (var i = 0; i < count; i++) {
+      final phase = (frame + i * 3) % 8;
+      if (phase >= 5) continue;
+      final arm = const [0, 1, 2, 1, 0][phase].toDouble();
+      final side = i.isEven ? -1 : 1;
+      final p = c +
+          Offset(side * (w / 2 + u * (2 + (i * 5) % 4)),
+              -h / 2 + (i * 0.37 % 1) * h);
+      final o = Offset(
+          (p.dx / u).roundToDouble() * u, (p.dy / u).roundToDouble() * u);
+      canvas.drawRect(o & Size(u, u), paint);
+      for (var k = 1; k <= arm; k++) {
+        for (final d in const [
+          Offset(1, 0),
+          Offset(-1, 0),
+          Offset(0, 1),
+          Offset(0, -1)
+        ]) {
+          canvas.drawRect((o + d * (k * u)) & Size(u, u), paint);
+        }
+      }
+    }
   }
 
   @override

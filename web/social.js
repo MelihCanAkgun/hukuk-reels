@@ -11,6 +11,14 @@
   let verifiedSubscription = '';
   let scoreTimer;
   const persist = () => localStorage.setItem(storageKey, JSON.stringify(config));
+  // Block Blast season (matches the worker): a new season zeroes this device's
+  // stored record, and scores carry the season so old ones are not accepted.
+  const blockSeason = 2;
+  if (config.blockSeason !== blockSeason) {
+    config.best = 0;
+    config.blockSeason = blockSeason;
+    try { persist(); } catch (_) {}
+  }
   // Profile photos of the two players, keyed by server version. Only fetched
   // with this device's player code; removed when the player leaves.
   const avatarKey = 'hukuk_avatar_cache_v1';
@@ -67,7 +75,7 @@
     const token = config.token;
     try {
       for (const game of due) {
-        const next = await api('/score', game === 'block' ? {score: config.best} : {game, score: localBest(game)}, token);
+        const next = await api('/score', game === 'block' ? {score: config.best, season: blockSeason} : {game, score: localBest(game)}, token);
         if (token !== config.token) break;
         lastBoard = next;
       }

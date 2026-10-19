@@ -69,6 +69,13 @@ CREATE TABLE IF NOT EXISTS notes (
  deleted INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS notes_created ON notes(created);
+CREATE TABLE IF NOT EXISTS block_season_archive (
+ season INTEGER NOT NULL,
+ player_id INTEGER NOT NULL REFERENCES players(id),
+ best INTEGER NOT NULL,
+ archived INTEGER NOT NULL DEFAULT (unixepoch()),
+ PRIMARY KEY (season, player_id)
+);
 CREATE TABLE IF NOT EXISTS game_scores (
  player_id INTEGER NOT NULL REFERENCES players(id),
  game TEXT NOT NULL CHECK (game IN ('flappy', 'subway', 'tower')),

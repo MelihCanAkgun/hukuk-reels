@@ -42,8 +42,10 @@ class ProgressService {
   static const _kSession = 'session_v1';
   static const _kFlappyHigh = 'flappy_high_v1';
   static const _kTowerHigh = 'tower_high_v1';
-  static const _kBlockHigh = 'block_high_v1';
-  static const _kBlockGame = 'block_game_v1';
+  // v2: Block Blast sezon 2 — rekor ve yarım kalan oyun sıfırdan başlar
+  // (sunucuda BLOCK_SEASON, web/social.js'te blockSeason ile aynı anda).
+  static const _kBlockHigh = 'block_high_v2';
+  static const _kBlockGame = 'block_game_v2';
   String? _blockMemory;
   bool _blockLoaded = false;
   Future<void> _blockWrites = Future.value();

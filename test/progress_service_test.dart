@@ -13,12 +13,12 @@ void main() {
     final b = service.saveBlockGame({'score': 20});
     await Future.wait([a, b]);
     final prefs = await SharedPreferences.getInstance();
-    expect(jsonDecode(prefs.getString('block_game_v1')!), {'score': 20});
+    expect(jsonDecode(prefs.getString('block_game_v2')!), {'score': 20});
     final clearing = service.clearBlockGame();
     expect(service.loadBlockGame(), isNull);
     final next = service.saveBlockGame({'score': 0});
     await Future.wait([clearing, next]);
-    expect(jsonDecode(prefs.getString('block_game_v1')!), {'score': 0});
+    expect(jsonDecode(prefs.getString('block_game_v2')!), {'score': 0});
     await Future.wait(
         [service.submitBlockScore(100), service.submitBlockScore(50)]);
     expect(service.blockHigh, 100);
