@@ -218,10 +218,16 @@ test('Block Blast season 2: archived, zeroed, and last season cannot return', as
   assert.deepEqual(db.prepare('SELECT best FROM players ORDER BY id').all().map(r=>r.best),[0,0]);
   assert.equal(db.prepare('SELECT best FROM block_season_archive WHERE season=1 AND player_id=1').get().best,5000);
   const blockBest=async()=>(await call('/board')).data.players.find(p=>p.id===1).best;
-  await call('/score',{score:5000}); // an older client without the season
-  await call('/score',{season:1,score:5000});
+  await call('/score',{score:5000}); // an older client still holding last season's record
+  await call('/score',{season:1,score:4000});
   assert.equal(await blockBest(),0);
   await call('/score',{season:2,score:40});
   assert.equal(await blockBest(),40);
+  // A new record made on the old version (beats the archive) is kept.
+  await call('/score',{score:5200});
+  assert.equal(await blockBest(),5200);
+  // Without an archived record, an old client's score counts.
+  await call('/score',{score:70},1);
+  assert.equal((await call('/board')).data.players.find(p=>p.id===2).best,70);
   assert.equal((await call('/board')).data.scores.find(r=>r.game==='flappy').best,7, 'other games keep their records');
 });

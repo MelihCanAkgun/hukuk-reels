@@ -135,10 +135,17 @@ test('a new Block Blast season zeroes this device\'s stored record only',async()
   const c=client({stored:{url:'https://worker.example',token:'a'.repeat(43),best:9000,bests:{flappy:4}}});
   const kept=JSON.parse(c.saved.get('hukuk_social_v1'));
   assert.equal(kept.best,0);
+  assert.equal(kept.legacyBest,9000);
   assert.equal(kept.blockSeason,2);
   assert.deepEqual(kept.bests,{flappy:4});
   await c.call('state');
   await new Promise(r=>setImmediate(r));
   const uploads=c.requests.filter(r=>r.url.endsWith('/score')).map(r=>JSON.parse(r.body));
-  assert.deepEqual(uploads,[{game:'flappy',score:4}], 'the old Block Blast record is not uploaded');
+  // The old best goes once without a season (the worker keeps it only if it
+  // beats the archived record); it is not resent as a season 2 score.
+  assert.deepEqual(uploads,[{score:9000},{game:'flappy',score:4}]);
+  assert.equal(JSON.parse(c.saved.get('hukuk_social_v1')).legacyBest,undefined);
+  await c.call('state');
+  await new Promise(r=>setImmediate(r));
+  assert.equal(c.requests.filter(r=>r.url.endsWith('/score')).length,2);
 });
