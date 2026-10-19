@@ -15,6 +15,9 @@
   // stored record, and scores carry the season so old ones are not accepted.
   const blockSeason = 2;
   if (config.blockSeason !== blockSeason) {
+    // Sent once without a season: the worker keeps it only if it beats the
+    // archived record (a new record made on the old version).
+    if (config.best > 0) config.legacyBest = config.best;
     config.best = 0;
     config.blockSeason = blockSeason;
     try { persist(); } catch (_) {}
@@ -70,10 +73,15 @@
   async function flush() {
     if (sending || !config.token || !config.url || document.hidden) return;
     const due = ['block', ...games].filter(g => localBest(g) > 0 && !(serverBest(g) !== null && localBest(g) <= serverBest(g)));
-    if (!due.length) return;
+    if (!due.length && !(config.legacyBest > 0)) return;
     sending = true;
     const token = config.token;
     try {
+      if (config.legacyBest > 0) {
+        lastBoard = await api('/score', {score: config.legacyBest}, token);
+        delete config.legacyBest;
+        persist();
+      }
       for (const game of due) {
         const next = await api('/score', game === 'block' ? {score: config.best, season: blockSeason} : {game, score: localBest(game)}, token);
         if (token !== config.token) break;
