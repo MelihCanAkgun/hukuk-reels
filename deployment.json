@@ -1,9 +1,8 @@
 {
-  "source_commit": "fca24f841ae2afd4dd27e38b4673bc18c85049e7",
-  "built_at": "2026-10-18T19:55:17Z",
-  "checks": "flutter analyze (no issues); flutter test home_shell_test, music_panel_test, widget_test (31)",
-  "change": "Games tab section title \"Arkadaşınla\" renamed to \"Sevgilinle\"",
-  "backend_version": "07e6e337-9464-4566-ab53-7cbcc7b7fcea",
+  "source_commit": "e681f9dd06f695b79461a34057962964190ce7b2",
+  "built_at": "2026-10-19T11:59:27Z",
+  "checks": "flutter analyze (no issues); flutter test (423); backend worker/client/security tests; release build with base-href /hukuk-reels/",
+  "change": "Music panel preload; Block Blast pixel-art celebrations, combo shake, season 2 leaderboard reset",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "1f76cea2eac0ec63"
+  "app_build": "785303c1ae72b7c6"
 }
