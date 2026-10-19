@@ -30,6 +30,13 @@ class _MusicControlPanelState extends State<MusicControlPanel> {
   double? _scrub;
 
   @override
+  void initState() {
+    super.initState();
+    // Çal'a basılmadan parça inmeye başlasın; basınca hemen çalar.
+    _audio.prepare();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
     final width = math.min(320.0, mq.size.width - 24);
@@ -278,12 +285,17 @@ class _MusicControlPanelState extends State<MusicControlPanel> {
             initialData: _audio.isPlaying,
             builder: (context, snap) {
               final playing = snap.data ?? false;
-              return _roundButton(
-                key: const ValueKey('music-play'),
-                label: playing ? 'Duraklat' : 'Çal',
-                icon: playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                primary: true,
-                onTap: _audio.playPause,
+              return StreamBuilder<bool>(
+                stream: _audio.loadingStream,
+                builder: (context, loading) => _roundButton(
+                  key: const ValueKey('music-play'),
+                  label: playing ? 'Duraklat' : 'Çal',
+                  icon:
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  primary: true,
+                  loading: loading.data ?? false,
+                  onTap: _audio.playPause,
+                ),
               );
             },
           ),
@@ -322,6 +334,7 @@ class _MusicControlPanelState extends State<MusicControlPanel> {
     required IconData icon,
     required VoidCallback onTap,
     bool primary = false,
+    bool loading = false,
   }) {
     final size = primary ? 56.0 : 44.0;
     return Pressable(
@@ -345,9 +358,25 @@ class _MusicControlPanelState extends State<MusicControlPanel> {
                 ]
               : null,
         ),
-        child: Icon(icon,
-            color: primary ? Colors.white : AppTheme.textPrimary,
-            size: primary ? 30 : 24),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Parça yüklenirken tuş halkası döner: basış alındı, ses geliyor.
+            if (loading)
+              SizedBox(
+                key: const ValueKey('music-loading'),
+                width: size - 6,
+                height: size - 6,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              ),
+            Icon(icon,
+                color: primary ? Colors.white : AppTheme.textPrimary,
+                size: primary ? 30 : 24),
+          ],
+        ),
       ),
     );
   }
