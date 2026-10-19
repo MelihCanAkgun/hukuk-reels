@@ -1,8 +1,8 @@
 {
-  "source_commit": "d925bcb85449525162f4576b16fce73d9c56b064",
-  "built_at": "2026-10-19T12:05:27Z",
-  "checks": "flutter analyze (no issues); flutter test (423); release build with base-href /hukuk-reels/",
-  "change": "Smaller, quicker Block Blast combo celebrations; shorter shake",
+  "source_commit": "4766a64370dcd87b6127d11459f6ee33ee6170b4",
+  "built_at": "2026-10-19T12:08:37Z",
+  "checks": "web runtime/update tests; release build with base-href /hukuk-reels/",
+  "change": "Game sound effects unlock without starting the music first",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "ad6d4eeb3243f97d"
+  "app_build": "1ef83ac654585858"
 }
