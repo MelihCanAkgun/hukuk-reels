@@ -384,13 +384,7 @@ class _GameLeaderboardState extends State<GameLeaderboard>
               const Padding(
                 key: ValueKey('block-season'),
                 padding: EdgeInsets.only(bottom: 12),
-                child: Column(children: [
-                  PixelText('SEZON 2', px: 3),
-                  SizedBox(height: 4),
-                  Text('Rekabet sıfırdan başladı. İlk rekor kimin olacak?',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFFD5DEEE), fontSize: 13)),
-                ]),
+                child: Center(child: PixelText('SEZON 2', px: 3)),
               ),
             for (var i = 0; i < players.length; i++)
               Card(
