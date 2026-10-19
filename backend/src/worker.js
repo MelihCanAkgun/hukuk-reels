@@ -36,8 +36,10 @@ async function body(request) {
 // Arcade games with their own leaderboard (game_scores). Block Blast keeps players.best.
 export const GAMES = ['flappy', 'subway', 'tower'];
 // Block Blast season. A new season comes with a migration that archives and
-// zeroes players.best; scores without the current season (older clients still
-// holding last season's record) are ignored so the old record cannot return.
+// zeroes players.best. Scores without the current season come from older
+// clients whose stored best may be last season's record: they count only when
+// they beat the player's archived record, i.e. a new record set on the old
+// version before updating. Otherwise that game would be lost.
 export const BLOCK_SEASON = 2;
 async function board(env, playerId) {
   // `avatar` is only a version tag; the photo itself needs an authenticated /avatar request.
@@ -253,9 +255,10 @@ export async function route(request, env, ctx) {
     if (game !== 'block' && !GAMES.includes(game)) fail('Geçersiz oyun.');
     // MAX and the SQL triggers run atomically: retries cannot lower scores or duplicate overtakes.
     if (game === 'block') {
-      if (data.season === BLOCK_SEASON) {
-        await env.DB.prepare('UPDATE players SET best = MAX(best, ?) WHERE id = ?').bind(data.score, player.id).run();
-      }
+      const legacy = data.season === BLOCK_SEASON ? 0 : 1;
+      await env.DB.prepare(`UPDATE players SET best = MAX(best, ?) WHERE id = ? AND (? = 0 OR ? >
+        COALESCE((SELECT best FROM block_season_archive WHERE season = ? AND player_id = ?), 0))`)
+        .bind(data.score, player.id, legacy, data.score, BLOCK_SEASON - 1, player.id).run();
     } else {
       await env.DB.prepare(`INSERT INTO game_scores(player_id, game, best) VALUES (?, ?, ?)
         ON CONFLICT(player_id, game) DO UPDATE SET best = MAX(best, excluded.best)`).bind(player.id, game, data.score).run();
