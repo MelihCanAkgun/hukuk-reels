@@ -10,7 +10,8 @@ async function main() {
   }
   let context;
   class AudioContext {
-    constructor() { this.state = 'suspended'; context = this; }
+    constructor() { this.state = 'suspended'; this.sampleRate = 48000; this.destination = {}; context = this; }
+    createBuffer(channels, length, rate) { return {channels, length, rate}; }
     createGain() { return {gain: {value: 1}, connect() {}}; }
     createMediaElementSource(element) {
       const source = {element, connect(gain) {this.gain = gain;}};
@@ -24,7 +25,7 @@ async function main() {
     decodeAudioData() { return Promise.resolve({decoded: true}); }
   }
   const doc = {hidden: false, addEventListener(name, fn) {documentHandlers[name] = fn;}, querySelectorAll() {return [];}};
-  const audio = vm.createContext({window: {AudioContext, HTMLMediaElement: MediaElement}, document: doc, navigator: {userAgent: 'iPhone', platform: 'iPhone', maxTouchPoints: 1}, console,
+  const audio = vm.createContext({window: {AudioContext, HTMLMediaElement: MediaElement}, document: doc, navigator: {userAgent: 'iPhone', platform: 'iPhone', maxTouchPoints: 1, audioSession: {type: 'auto'}}, console,
     fetch: async () => ({ok: true, arrayBuffer: async () => new ArrayBuffer(4)})});
   vm.runInContext(fs.readFileSync('web/audio.js', 'utf8'), audio);
   audio.sfxLoad('combo', '/assets/combo.wav');
@@ -38,6 +39,20 @@ async function main() {
   doc.hidden = true; audio.sfxPlay('combo'); assert.equal(sources.length, 2);
   doc.hidden = false; context.state = 'interrupted'; documentHandlers.pointerdown();
   assert.equal(context.state, 'running');
+  // A touch pointerdown or a drag is not a user activation on iOS; touchend
+  // and click are, so they also unlock. The first unlock starts one silent
+  // sample; later gestures only resume.
+  const silent = sources.filter(s => s.buffer?.length === 1);
+  assert.equal(silent.length, 1);
+  assert.equal(silent[0].started, true);
+  for (const type of ['pointerup', 'touchend', 'click', 'keydown']) {
+    context.state = 'suspended'; documentHandlers[type]();
+    assert.equal(context.state, 'running', type);
+  }
+  assert.equal(sources.filter(s => s.buffer?.length === 1).length, 1);
+  // Effects use the same "playback" session as music: not muted by the
+  // silent switch only until the music has played once.
+  assert.equal(audio.navigator.audioSession.type, 'playback');
 
   // Detached just_audio elements never appear in querySelectorAll or bubble
   // events to document. The actual native play call must register them.
