@@ -1,8 +1,8 @@
 {
-  "source_commit": "e681f9dd06f695b79461a34057962964190ce7b2",
-  "built_at": "2026-10-19T11:59:27Z",
-  "checks": "flutter analyze (no issues); flutter test (423); backend worker/client/security tests; release build with base-href /hukuk-reels/",
-  "change": "Music panel preload; Block Blast pixel-art celebrations, combo shake, season 2 leaderboard reset",
+  "source_commit": "9cee4e24ec34f37fdf4b6bacdccd582e8cb449f9",
+  "built_at": "2026-10-19T12:02:14Z",
+  "checks": "flutter analyze (no issues); leaderboard tests; release build with base-href /hukuk-reels/",
+  "change": "Leaderboard shows only the pixel SEZON 2 badge",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "785303c1ae72b7c6"
+  "app_build": "47926dfcbba99ed5"
 }
