@@ -1,8 +1,8 @@
 {
-  "source_commit": "d9fdaa04deafec12ae58184e883d81718ab13221",
-  "built_at": "2026-10-19T12:16:44Z",
-  "checks": "flutter analyze (no issues); flutter test (423); release build with base-href /hukuk-reels/",
-  "change": "Smooth SSS moments on iPhone: layered shake, cached pixel titles, cheap combo chip",
+  "source_commit": "7cc835d3b14d3ea83dae9f3ef7a0108458d59036",
+  "built_at": "2026-10-19T12:20:45Z",
+  "checks": "backend tests (non-battle, 49); release build with base-href /hukuk-reels/",
+  "change": "Keep Block Blast records set on the old version after the season reset",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "69947ef15c9402a5"
+  "app_build": "685f2d7cad98a493"
 }
