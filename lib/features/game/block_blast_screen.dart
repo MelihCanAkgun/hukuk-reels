@@ -49,7 +49,7 @@ const List<Color> _palette = [
 ];
 
 class _BlockBlastScreenState extends State<BlockBlastScreen>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   final _rng = Random();
   BlockBattleSession? get _battle => widget.battle;
   Timer? _battleTimer, _battleNoticeTimer;
@@ -68,6 +68,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   List<BlockPiece?> get _tray => _game.tray;
   int get _score => _game.score;
   late final AnimationController _fxClock;
+  // Ekran sarsıntısı (yalnız görsel): kombo büyüdükçe sertleşir ve uzar.
+  late final AnimationController _shake;
+  double _shakePower = 0;
   final _boardFx = BlockBoardFx();
   String _feedback = '';
   BlockCelebrationData? _celebration;
@@ -114,6 +117,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     }
     SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
     WidgetsBinding.instance.addObserver(this);
+    _shake = AnimationController(vsync: this);
     _fxClock = AnimationController.unbounded(vsync: this)
       ..addListener(() {
         if (_boardFx.retire(_fxClock.value) && mounted) setState(() {});
@@ -156,6 +160,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _battleNoticeTimer?.cancel();
     _battle?.removeListener(_battleChanged);
     _fxClock.dispose();
+    _shake.dispose();
     _dragPosition.dispose();
     super.dispose();
   }
@@ -337,6 +342,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
             allClear: move.allClear);
         _celebrationId++;
       }
+      _kickShake(move);
       HapticFeedback.mediumImpact();
       if (_game.combo > 1 || move.lines > 1) {
         SfxService.instance.combo(_game.combo);
@@ -349,6 +355,44 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     }
     if (_battle == null && !_game.hasMove) _gameOver();
   }
+
+  /// Kombo ve aynı anda silinen çizgi arttıkça ekran daha sert ve uzun
+  /// sarsılır; tek çizgilik ilk silme sarsmaz. Puanı etkilemez.
+  void _kickShake(BlockMove move) {
+    final power =
+        (_game.combo - 1) + (move.lines - 1) * 1.5 + (move.allClear ? 3 : 0);
+    if (power <= 0 || MediaQuery.disableAnimationsOf(context)) return;
+    _shakePower = min(power, 10.0);
+    _shake.duration = Duration(milliseconds: (220 + _shakePower * 45).round());
+    _shake.forward(from: 0);
+    if (_shakePower >= 4) HapticFeedback.heavyImpact();
+  }
+
+  /// Ağaç yapısı hep aynı kalır (durağanken sıfır kayma), böylece sarsıntı
+  /// başlayıp bitince alt ağaç yeniden kurulmaz.
+  Widget _shaking(Widget child) => AnimatedBuilder(
+        animation: _shake,
+        child: child,
+        builder: (context, child) {
+          var offset = Offset.zero, turn = 0.0;
+          if (_shake.isAnimating) {
+            final t = _shake.value;
+            final decay = (1 - t) * (1 - t);
+            // Piksel hissi: ~30 kare/sn adımlar, tam piksele yuvarlanmış kayma.
+            final step = (t * _shake.duration!.inMilliseconds / 33).floor();
+            final amp = (1.5 + _shakePower * 1.3) * decay;
+            offset = Offset((sin(step * 2.7) * amp).roundToDouble(),
+                (cos(step * 3.9) * amp * .7).roundToDouble());
+            // Çok büyük kombolarda hafif yalpalama da eklenir.
+            if (_shakePower > 5) {
+              turn = sin(step * 1.9) * .006 * (_shakePower - 5) / 5 * decay;
+            }
+          }
+          return Transform.translate(
+              offset: offset,
+              child: Transform.rotate(angle: turn, child: child));
+        },
+      );
 
   void _battleChanged() {
     if (!mounted || _battle?.mine == null) return;
@@ -517,7 +561,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
               colors: [Color(0xFF294879), Color(0xFF172849)],
             )),
             child: SafeArea(
-              child: BattleLifeFeedback(
+              child: _shaking(BattleLifeFeedback(
                   session: _battle,
                   child: Stack(
                     key: _stackKey,
@@ -620,7 +664,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                             session: _battle!,
                             onClose: () => unawaited(_exitBattle())),
                     ],
-                  )),
+                  ))),
             ),
           ),
         ));

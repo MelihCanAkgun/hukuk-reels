@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 const source=readFileSync(new URL('../../web/social.js',import.meta.url),'utf8');
-function client({push = false} = {}) {
-  const saved=new Map(); const timers=[]; const requests=[]; let offline=false; let best=0; const scores={};
+function client({push = false, stored} = {}) {
+  const saved=new Map(stored ? [['hukuk_social_v1', JSON.stringify(stored)]] : []); const timers=[]; const requests=[]; let offline=false; let best=0; const scores={};
   const window={addEventListener(){}};
   const sub = {endpoint:'https://web.push.apple.com/test', toJSON(){return {endpoint:this.endpoint, keys:{p256dh:'A'.repeat(87),auth:'B'.repeat(22)}};}};
   const notification = {permission:'granted'};
@@ -82,7 +82,7 @@ test('arcade games keep separate bests and upload only what the server lacks',as
   await c.call('init',{url:'https://worker.example'});
   await c.call('join',{token:'a'.repeat(43),name:'A',score:40,scores:{flappy:9,tower:3,subway:-1}});
   const scoreBodies=()=>c.requests.filter(r=>r.url.endsWith('/score')).map(r=>JSON.parse(r.body));
-  assert.deepEqual(scoreBodies(),[{score:40},{game:'flappy',score:9},{game:'tower',score:3}]);
+  assert.deepEqual(scoreBodies(),[{score:40,season:2},{game:'flappy',score:9},{game:'tower',score:3}]);
   await c.call('score',{game:'flappy',score:7});
   assert.equal(c.timers.length,0);
   c.offline(true);
@@ -130,4 +130,15 @@ test('activity: changing area reports once after a short pause',async()=>{
   await c.timers.at(-1)();
   await new Promise(r=>setImmediate(r));
   assert.deepEqual(seen().at(-1),{open:false,device:'other',area:'block'});
+});
+test('a new Block Blast season zeroes this device\'s stored record only',async()=>{
+  const c=client({stored:{url:'https://worker.example',token:'a'.repeat(43),best:9000,bests:{flappy:4}}});
+  const kept=JSON.parse(c.saved.get('hukuk_social_v1'));
+  assert.equal(kept.best,0);
+  assert.equal(kept.blockSeason,2);
+  assert.deepEqual(kept.bests,{flappy:4});
+  await c.call('state');
+  await new Promise(r=>setImmediate(r));
+  const uploads=c.requests.filter(r=>r.url.endsWith('/score')).map(r=>JSON.parse(r.body));
+  assert.deepEqual(uploads,[{game:'flappy',score:4}], 'the old Block Blast record is not uploaded');
 });

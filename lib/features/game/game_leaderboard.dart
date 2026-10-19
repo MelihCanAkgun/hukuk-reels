@@ -8,6 +8,7 @@ import '../../core/services/avatar_sync.dart';
 import '../../core/services/avatar_bridge.dart';
 import '../profile/profile_avatar.dart';
 import '../../core/widgets/pixel_logo.dart';
+import '../../core/widgets/pixel_text.dart';
 import '../../core/services/activity_area.dart';
 
 const socialApiUrl = String.fromEnvironment('SOCIAL_API_URL',
@@ -378,6 +379,19 @@ class _GameLeaderboardState extends State<GameLeaderboard>
                 child: const Text('Sıralamaya katıl')),
           ],
           if (connected) ...[
+            // Block Blast sezon 2: rekorlar sıfırlandı (worker BLOCK_SEASON).
+            if (_game == LeaderboardGame.block)
+              const Padding(
+                key: ValueKey('block-season'),
+                padding: EdgeInsets.only(bottom: 12),
+                child: Column(children: [
+                  PixelText('SEZON 2', px: 3),
+                  SizedBox(height: 4),
+                  Text('Rekabet sıfırdan başladı. İlk rekor kimin olacak?',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Color(0xFFD5DEEE), fontSize: 13)),
+                ]),
+              ),
             for (var i = 0; i < players.length; i++)
               Card(
                 color: players[i]['id'] == _data['me']

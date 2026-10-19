@@ -36,21 +36,21 @@ test('only two private players; bad origin and tokens cannot read scores', async
 });
 test('scores never decrease; overtakes notify once, ties do not notify', async()=>{
   const {db,call}=await setup();
-  await call('/score',{score:100});
+  await call('/score',{season:2,score:100});
   assert.equal(db.prepare('SELECT COUNT(*) n FROM notifications').get().n,1);
-  await call('/score',{score:100});
-  await call('/score',{score:90});
-  await call('/score',{score:100},1);
+  await call('/score',{season:2,score:100});
+  await call('/score',{season:2,score:90});
+  await call('/score',{season:2,score:100},1);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM notifications').get().n,1);
-  await call('/score',{score:110},1);
+  await call('/score',{season:2,score:110},1);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM notifications').get().n,2);
   const event=db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 1').get();
   assert.equal(event.player_id,1);
   assert.match(event.body,/Arkadaş senin skorunu geçti/);
-  await call('/score',{score:120},1);
+  await call('/score',{season:2,score:120},1);
   assert.equal(db.prepare('SELECT COUNT(*) n FROM notifications').get().n,2);
-  assert.equal((await call('/score',{score:-1})).status,400);
-  assert.equal((await call('/score',{score:1.5})).status,400);
+  assert.equal((await call('/score',{season:2,score:-1})).status,400);
+  assert.equal((await call('/score',{season:2,score:1.5})).status,400);
 });
 test('each arcade game has its own leaderboard and overtake notifications', async()=>{
   const {db,call}=await setup();
@@ -77,7 +77,7 @@ test('each arcade game has its own leaderboard and overtake notifications', asyn
   assert.deepEqual(data.players.map(p=>p.best),[0,0]);
   assert.deepEqual(data.scores.filter(r=>r.game==='flappy').map(r=>[r.id,r.best]),[[2,20],[1,12]]);
   assert.deepEqual(data.scores.filter(r=>r.game==='tower').map(r=>[r.id,r.best]),[[2,7]]);
-  await call('/score',{game:'block',score:30});
+  await call('/score',{game:'block',season:2,score:30});
   assert.equal((await call('/board')).data.players.find(p=>p.id===1).best,30);
   assert.equal((await call('/score',{game:'chess',score:1})).status,400);
   assert.equal((await call('/score',{game:'subway',score:-3})).status,400);
@@ -209,4 +209,19 @@ test('admin can preview a manual message on own devices only', async()=>{
   assert.equal(event.player_id,1);
   assert.match(event.title,/Melih sana mesaj gönderdi/);
   assert.equal((await call('/message',{message:'Önizleme',self:true},1)).status,403);
+});
+test('Block Blast season 2: archived, zeroed, and last season cannot return', async()=>{
+  const {db,call}=await setup();
+  db.prepare('UPDATE players SET best = 5000 WHERE id = 1').run();
+  await call('/score',{game:'flappy',score:7});
+  db.exec(readFileSync(new URL('../migrations/0009_block_season_2.sql', import.meta.url), 'utf8'));
+  assert.deepEqual(db.prepare('SELECT best FROM players ORDER BY id').all().map(r=>r.best),[0,0]);
+  assert.equal(db.prepare('SELECT best FROM block_season_archive WHERE season=1 AND player_id=1').get().best,5000);
+  const blockBest=async()=>(await call('/board')).data.players.find(p=>p.id===1).best;
+  await call('/score',{score:5000}); // an older client without the season
+  await call('/score',{season:1,score:5000});
+  assert.equal(await blockBest(),0);
+  await call('/score',{season:2,score:40});
+  assert.equal(await blockBest(),40);
+  assert.equal((await call('/board')).data.scores.find(r=>r.game==='flappy').best,7, 'other games keep their records');
 });
