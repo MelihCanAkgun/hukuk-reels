@@ -1,8 +1,8 @@
 {
-  "source_commit": "9cee4e24ec34f37fdf4b6bacdccd582e8cb449f9",
-  "built_at": "2026-10-19T12:02:14Z",
-  "checks": "flutter analyze (no issues); leaderboard tests; release build with base-href /hukuk-reels/",
-  "change": "Leaderboard shows only the pixel SEZON 2 badge",
+  "source_commit": "d925bcb85449525162f4576b16fce73d9c56b064",
+  "built_at": "2026-10-19T12:05:27Z",
+  "checks": "flutter analyze (no issues); flutter test (423); release build with base-href /hukuk-reels/",
+  "change": "Smaller, quicker Block Blast combo celebrations; shorter shake",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "47926dfcbba99ed5"
+  "app_build": "ad6d4eeb3243f97d"
 }
