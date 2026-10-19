@@ -27,7 +27,33 @@
         ctx.resume().catch(function () {});
       }
     }
-    document.addEventListener('pointerdown', _resumeCtx, { passive: true });
+    // iOS Safari AudioContext'i yalnız "kullanıcı etkinleştirmesi" sayılan
+    // olaylarda açar: dokunmatik pointerdown bunlardan değil, sürükle-bırak
+    // da sayılmaz. Bu yüzden efektler müzik düğmesine dokunulana kadar
+    // susuyordu. Etkinleştiren olayların hepsinde dene; ilk başarılı açılışta
+    // sessiz tek örneklik bir kaynak çalarak bağlamı gerçekten başlat.
+    var _unlocked = false;
+    function _unlock() {
+      _resumeCtx();
+      var ctx = _ac;
+      if (_unlocked || !ctx) return;
+      try {
+        var s = ctx.createBufferSource();
+        s.buffer = ctx.createBuffer(1, 1, ctx.sampleRate);
+        s.connect(ctx.destination);
+        s.start(0);
+        _unlocked = true;
+      } catch (e) {}
+    }
+    ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown'].forEach(function (type) {
+      document.addEventListener(type, _unlock, { passive: true, capture: true });
+    });
+    // iOS 17+: yalnız WebAudio çalarken sessiz mod anahtarı efektleri
+    // susturur (müzik bir kez çalınca açılan da buydu). Müzikle aynı
+    // "playback" oturumu kullanılır.
+    try {
+      if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    } catch (e) {}
     document.addEventListener('visibilitychange', function () {
       if (!document.hidden) _resumeCtx();
     });
