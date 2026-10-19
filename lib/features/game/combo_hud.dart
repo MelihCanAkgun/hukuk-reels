@@ -119,18 +119,19 @@ class _ComboChipState extends State<_ComboChip>
   Widget build(BuildContext context) {
     final tier = widget.tier;
 
-    return AnimatedBuilder(
-      animation: _pulse,
-      builder: (context, child) {
-        final pulseT = _pulse.value;
-        // Subtle scale pop: 1.0 → 1.03..1.06 depending on tier intensity
-        final scale = 1.0 + tier.scaleAmount * pulseT;
-        // Glow opacity oscillation
-        final glowOpacity = (tier.glowBase + tier.glowRange * pulseT)
-            .clamp(0.0, 1.0);
-
-        return Transform.scale(
-          scale: scale,
+    // Glow is fixed; only the scale pulses. Re-blurring the shadow every
+    // frame (and repainting the whole screen with it, as the chip had no
+    // layer of its own) made high combos stutter on iPhone.
+    final glowOpacity = (tier.glowBase + tier.glowRange * .5).clamp(0.0, 1.0);
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, child) => Transform.scale(
+          // Subtle scale pop: 1.0 → 1.015..1.05 depending on tier intensity
+          scale: 1.0 + tier.scaleAmount * _pulse.value,
+          child: child,
+        ),
+        child: RepaintBoundary(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
@@ -143,7 +144,7 @@ class _ComboChipState extends State<_ComboChip>
               boxShadow: [
                 BoxShadow(
                   color: tier.accentColor.withValues(alpha: 0.25 * glowOpacity),
-                  blurRadius: 12 + 6 * pulseT,
+                  blurRadius: 15,
                   spreadRadius: 0,
                 ),
               ],
@@ -201,8 +202,8 @@ class _ComboChipState extends State<_ComboChip>
               ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

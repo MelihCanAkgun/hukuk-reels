@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/widgets.dart';
 
 /// 5×7 piksel yazı tipi: oyun içi ödül yazıları (COMBO!, SSS…) ve küçük
@@ -62,7 +64,7 @@ class PixelTextLayout {
     var x = 1;
     for (final rune in text.toUpperCase().runes) {
       final rows = _glyphs[String.fromCharCode(rune)] ?? _glyphs[' ']!;
-      final g = _Glyph(x);
+      final g = _Glyph(x, rows.first.length);
       for (var y = 0; y < rows.length; y++) {
         for (var cx = 0; cx < rows[y].length; cx++) {
           if (rows[y][cx] != '#') continue;
@@ -95,39 +97,70 @@ class PixelTextLayout {
     canvas.save();
     canvas.translate(origin.dx, origin.dy);
     canvas.scale(px);
+    // Gölgeler önce: komşu harfin konturu üstüne binmesin.
     for (var pass = 0; pass < 3; pass++) {
       for (var i = 0; i < _letters.length; i++) {
-        final g = _letters[i];
         final dy = (lift?.call(i) ?? 0).roundToDouble();
         canvas.save();
         canvas.translate(0, -dy);
-        switch (pass) {
-          case 0: // gölge önce: komşu harfin konturu üstüne binmesin
-            canvas.drawPath(g.shadow, paint..color = shadow);
-          case 1:
-            canvas.drawPath(g.outline, paint..color = outline);
-          default:
-            final base = tint?.call(i) ?? fill;
-            final up = tint == null
-                ? light
-                : Color.lerp(base, const Color(0xFFFFFFFF), .55)!;
-            final down = tint == null
-                ? dark
-                : Color.lerp(base, const Color(0xFF000000), .28)!;
-            canvas.drawPath(g.light, paint..color = up);
-            canvas.drawPath(g.fill, paint..color = base);
-            canvas.drawPath(g.dark, paint..color = down);
-        }
+        _pass(canvas, _letters[i], pass, paint, tint?.call(i));
         canvas.restore();
       }
     }
     canvas.restore();
   }
+
+  void _pass(Canvas canvas, _Glyph g, int pass, Paint paint, Color? tint) {
+    switch (pass) {
+      case 0:
+        canvas.drawPath(g.shadow, paint..color = shadow);
+      case 1:
+        canvas.drawPath(g.outline, paint..color = outline);
+      default:
+        final base = tint ?? fill;
+        final up = tint == null
+            ? light
+            : Color.lerp(base, const Color(0xFFFFFFFF), .55)!;
+        final down = tint == null
+            ? dark
+            : Color.lerp(base, const Color(0xFF000000), .28)!;
+        canvas.drawPath(g.light, paint..color = up);
+        canvas.drawPath(g.fill, paint..color = base);
+        canvas.drawPath(g.dark, paint..color = down);
+    }
+  }
+
+  /// [letter] harfinin kontur ve gölge dahil kutusu (kare cinsinden; x
+  /// yazının solundan).
+  Rect letterBox(int letter) {
+    final g = _letters[letter];
+    return Rect.fromLTWH(g.x - 1.0, 0, g.w + 3.0, height.toDouble());
+  }
+
+  /// [letter] harfini tek başına, [px] boyunda ve [dpr] çözünürlüğünde bir
+  /// görüntüye çizer. Animasyonda her karede yüzlerce kareden oluşan yolu
+  /// yeniden çizmek yerine bu hazır görüntü çizilir (iPhone'da akıcılık).
+  ui.Image letterImage(int letter, double px, double dpr, {Color? tint}) {
+    final box = letterBox(letter);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)
+      ..scale(px * dpr)
+      ..translate(-box.left, 0);
+    final paint = Paint()..isAntiAlias = false;
+    for (var pass = 0; pass < 3; pass++) {
+      _pass(canvas, _letters[letter], pass, paint, tint);
+    }
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(
+        (box.width * px * dpr).ceil(), (box.height * px * dpr).ceil());
+    picture.dispose();
+    return image;
+  }
 }
 
 class _Glyph {
-  _Glyph(this.x);
-  final int x;
+  _Glyph(this.x, this.w);
+  final int x, w;
   final outline = Path(), light = Path(), fill = Path(), dark = Path();
   late final Path shadow;
 }
