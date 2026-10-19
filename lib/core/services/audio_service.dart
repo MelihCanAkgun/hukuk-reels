@@ -22,6 +22,7 @@ class AudioService {
   bool _hasStarted = false;
   bool _userPaused = false; // kullanıcı bilerek durdurduysa true
   bool _specialActive = false; // sürpriz ekranındaki parça tekrarda mı
+  bool _prepared = false;
 
   bool get hasTracks => AppConfig.musicTracks.isNotEmpty;
 
@@ -29,6 +30,14 @@ class AudioService {
   Stream<bool> get playingStream => _player.playingStream;
   Stream<int?> get currentIndexStream => _player.currentIndexStream;
   Stream<double> get volumeStream => _player.volumeStream;
+
+  /// Çalma istendi ama parça henüz ses vermiyor (yükleniyor/tamponluyor).
+  Stream<bool> get loadingStream => _player.playerStateStream
+      .map((s) =>
+          s.playing &&
+          (s.processingState == ProcessingState.loading ||
+              s.processingState == ProcessingState.buffering))
+      .distinct();
 
   Stream<Duration> get positionStream => _player.positionStream;
   Stream<Duration?> get durationStream => _player.durationStream;
@@ -80,6 +89,32 @@ class AudioService {
     } catch (e) {
       debugPrint('[Audio] init hatası: $e');
     }
+  }
+
+  /// Çalan parçayı çalmadan önce yükler (denetim masası açılınca).
+  ///
+  /// `preload: false` yüzünden parça ilk Çal'a kadar hiç inmiyordu; play
+  /// önce ağdan üstveriyi bekliyor, müzik geç geliyordu. iOS Safari ise bu
+  /// beklemeden sonra gelen play()'i dokunuşa saymayıp hiç çalmıyordu.
+  /// Kaynak hazırsa play() dokunuşun içinde doğrudan <audio>'ya ulaşır.
+  void prepare() {
+    if (!hasTracks || _prepared) return;
+    _prepared = true;
+    unawaited(() async {
+      try {
+        await init();
+        if (!_initialized) {
+          _prepared = false;
+          return;
+        }
+        if (_player.processingState == ProcessingState.idle) {
+          await _player.load();
+        }
+      } catch (e) {
+        _prepared = false; // çevrimdışı vb.: sonraki açılışta yeniden dene
+        debugPrint('[Audio] hazırlama hatası: $e');
+      }
+    }());
   }
 
   AudioSource _sourceFor(String assetPath) {
@@ -148,7 +183,8 @@ class AudioService {
 
   /// Denetim masası: çal / durdur.
   Future<void> playPause() async {
-    await init();
+    // Hazırsa beklemeden çal: iOS play()'i yalnız dokunuşun içinde kabul eder.
+    if (!_initialized) await init();
     if (_player.playing) {
       _userPaused = true;
       await _player.pause();
