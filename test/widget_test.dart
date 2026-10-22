@@ -159,7 +159,7 @@ void main() {
     await gesture.moveBy(const Offset(0, -20));
     await tester.pump();
     final liftedOrigin = start - Offset(cell / 2, cell + 64);
-    await gesture.moveTo(start + (board.topLeft - liftedOrigin) / 2.2);
+    await gesture.moveTo(start + (board.topLeft - liftedOrigin) / 2.0);
     await tester.pump();
     await gesture.up();
     await tester.pump();
@@ -226,8 +226,8 @@ void main() {
     await first.moveBy(const Offset(20, -30));
     await tester.pump();
     final moved = tester.getRect(feedback);
-    expect(moved.left - initial.left, closeTo(44, .1));
-    expect(moved.top - initial.top, closeTo(-66, .1));
+    expect(moved.left - initial.left, closeTo(40, .1));
+    expect(moved.top - initial.top, closeTo(-60, .1));
     final second = await tester.startGesture(
         tester.getCenter(find.byKey(const ValueKey('block-tray-1'))),
         pointer: 2);
@@ -236,6 +236,9 @@ void main() {
     await tester.pump();
     expect(tester.getRect(feedback), moved);
     await first.cancel();
+    // Bırakılan parça tepsiye süzülerek döner.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pump();
     expect(feedback, findsNothing);
     expect(ProgressService.instance.loadBlockGame()!['score'], 0);

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hukuk_reels/features/game/block_battle_core.dart';
 import 'package:hukuk_reels/features/game/block_blast_engine.dart';
 
 BlockBlastEngine emptyGame() => BlockBlastEngine(random: Random(7))
@@ -235,5 +236,105 @@ void main() {
     expect(game.score, 123);
     expect(game.combo, 0);
     expect(game.reviveUsed, isTrue);
+  });
+
+  test('büyük L dört dönüşüyle var; çapraz ikili yalnız kurtarmada', () {
+    final big = [
+      for (var id = 0; id < blockShapes.length; id++)
+        if (blockShapes[id].length == 5 &&
+            BlockPiece(id, 0).rows == 3 &&
+            BlockPiece(id, 0).cols == 3)
+          {for (final c in blockShapes[id]) c[0] * 3 + c[1]}
+    ];
+    expect(big.length, 4);
+    expect(big.toSet().length, 4);
+    expect(rescueShapes.length, 2);
+    expect(regularShapes.any(rescueShapes.contains), false);
+    // Normal dağıtım çapraz ikiliyi hiç vermez.
+    final engine = BlockBlastEngine(random: Random(1));
+    for (var i = 0; i < 300; i++) {
+      engine.grid = List.generate(8, (_) => List.filled(8, null));
+      engine.refill();
+      expect(engine.tray.any((p) => rescueShapes.contains(p!.shape)), false);
+    }
+  });
+
+  test('çapraz iki boşluk: kurtarma parçası çapraz ikili', () {
+    final grid = List.generate(8, (_) => List<int?>.filled(8, 0));
+    grid[3][3] = null;
+    grid[4][4] = null;
+    final move = rescueMove(grid)!;
+    expect(rescueShapes.contains(move.$1), true);
+    expect((move.$2, move.$3), (3, 3));
+  });
+
+  test('kurtarma seyrek: yalnız sıkışık tahtada ve en az 6 sette bir', () {
+    var rescues = 0, sets = 0, lastAt = -100;
+    for (var seed = 0; seed < 40; seed++) {
+      final engine = BlockBlastEngine.empty(random: Random(seed));
+      for (var i = 0; i < 30; i++) {
+        // Sıkışık tahta: yalnız iki satırın ve sütunun birer hücresi boş.
+        engine.grid = List.generate(8, (_) => List<int?>.filled(8, 0));
+        engine.grid[2][2] = null;
+        engine.grid[5][6] = null;
+        final before = engine.sinceRescue;
+        engine.refill();
+        sets++;
+        if (engine.sinceRescue == 0) {
+          rescues++;
+          expect(before + 1, greaterThanOrEqualTo(BlockBlastEngine.rescueGap));
+          if (lastAt >= 0) expect(i - lastAt, greaterThanOrEqualTo(6));
+          lastAt = i;
+        }
+      }
+      lastAt = -100;
+    }
+    expect(rescues, greaterThan(0));
+    // Sürekli sıkışık tahtada bile setlerin ancak küçük bir kısmı.
+    expect(rescues / sets, lessThan(.2));
+    // Boş tahtada hiç kurtarma yok.
+    final open = BlockBlastEngine(random: Random(3));
+    for (var i = 0; i < 100; i++) {
+      open.grid = List.generate(8, (_) => List.filled(8, null));
+      open.refill();
+      expect(open.sinceRescue, isNot(0));
+    }
+  });
+
+  test('eski kayıt (kurtarma sayacı yok) aynı skorla açılır', () {
+    final game = emptyGame()..score = 1234;
+    final data = game.toJson()..remove('sinceRescue');
+    final restored = BlockBlastEngine.restore(data)!;
+    expect(restored.score, 1234);
+    expect(restored.sinceRescue, BlockBlastEngine.rescueGap);
+    expect(BlockBlastEngine.restore(restored.toJson())!.sinceRescue,
+        BlockBlastEngine.rescueGap);
+  });
+
+  test('eski maç üreticisi değişmedi; ortak sette kurtarma seyrek', () {
+    for (var i = 0; i < 200; i++) {
+      for (final p in battleTray(42, i)) {
+        expect(p!.shape, lessThan(legacyShapeCount));
+      }
+    }
+    // Sıkışık iki tahta: kurtarma ancak izin verildiğinde ve seyrek.
+    var rescued = 0;
+    for (var i = 0; i < 60; i++) {
+      final boards = [
+        for (var b = 0; b < 2; b++)
+          BlockBlastEngine.empty(nextTray: () => [null, null, null])
+            ..grid = (List.generate(8, (_) => List<int?>.filled(8, 0))
+              ..[2][2] = null
+              ..[5][6] = null)
+      ];
+      expect(fairBattleSet(42, i, boards).$2, false);
+      if (fairBattleSet(42, i, boards, rescue: true).$2) rescued++;
+    }
+    expect(rescued, greaterThan(0));
+    final m = BattleMatch('ABC234', 42, 0);
+    final copy = BattleMatch.restore(
+        jsonDecode(jsonEncode((m..lastRescue = 7).toJson()))
+            as Map<String, dynamic>);
+    expect(copy.lastRescue, 7);
   });
 }

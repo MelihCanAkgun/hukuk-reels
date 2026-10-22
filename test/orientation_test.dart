@@ -208,7 +208,9 @@ void main() {
         final g = await tester.startGesture(
             tester.getCenter(find.byKey(const ValueKey('block-tray-0'))));
         await g.moveBy(const Offset(0, -20));
+        // Parça tepsiden parmağın üstüne süzülür.
         await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
         final fb = find.byKey(const ValueKey('block-drag-feedback'));
         for (var i = 0; i < 30; i++) {
           final d = board.topLeft +

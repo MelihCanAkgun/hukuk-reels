@@ -204,7 +204,7 @@ void main() {
     await tester.pump();
     expect(requests, isEmpty);
     final lifted = start - Offset(cell / 2, cell + 64);
-    await gesture.moveTo(start + (board.topLeft - lifted) / 2.2);
+    await gesture.moveTo(start + (board.topLeft - lifted) / 2.0);
     await tester.pump();
     expect(requests, isEmpty);
     await gesture.up();

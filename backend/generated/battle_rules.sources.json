@@ -1,5 +1,5 @@
 {
-  "lib/features/game/block_blast_engine.dart": "cb5b24f88e349a1b6174f38e892f0fd1402b155a4224d6e969f03959cded66dc",
-  "lib/features/game/block_battle_core.dart": "648ff2e925f71bdd5b361cef8066634b27d1c945aabe46b2bbe455bcc3f7bdb4",
+  "lib/features/game/block_blast_engine.dart": "f15feb32048ef84ab7d9ae7c437f882601a6a74035829dbd875faa77b2354176",
+  "lib/features/game/block_battle_core.dart": "cffeeb24a7c2ed358b5a487b4ee41cc325c0a3dc7a80a640c262f41041112b0a",
   "backend/dart/battle_rules.dart": "6f5d0fc6e3c81c8f99f3dc61c08d71553fef75dd10f22f2eaefe9191724352bd"
 }

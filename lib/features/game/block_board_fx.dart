@@ -114,9 +114,7 @@ class _ClearWave {
             entry.value,
             Offset(cos(angle), sin(angle)) *
                 (.24 + random.nextDouble() * (.23 + intensity * .15)),
-            .035 + random.nextDouble() * .025,
-            random.nextDouble() * pi,
-            (random.nextDouble() - .5) * 2.2));
+            .035 + random.nextDouble() * .025));
       }
     }
   }
@@ -125,42 +123,54 @@ class _ClearWave {
 class _CellParticle {
   final int key, color;
   final Offset velocity;
-  final double radius, rotation, spin;
-  final Paint paint = Paint();
-  _CellParticle(this.key, this.color, this.velocity, this.radius, this.rotation,
-      this.spin);
+  final double radius;
+  final Paint paint = Paint()..isAntiAlias = false;
+  _CellParticle(this.key, this.color, this.velocity, this.radius);
 }
 
-// Eight cached, unit-space gradients serve the whole board and every FX frame.
-final _cellFills = <Color, Paint>{};
-final _cellEdge = Paint()..style = PaintingStyle.stroke;
-final _unitCell = Rect.fromCenter(center: Offset.zero, width: 1, height: 1);
+// Piksel blok: kare hücre, açık üst/sol ve koyu alt/sağ kenar, köşede parıltı.
+// Tonlar renk başına bir kez hesaplanır; tek Paint bütün dikdörtgenleri çizer.
+final _shades = <Color, (Color, Color, Color)>{};
+final _pixel = Paint()..isAntiAlias = false;
 
-void paintBlockCell(Canvas canvas, RRect rect, Color color,
-    {double alpha = 1}) {
+/// Kenar kalınlığı (bir "piksel"): hücrenin ~1/9'u, tam sayıya yuvarlı.
+double blockPixel(double size) => max(1.0, (size * .11).roundToDouble());
+
+void paintBlockCell(Canvas canvas, Rect rect, Color color, {double alpha = 1}) {
   if (rect.width <= 0 || rect.height <= 0) return;
-  final fill = _cellFills.putIfAbsent(
+  final (light, dark, glint) = _shades.putIfAbsent(
       color,
-      () => Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color.lerp(color, Colors.white, .25)!, color],
-        ).createShader(_unitCell));
-  fill.color = Colors.white.withValues(alpha: alpha);
-  _cellEdge
-    ..strokeWidth = 1 / min(rect.width, rect.height)
-    ..color = Colors.white.withValues(alpha: .18 * alpha);
-  final unit = RRect.fromRectAndRadius(
-      _unitCell,
-      Radius.elliptical(
-          rect.tlRadiusX / rect.width, rect.tlRadiusY / rect.height));
-  canvas.save();
-  canvas.translate(rect.center.dx, rect.center.dy);
-  canvas.scale(rect.width, rect.height);
-  canvas.drawRRect(unit, fill);
-  canvas.drawRRect(unit, _cellEdge);
-  canvas.restore();
+      () => (
+            Color.lerp(color, Colors.white, .38)!,
+            Color.lerp(color, Colors.black, .36)!,
+            Color.lerp(color, Colors.white, .8)!,
+          ));
+  final x = rect.left, y = rect.top, w = rect.width, h = rect.height;
+  final p = min(blockPixel(min(w, h)), min(w, h) / 3);
+  void fill(Color c, double l, double t, double rw, double rh) =>
+      canvas.drawRect(Rect.fromLTWH(l, t, rw, rh),
+          _pixel..color = c.withValues(alpha: alpha));
+  fill(color, x + p, y + p, w - 2 * p, h - 2 * p);
+  fill(light, x, y, w - p, p);
+  fill(light, x, y + p, p, h - 2 * p);
+  fill(color, x + w - p, y, p, p);
+  fill(color, x, y + h - p, p, p);
+  fill(dark, x + w - p, y + p, p, h - p);
+  fill(dark, x + p, y + h - p, w - 2 * p, p);
+  if (w >= 6 * p) {
+    fill(glint, x + 2 * p, y + 2 * p, 2 * p, p);
+    fill(glint, x + 2 * p, y + 3 * p, p, p);
+  }
+}
+
+/// Boş tahta hücresi: üst/sol kenarı gölgeli, içe gömük kare.
+void paintEmptyCell(Canvas canvas, Rect rect) {
+  final p = blockPixel(rect.width);
+  canvas.drawRect(rect, _pixel..color = const Color(0xFF1C3153));
+  _pixel.color = const Color(0xFF13233F);
+  canvas.drawRect(Rect.fromLTWH(rect.left, rect.top, rect.width, p), _pixel);
+  canvas.drawRect(
+      Rect.fromLTWH(rect.left, rect.top + p, p, rect.height - p), _pixel);
 }
 
 class BlockBoardFxPainter extends CustomPainter {
@@ -180,8 +190,7 @@ class BlockBoardFxPainter extends CustomPainter {
     final cell = size.width / 8;
     final now = clock.value;
     canvas.save();
-    canvas.clipRRect(
-        RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(14)));
+    canvas.clipRect(Offset.zero & size);
     // Only moving cells repaint on clock ticks; the other 64 cells stay cached.
     for (final impact in fx.impacts) {
       canvas.save();
@@ -191,10 +200,8 @@ class BlockBoardFxPainter extends CustomPainter {
         if (color == null || fx.impactAt(key, now) != impact) continue;
         paintBlockCell(
             canvas,
-            RRect.fromRectAndRadius(
-                Rect.fromLTWH((key % 8) * cell + 1.5, (key ~/ 8) * cell + 1.5,
-                    cell - 3, cell - 3),
-                Radius.circular(cell * .16)),
+            Rect.fromLTWH((key % 8) * cell + 1.5, (key ~/ 8) * cell + 1.5,
+                cell - 3, cell - 3),
             palette[color]);
       }
       canvas.restore();
@@ -233,12 +240,10 @@ class BlockBoardFxPainter extends CustomPainter {
         final alpha = 1 - Curves.easeInQuad.transform(shrink);
         canvas.save();
         fx.impactAt(entry.key, now)?.transform(canvas, cell, now);
-        final rect = RRect.fromRectAndRadius(
-            Rect.fromCenter(
-                center: center,
-                width: (cell - 3) * scale,
-                height: (cell - 3) * scale),
-            Radius.circular(cell * .16 * scale));
+        final rect = Rect.fromCenter(
+            center: center,
+            width: (cell - 3) * scale,
+            height: (cell - 3) * scale);
         final glow = sin(pi * t) * (.22 + wave.intensity * .10);
         if (glow > 0) {
           wave.cellGlowPaint.color =
@@ -246,8 +251,8 @@ class BlockBoardFxPainter extends CustomPainter {
           wave.cellGlowEdgePaint
             ..strokeWidth = cell * .045
             ..color = color.withValues(alpha: glow * .55);
-          canvas.drawRRect(rect.inflate(cell * .035), wave.cellGlowPaint);
-          canvas.drawRRect(rect.inflate(cell * .075), wave.cellGlowEdgePaint);
+          canvas.drawRect(rect.inflate(cell * .035), wave.cellGlowPaint);
+          canvas.drawRect(rect.inflate(cell * .075), wave.cellGlowEdgePaint);
         }
         paintBlockCell(canvas, rect, color, alpha: alpha);
         canvas.restore();
@@ -259,21 +264,13 @@ class BlockBoardFxPainter extends CustomPainter {
         final position = origin +
             p.velocity * cell * Curves.easeOutCubic.transform(t) +
             Offset(0, cell * .13 * t * t);
-        canvas.save();
-        canvas.translate(position.dx, position.dy);
-        canvas.rotate(p.rotation + p.spin * t);
-        final radius = p.radius * cell * (1 - .45 * t);
+        // Piksel kırıntı: döndürülmeyen kare.
+        final side = (p.radius * cell * 1.8 * (1 - .45 * t)).roundToDouble();
         p.paint.color =
             palette[p.color].withValues(alpha: .65 * min(1, t * 8) * (1 - t));
-        canvas.drawRRect(
-            RRect.fromRectAndRadius(
-                Rect.fromCenter(
-                    center: Offset.zero,
-                    width: radius * 1.5,
-                    height: radius * 2),
-                Radius.circular(radius * .35)),
+        canvas.drawRect(
+            Rect.fromCenter(center: position, width: side, height: side),
             p.paint);
-        canvas.restore();
       }
     }
     canvas.restore();

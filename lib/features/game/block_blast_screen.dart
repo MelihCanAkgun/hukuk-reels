@@ -99,12 +99,19 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   int? _dragPointer;
   Offset _pointerDown = Offset.zero;
   bool _dragMoved = false;
-  double _dragGain = 2.2;
+  // Kaydırma hassasiyeti: parmak hareketi bu katsayıyla büyütülür (>1 = aynı
+  // mesafeye daha az parmak hareketiyle ulaşılır).
+  double _dragGain = 2.0;
   Offset _dragAnchor = Offset.zero; // sürükleme başında parmak (stack uzayı)
   Offset _anchorTL = Offset.zero; // sürükleme başında parçanın sol-üstü
   bool _dragHasAnchor = false;
-  // Kaydırma hassasiyeti: parmak hareketi bu katsayıyla büyütülür (>1 = aynı
-  // mesafeye daha az parmak hareketiyle ulaşılır).
+  // Parça tepsiden parmağın üstüne süzülür, geçersiz bırakılınca geri döner:
+  // 0 = tepsideki yeri ve boyu, 1 = parmağı izleyen tam boy.
+  late final AnimationController _float;
+  final _trayKeys = List.generate(3, (_) => GlobalKey());
+  Offset _trayTL = Offset.zero;
+  double _trayScale = 1;
+  Offset _fingerTL = Offset.zero; // parmağı izleyen konum (önizleme buna göre)
 
   int _tr = 0, _tc = 0;
   bool _valid = false;
@@ -126,6 +133,14 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           : -1)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) _shakeStep.value = -1;
+      });
+    _float = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 120))
+      ..addListener(_floatChanged)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.dismissed && _dragIdx != null) {
+          _finishDrag();
+        }
       });
     _fxClock = AnimationController.unbounded(vsync: this)
       ..addListener(() {
@@ -169,6 +184,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _battleNoticeTimer?.cancel();
     _battle?.removeListener(_battleChanged);
     _fxClock.dispose();
+    _float.dispose();
     _shake.dispose();
     _shakeStep.dispose();
     _dragPosition.dispose();
@@ -177,12 +193,12 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) _cancelDrag();
+    if (state != AppLifecycleState.resumed && _dragIdx != null) _finishDrag();
   }
 
   @override
   void didChangeMetrics() {
-    if (_dragIdx != null) _cancelDrag();
+    if (_dragIdx != null) _finishDrag();
   }
 
   void _save() {
@@ -224,6 +240,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   // ── Sürükleme ──
   void _startDrag(int i, PointerDownEvent event) {
+    // Tepsiye dönmekte olan parça yeni dokunuşu bekletmez.
+    if (_dragIdx != null && _dragPointer == null) _finishDrag();
     if ((_battle != null && !_battle!.canPlay) ||
         _dragIdx != null ||
         _over ||
@@ -231,17 +249,38 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
         _reviveQ != null) {
       return;
     }
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final pieceBox =
+        _trayKeys[i].currentContext?.findRenderObject() as RenderBox?;
+    if (stackBox == null || pieceBox == null) return;
     _dragPointer = event.pointer;
     _pointerDown = event.position;
     _dragMoved = false;
-    _dragGain = event.kind == PointerDeviceKind.mouse ? 1.0 : 2.2;
+    _dragGain = event.kind == PointerDeviceKind.mouse ? 1.0 : 2.0;
     _valid = false;
     _dragIdx = i;
     _dragHasAnchor = false;
+    _trayTL = stackBox.globalToLocal(pieceBox.localToGlobal(Offset.zero));
+    _trayScale = pieceBox.size.width / (_tray[i]!.cols * _cell);
     _updateDrag(event.position);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _float.value = 1;
+    } else {
+      _float.forward(from: 0);
+    }
     HapticFeedback.selectionClick();
     setState(() {});
   }
+
+  /// Gösterilen konum: tepsideki yerden parmağın üstüne (ve geri) geçiş.
+  void _floatChanged() {
+    final t = Curves.easeOutCubic.transform(_float.value);
+    _dragPosition.value = Offset.lerp(_trayTL, _fingerTL, t)!;
+  }
+
+  double get _dragScale =>
+      _trayScale +
+      (1 - _trayScale) * Curves.easeOutCubic.transform(_float.value);
 
   void _updateDrag(Offset global) {
     final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
@@ -254,7 +293,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     final gridTL = stackBox.globalToLocal(gridBox.localToGlobal(Offset.zero));
     final wpx = p.cols * _cell, hpx = p.rows * _cell;
 
-    // Başlangıç çapasını sabitle: parça ilk anda parmağın üstünde belirir
+    // Başlangıç çapasını sabitle: parça parmağın üstüne yerleşir
     // (tepsi tahtanın yanındaysa parmağın solunda).
     if (!_dragHasAnchor) {
       _dragAnchor = local;
@@ -266,13 +305,14 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     // Parmak hareketini büyüterek uygula (hassasiyet).
     final target = _anchorTL + (local - _dragAnchor) * _dragGain;
     // Parça parmağın altında kalmaz: dikeyde hep üstünde, yanda hep solunda.
-    _dragPosition.value = _sideTray
+    _fingerTL = _sideTray
         ? Offset(min(target.dx, local.dx - wpx - 32), target.dy)
         : Offset(target.dx, min(target.dy, local.dy - hpx - 32));
+    _floatChanged();
 
     final oldRow = _tr, oldCol = _tc;
     final wasValid = _valid;
-    final rel = _dragPosition.value - gridTL;
+    final rel = _fingerTL - gridTL;
     _tc = (rel.dx / _cell).round();
     _tr = (rel.dy / _cell).round();
     _valid = _fits(p, _tr, _tc);
@@ -299,16 +339,29 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   void _endDrag() {
     if (_dragIdx != null && _valid) {
       _place(_tray[_dragIdx!]!, _tr, _tc, _dragIdx!);
+      _finishDrag();
+    } else {
+      _cancelDrag();
     }
-    _dragIdx = null;
+  }
+
+  /// Geçersiz bırakma ya da sürüklemeden dokunma: parça tepsiye süzülür.
+  void _cancelDrag() {
     _dragPointer = null;
     _valid = false;
     _preview = {};
     _clearPreview = {};
+    if (_float.value == 0 || MediaQuery.disableAnimationsOf(context)) {
+      _finishDrag();
+      return;
+    }
+    _float.reverse();
     setState(() {});
   }
 
-  void _cancelDrag() {
+  void _finishDrag() {
+    _float.stop();
+    _float.value = 0;
     _dragIdx = null;
     _dragPointer = null;
     _valid = false;
@@ -423,7 +476,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       _battleMove = mine['lastMove'];
       _battleOut = mine['boardOuts'];
       _battleRound = round;
-      _cancelDrag();
+      _finishDrag();
       if (reset || roundChanged) {
         _fxClock.stop();
         _boardFx.reset();
@@ -453,7 +506,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
         if (mounted) setState(() => _battleFeedback = '');
       });
     }
-    if (!session.canPlay && !session.pending) _cancelDrag();
+    if (!session.canPlay && !session.pending) _finishDrag();
     setState(() {});
   }
 
@@ -642,32 +695,26 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
                       // Sürüklenen parça (parmağın üstünde, tıklamayı engellemez)
                       if (_dragIdx != null && _tray[_dragIdx!] != null)
-                        ValueListenableBuilder<Offset>(
-                          valueListenable: _dragPosition,
+                        Positioned(
+                          left: 0,
+                          top: 0,
                           child: IgnorePointer(
+                            child: AnimatedBuilder(
+                              animation: _dragPosition,
+                              // Yalnız boyanır (yerleşim değişmez): akıcı.
+                              builder: (context, child) => Transform(
+                                  transform: Matrix4.identity()
+                                    ..translateByDouble(_dragPosition.value.dx,
+                                        _dragPosition.value.dy, 0, 1)
+                                    ..scaleByDouble(
+                                        _dragScale, _dragScale, 1, 1),
+                                  child: child),
+                              // Anahtar boyanan parçada: ölçülen yer ekrandaki.
                               child: RepaintBoundary(
-                            child: TweenAnimationBuilder<double>(
-                              tween: Tween(begin: 0.72, end: 1.0),
-                              duration: MediaQuery.disableAnimationsOf(context)
-                                  ? Duration.zero
-                                  : const Duration(milliseconds: 80),
-                              curve: Curves.easeOutCubic,
-                              child: _pieceGrid(_tray[_dragIdx!]!, _cell),
-                              builder: (context, scale, child) =>
-                                  Transform.scale(
-                                      key:
-                                          const ValueKey('block-drag-feedback'),
-                                      scale: scale,
-                                      alignment: _sideTray
-                                          ? Alignment.centerRight
-                                          : Alignment.bottomCenter,
-                                      child: child),
+                                  key: const ValueKey('block-drag-feedback'),
+                                  child: _pieceGrid(_tray[_dragIdx!]!, _cell)),
                             ),
-                          )),
-                          builder: (context, position, child) => Positioned(
-                              left: position.dx,
-                              top: position.dy,
-                              child: child!),
+                          ),
                         ),
 
                       if (_askContinue) _continueOverlay(),
@@ -800,9 +847,18 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           key: _gridKey,
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            color: const Color(0xFF101F3B),
-            borderRadius: BorderRadius.circular(14),
+          // Piksel çerçeve: sert (bulanıksız) gölgeler kutunun dışına çizilir,
+          // hücre ölçülerini değiştirmez.
+          decoration: const BoxDecoration(
+            color: Color(0xFF101F3B),
+            boxShadow: [
+              BoxShadow(
+                  color: Color(0xFF070F1E),
+                  offset: Offset(0, 7),
+                  spreadRadius: 4),
+              BoxShadow(color: Color(0xFF3A5C92), spreadRadius: 4),
+              BoxShadow(color: Color(0xFF070F1E), spreadRadius: 1),
+            ],
           ),
           child: Stack(children: [
             Positioned.fill(
@@ -853,34 +909,6 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                       compact: true)),
           ]),
         ));
-  }
-
-  Widget _cellBox(Color? color, {double alpha = 1}) {
-    if (color == null) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppTheme.surface.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(6),
-        ),
-      );
-    }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.lerp(color, Colors.white, 0.25)!.withValues(alpha: alpha),
-            color.withValues(alpha: alpha),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.18 * alpha),
-          width: 1,
-        ),
-      ),
-    );
   }
 
   /// Üç parçalık tepsi. [vertical]: yatay ekranda tahtanın yanında, [extent]
@@ -944,7 +972,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                             opacity: _dragIdx == i
                                 ? 0.18
                                 : (_game.canPlace(_tray[i]!) ? 1.0 : 0.35),
-                            child: _pieceGrid(_tray[i]!, tc),
+                            child: KeyedSubtree(
+                                key: _trayKeys[i],
+                                child: _pieceGrid(_tray[i]!, tc)),
                           ),
                         ),
                       ),
@@ -955,30 +985,11 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     );
   }
 
-  Widget _pieceGrid(BlockPiece p, double cell) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var r = 0; r < p.rows; r++)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (var c = 0; c < p.cols; c++)
-                SizedBox(
-                  width: cell,
-                  height: cell,
-                  child: p.has(r, c)
-                      ? Padding(
-                          padding: const EdgeInsets.all(1.5),
-                          child: _cellBox(_palette[p.color]),
-                        )
-                      : null,
-                ),
-            ],
-          ),
-      ],
-    );
-  }
+  Widget _pieceGrid(BlockPiece p, double cell) => SizedBox(
+        width: p.cols * cell,
+        height: p.rows * cell,
+        child: CustomPaint(painter: _PiecePainter(p, _palette[p.color])),
+      );
 
   Widget _circleBtn(IconData icon, VoidCallback onTap) {
     return IconButton(
@@ -1477,16 +1488,11 @@ class _GridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cell = size.width / _n;
     const gap = 3.0;
-    final empty = Paint()..color = const Color(0xFF1C3153);
-    final radius = Radius.circular(cell * 0.16);
 
     for (var r = 0; r < _n; r++) {
       for (var c = 0; c < _n; c++) {
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-              c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap),
-          radius,
-        );
+        final rect = Rect.fromLTWH(
+            c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap);
         Color? col = grid[r][c] == null || movingCells.contains(r * _n + c)
             ? null
             : _palette[grid[r][c]!];
@@ -1495,11 +1501,8 @@ class _GridPainter extends CustomPainter {
           col = previewColor;
           alpha = 0.5;
         }
-        if (col == null) {
-          canvas.drawRRect(rect, empty);
-          continue;
-        }
-        canvas.drawRRect(rect, empty);
+        paintEmptyCell(canvas, rect);
+        if (col == null) continue;
         paintBlockCell(canvas, rect, col, alpha: alpha);
       }
     }
@@ -1518,14 +1521,11 @@ class _GridPainter extends CustomPainter {
       final glowPath = Path();
       for (final key in clearCells) {
         final r = key ~/ _n, c = key % _n;
-        final rect = RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-              c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap),
-          radius,
-        );
-        glowPath.addRRect(rect);
-        canvas.drawRRect(rect, lit); // parlak dolgu
-        canvas.drawRRect(rect, edge); // parlak kenar
+        final rect = Rect.fromLTWH(
+            c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap);
+        glowPath.addRect(rect);
+        canvas.drawRect(rect, lit); // parlak dolgu
+        canvas.drawRect(rect.deflate(.5), edge); // parlak kenar
       }
       canvas.drawPath(
           glowPath, glow); // One cached preview halo, not 64 animated blurs.
@@ -1539,4 +1539,28 @@ class _GridPainter extends CustomPainter {
       !setEquals(preview, old.preview) ||
       !setEquals(clearCells, old.clearCells) ||
       !setEquals(movingCells, old.movingCells);
+}
+
+/// Tepsideki ve sürüklenen parça: hücreler tahtadakiyle aynı piksel bloklar.
+class _PiecePainter extends CustomPainter {
+  final BlockPiece piece;
+  final Color color;
+  _PiecePainter(this.piece, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cell = size.width / piece.cols;
+    final gap = cell < 30 ? 2.0 : 3.0;
+    for (final c in piece.cells) {
+      paintBlockCell(
+          canvas,
+          Rect.fromLTWH(c[1] * cell + gap / 2, c[0] * cell + gap / 2,
+              cell - gap, cell - gap),
+          color);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PiecePainter old) =>
+      old.piece != piece || old.color != color;
 }
