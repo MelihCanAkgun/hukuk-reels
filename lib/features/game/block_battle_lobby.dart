@@ -14,6 +14,9 @@ class BlockBattleLobby extends StatefulWidget {
 
   /// Bildirimdeki davetten gelen oda kodu: kayıtlıysa odaya hemen katılır.
   final String? invite;
+
+  /// Bir davet açıldı: açılıştaki otomatik oda dönüşü onu örtmez.
+  static bool inviteOpened = false;
   @override
   State<BlockBattleLobby> createState() => _BlockBattleLobbyState();
 }
@@ -42,11 +45,13 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
       if (widget.invite != null) _code.text = widget.invite!;
       return;
     }
-    await _session.action('resume');
-    if (widget.invite != null && mounted && _session.room == null) {
+    // Davetten gelindiyse eski kayıtlı oda yerine davetteki odaya girilir.
+    if (widget.invite != null) {
       _code.text = widget.invite!;
       await _action('join');
+      return;
     }
+    await _session.action('resume');
   }
 
   void _changed() {

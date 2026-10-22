@@ -35,9 +35,15 @@ void main() async {
 
   // Bildirimdeki 1v1 davetine dokunuldu: lobi oda koduyla açılır. Dinleme ilk
   // kareden sonra başlar; açılışı sağlayan davet o an teslim edilir.
-  WidgetsBinding.instance.addPostFrameCallback((_) => listenInvites((room) =>
-      navigatorKey.currentState?.push(MaterialPageRoute<void>(
-          builder: (_) => BlockBattleLobby(invite: room)))));
+  // Açık lobi/oyun ekranları kapanır; tek lobi davetteki odaya katılır.
+  WidgetsBinding.instance.addPostFrameCallback((_) => listenInvites((room) {
+        BlockBattleLobby.inviteOpened = true;
+        final nav = navigatorKey.currentState;
+        if (nav == null) return;
+        nav.popUntil((route) => route.isFirst);
+        nav.push(MaterialPageRoute<void>(
+            builder: (_) => BlockBattleLobby(invite: room)));
+      }));
 }
 
 final navigatorKey = GlobalKey<NavigatorState>();
