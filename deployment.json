@@ -1,8 +1,8 @@
 {
-  "source_commit": "69dc1b38f0101ffcbba017e786b7e49d089c5f05",
-  "built_at": "2026-10-22T22:22:48Z",
+  "source_commit": "fee7e01fa05b64a3f96ae68039468b4e6d09fbf2",
+  "built_at": "2026-10-22T22:41:13Z",
   "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
   "change": "Smaller offline shell (font subset, corner photos), cached question stats, push icon fix",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "3c5cfde896d19eac"
+  "app_build": "cc528bec5f4a7d35"
 }
