@@ -1,8 +1,8 @@
 {
-  "source_commit": "7cc835d3b14d3ea83dae9f3ef7a0108458d59036",
-  "built_at": "2026-10-19T12:20:45Z",
-  "checks": "backend tests (non-battle, 49); release build with base-href /hukuk-reels/",
-  "change": "Keep Block Blast records set on the old version after the season reset",
+  "source_commit": "69dc1b38f0101ffcbba017e786b7e49d089c5f05",
+  "built_at": "2026-10-22T22:22:48Z",
+  "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
+  "change": "Smaller offline shell (font subset, corner photos), cached question stats, push icon fix",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "685f2d7cad98a493"
+  "app_build": "3c5cfde896d19eac"
 }
