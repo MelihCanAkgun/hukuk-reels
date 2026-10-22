@@ -222,7 +222,97 @@ const List<List<List<int>>> blockShapes = [
     [2, 0],
     [2, 1]
   ], // 3x2
+
+  // Büyük L (3x3, 5 hücre) — 4 dönüş
+  [
+    [0, 0],
+    [1, 0],
+    [2, 0],
+    [2, 1],
+    [2, 2]
+  ],
+  [
+    [0, 0],
+    [0, 1],
+    [0, 2],
+    [1, 0],
+    [2, 0]
+  ],
+  [
+    [0, 0],
+    [0, 1],
+    [0, 2],
+    [1, 2],
+    [2, 2]
+  ],
+  [
+    [0, 2],
+    [1, 2],
+    [2, 0],
+    [2, 1],
+    [2, 2]
+  ],
+
+  // Çapraz ikili: yalnız kurtarma parçası (normal dağıtımda çıkmaz).
+  [
+    [0, 0],
+    [1, 1]
+  ],
+  [
+    [0, 1],
+    [1, 0]
+  ],
 ];
+
+/// Büyük L ve kurtarma parçalarından önceki parça sayısı (eski maç üreticisi).
+const legacyShapeCount = 33;
+
+/// Yalnız sıkışmış tahtayı kurtarmak için verilen parçalar.
+final rescueShapes = {blockShapes.length - 2, blockShapes.length - 1};
+
+/// Normal dağıtımdaki parça türleri.
+final List<int> regularShapes = [
+  for (var id = 0; id < blockShapes.length; id++)
+    if (!rescueShapes.contains(id)) id
+];
+
+/// Kurtarma parçası: sıkışmış tahtada en çok satır/sütun temizleyen parça.
+/// Eşitlikte normal parça (çapraz ikili yalnız daha fazla temizliyorsa) ve
+/// daha çok hücreye/kenara değen yer. Hiçbir parça temizlemiyorsa null.
+(int, int, int)? rescueMove(List<List<int?>> grid) {
+  final n = grid.length;
+  (int, int, int)? best;
+  var bestValue = 0;
+  for (var id = 0; id < blockShapes.length; id++) {
+    final shape = blockShapes[id];
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
+        if (!shape.every((e) {
+          final y = r + e[0], x = c + e[1];
+          return y < n && x < n && grid[y][x] == null;
+        })) {
+          continue;
+        }
+        final cells = {for (final e in shape) (r + e[0]) * n + c + e[1]};
+        bool filled(int y, int x) =>
+            grid[y][x] != null || cells.contains(y * n + x);
+        var lines = 0;
+        for (var i = 0; i < n; i++) {
+          if (List.generate(n, (j) => filled(i, j)).every((v) => v)) lines++;
+          if (List.generate(n, (j) => filled(j, i)).every((v) => v)) lines++;
+        }
+        if (lines == 0) continue;
+        final value =
+            lines * 100 + (rescueShapes.contains(id) ? 0 : 50) + shape.length;
+        if (value > bestValue) {
+          bestValue = value;
+          best = (id, r, c);
+        }
+      }
+    }
+  }
+  return best;
+}
 
 /// Immutable pieces and pure rules: no widget, audio or storage dependencies.
 class BlockPiece {
@@ -244,11 +334,18 @@ class BlockMove {
 
 class BlockBlastEngine {
   static const size = 8;
+
+  /// Kurtarma parçası en çok bu kadar sette bir verilir ve yalnız tahta
+  /// sıkışmışken, yarı yarıya şansla.
+  static const rescueGap = 6;
   static const comboGrace = 3;
   final Random random;
   final List<BlockPiece?> Function()? nextTray;
   List<List<int?>> grid = List.generate(size, (_) => List.filled(size, null));
   List<BlockPiece?> tray = [null, null, null];
+
+  /// Son kurtarma parçasından beri verilen set sayısı.
+  int sinceRescue = rescueGap;
   int score = 0, combo = 0, misses = 0, comboBonus = 0;
   // Run summary counters are presentation data; they never affect move rules.
   int placementsMade = 0, linesCleared = 0, bestCombo = 0, allClears = 0;
@@ -363,10 +460,25 @@ class BlockBlastEngine {
     }
     final scratch = _copy(grid);
     final pieces = <BlockPiece>[];
-    for (var slot = 0; slot < 3; slot++) {
+    sinceRescue++;
+    // Sıkışmış tahtaya seyrek bir kurtarma parçası: bir boşluğu kapatıp satır
+    // temizleyen parça (gerekirse çapraz ikili) setin ilk parçası olur.
+    if (sinceRescue >= rescueGap &&
+        tightBoard(scratch) &&
+        random.nextDouble() < .5) {
+      final rescue = rescueMove(scratch);
+      if (rescue != null) {
+        final p = BlockPiece(rescue.$1, rescue.$1 % 8);
+        pieces.add(p);
+        _stamp(scratch, p, rescue.$2, rescue.$3);
+        _clear(scratch);
+        sinceRescue = 0;
+      }
+    }
+    for (var slot = pieces.length; slot < 3; slot++) {
       final candidates = <(BlockPiece, List<(int, int)>, double)>[];
       final fill = scratch.expand((r) => r).where((v) => v != null).length / 64;
-      for (var id = 0; id < blockShapes.length; id++) {
+      for (final id in regularShapes) {
         final p = BlockPiece(id, id % 8);
         final spots = placements(p, scratch);
         if (spots.isEmpty) continue;
@@ -396,6 +508,18 @@ class BlockBlastEngine {
     tray = List.generate(3, (i) => i < pieces.length ? pieces[i] : null);
   }
 
+  /// Sıkışık tahta: yarıdan fazlası dolu ve normal parça türlerinin üçte
+  /// birinden azı bir yere sığıyor.
+  static bool tightBoard(List<List<int?>> b) {
+    final fill = b.expand((r) => r).where((v) => v != null).length / 64;
+    if (fill < .5) return false;
+    final probe = BlockBlastEngine.empty()..grid = b;
+    final open = regularShapes
+        .where((id) => probe.placements(BlockPiece(id, 0)).isNotEmpty)
+        .length;
+    return open < regularShapes.length / 3;
+  }
+
   void revive() {
     reviveUsed = true;
     combo = 0;
@@ -417,6 +541,7 @@ class BlockBlastEngine {
       'misses': misses,
       'comboBonus': comboBonus,
       'reviveUsed': reviveUsed,
+      'sinceRescue': sinceRescue,
     };
     if (includeRunSummary) {
       data.addAll({
@@ -492,6 +617,7 @@ class BlockBlastEngine {
         ..misses = misses
         ..comboBonus = comboBonus
         ..reviveUsed = data['reviveUsed'] as bool
+        ..sinceRescue = data['sinceRescue'] as int? ?? rescueGap
         ..placementsMade = placementsMade
         ..linesCleared = linesCleared
         ..bestCombo = bestCombo

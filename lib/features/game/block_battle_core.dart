@@ -9,7 +9,7 @@ List<BlockPiece?> battleTray(int seed, int setIndex) {
   var state = (seed + (setIndex % 2147483646) * 104729) % 2147483646 + 1;
   return List.generate(3, (_) {
     state = state * 48271 % 2147483647;
-    final shape = state % blockShapes.length;
+    final shape = state % legacyShapeCount;
     return BlockPiece(shape, shape % 8);
   });
 }
@@ -60,11 +60,16 @@ bool battleTrayPlayable(BlockBlastEngine board, List<BlockPiece> pieces) {
   return search(board.grid, [...pieces]);
 }
 
-/// Bounded shared fairness, not per-player rescue. Candidates reuse solo's
-/// constructive placement, line clearing and weights on copies of both boards.
-/// The selected set is committed once per index by BattleMatch below.
+/// Bounded shared fairness. Candidates reuse solo's constructive placement,
+/// line clearing, weights and (when [rescue] allows) its rare rescue piece on
+/// copies of both boards. The selected set is committed once per index by
+/// BattleMatch below; the flag says whether it contains a rescue piece.
 List<BlockPiece?> fairBattleTray(
-    int seed, int index, List<BlockBlastEngine> boards) {
+        int seed, int index, List<BlockBlastEngine> boards) =>
+    fairBattleSet(seed, index, boards).$1;
+
+(List<BlockPiece?>, bool) fairBattleSet(
+    int seed, int index, List<BlockBlastEngine> boards, {bool rescue = false}) {
   final rng = BattleRandom(seed, index);
   // Canonical order makes swapping player identities irrelevant.
   final ordered = [...boards]..sort((a, b) {
@@ -82,17 +87,22 @@ List<BlockPiece?> fairBattleTray(
       ? 0
       : ordered.fold<int>(0, (sum, b) => sum + b.score) ~/ ordered.length;
   List<BlockPiece?>? best;
+  var bestRescued = false;
   var bestQuality = -10000;
   for (var attempt = 0; attempt < 16; attempt++) {
     final source =
         ordered.isEmpty ? null : ordered[(attempt ~/ 2) % ordered.length];
-    final scratch = BlockBlastEngine.empty(random: rng)..score = score;
+    final scratch = BlockBlastEngine.empty(random: rng)
+      ..score = score
+      ..sinceRescue =
+          rescue ? BlockBlastEngine.rescueGap : -BlockBlastEngine.rescueGap;
     if (source != null) {
       scratch.grid = [
         for (final row in source.grid) [...row]
       ];
     }
     scratch.refill();
+    final rescued = scratch.sinceRescue == 0;
     final pieces = scratch.tray.whereType<BlockPiece>().toList();
     // Never solve a ruined board by handing out a tray of single-cell rescues.
     if (pieces.length != 3 ||
@@ -120,19 +130,20 @@ List<BlockPiece?> fairBattleTray(
         (large == 3 ? 20 : 0);
     if (quality > bestQuality) {
       best = [...pieces];
+      bestRescued = rescued;
       bestQuality = quality;
     }
     if (solvable == ordered.length &&
         choices >= 2 &&
         flexibility >= 2 &&
         large < 3) {
-      return [...pieces];
+      return ([...pieces], rescued);
     }
   }
-  if (best != null) return best;
+  if (best != null) return (best, bestRescued);
   // No valid constructive candidate: use solo's empty-board distribution.
   // It deliberately provides no guarantee for a genuinely blocked board.
-  return BlockBlastEngine(random: rng).tray;
+  return (BlockBlastEngine(random: rng).tray, false);
 }
 
 class BattlePlayer {
@@ -193,10 +204,19 @@ class BattleMatch {
   int round = 1;
   final Map<int, List<BlockPiece?>> _sets = {};
 
+  /// Son kurtarma parçasının verildiği set (kurtarmalar arası en az
+  /// [BlockBlastEngine.rescueGap] set).
+  int lastRescue = -100;
+
   List<BlockPiece?> _sharedTray(int index) {
     if (generatorVersion == 1) return battleTray(seed, index);
-    final pieces = _sets.putIfAbsent(index,
-        () => fairBattleTray(seed, index, players.map((p) => p.game).toList()));
+    final pieces = _sets.putIfAbsent(index, () {
+      final (set, rescued) = fairBattleSet(
+          seed, index, players.map((p) => p.game).toList(),
+          rescue: index - lastRescue >= BlockBlastEngine.rescueGap);
+      if (rescued) lastRescue = index;
+      return set;
+    });
     // Keep only sets that a slower player can still need. A late second join
     // must retain set zero, so pruning starts only with both players present.
     if (players.length == 2) {
@@ -401,6 +421,7 @@ class BattleMatch {
     round++;
     seed = newSeed ?? ((seed * 48271 + now) % 2147483646 + 1);
     _sets.clear();
+    lastRescue = -100;
     status = 'countdown';
     startAt = now + 3000;
     endedAt = null;
@@ -426,6 +447,7 @@ class BattleMatch {
         'version': generatorVersion,
         'damageStep': 500,
         'round': round,
+        'lastRescue': lastRescue,
         if (generatorVersion == 2)
           'sets': {
             for (final e in _sets.entries)
@@ -451,6 +473,7 @@ class BattleMatch {
     final m = BattleMatch(data['roomId'], data['seed'], data['createdAt'])
       ..generatorVersion = data['version']
       ..round = data['round'] ?? 1
+      ..lastRescue = data['lastRescue'] as int? ?? -100
       ..status = data['status']
       ..revision = data['revision']
       ..startAt = data['startAt']
