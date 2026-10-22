@@ -90,6 +90,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.scrollUntilVisible(find.text('Her şeyi sıfırla'), 200,
         scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Her şeyi sıfırla'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Her şeyi sıfırla'));
     await tester.pumpAndSettle();
     expect(find.text('Her şey sıfırlansın mı?'), findsOneWidget);
@@ -98,5 +100,18 @@ void main() {
     await tester.tap(find.text('Vazgeç'));
     await tester.pumpAndSettle();
     expect(find.text('Her şey sıfırlansın mı?'), findsNothing);
+  });
+
+  testWidgets('update check button reports its result', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: ProfileSettingsScreen()));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.scrollUntilVisible(find.text('Güncellemeleri denetle'), 200,
+        scrollable: find.byType(Scrollable).first);
+    await tester.ensureVisible(find.text('Güncellemeleri denetle'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Güncellemeleri denetle'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.textContaining('Güncelleme denetimi'), findsOneWidget);
   });
 }
