@@ -67,3 +67,32 @@ window.addEventListener('appinstalled', function () {
     return JSON.stringify(insets);
   };
 })();
+
+// ── Bildirimden gelen 1v1 daveti ──
+// Kapalı uygulama ?oda=KOD ile açılır; açıksa service worker mesaj gönderir
+// (web/sw.js). Kod, Flutter dinlemeye başlayınca bir kez teslim edilir.
+(function () {
+  const valid = code => /^[A-HJ-NP-Z2-9]{6}$/.test(code || '') ? code : null;
+  const params = new URLSearchParams(location.search);
+  let pending = valid(params.get('oda'));
+  if (params.has('oda')) {
+    params.delete('oda');
+    const rest = params.toString();
+    history.replaceState(history.state, '', location.pathname + (rest ? '?' + rest : '') + location.hash);
+  }
+  let listener = null;
+  const deliver = () => {
+    if (!pending || !listener) return;
+    const code = pending;
+    pending = null;
+    listener(code);
+  };
+  window.hukukListenInvites = function (fn) { listener = fn; deliver(); };
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', function (event) {
+      const code = valid(event.data && event.data.hukukInvite);
+      if (code) { pending = code; deliver(); }
+    });
+    navigator.serviceWorker.startMessages();
+  }
+})();

@@ -5,7 +5,9 @@ import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app/theme.dart';
 import 'core/services/audio_service.dart';
+import 'core/services/invite_bridge.dart';
 import 'core/services/progress_service.dart';
+import 'features/game/block_battle_lobby.dart';
 import 'features/shell/home_shell.dart';
 import 'core/services/sfx_service.dart';
 import 'core/widgets/web_safe_area.dart';
@@ -30,7 +32,15 @@ void main() async {
   ));
 
   runApp(const HukukReelsApp());
+
+  // Bildirimdeki 1v1 davetine dokunuldu: lobi oda koduyla açılır. Dinleme ilk
+  // kareden sonra başlar; açılışı sağlayan davet o an teslim edilir.
+  WidgetsBinding.instance.addPostFrameCallback((_) => listenInvites((room) =>
+      navigatorKey.currentState?.push(MaterialPageRoute<void>(
+          builder: (_) => BlockBattleLobby(invite: room)))));
 }
+
+final navigatorKey = GlobalKey<NavigatorState>();
 
 class HukukReelsApp extends StatelessWidget {
   const HukukReelsApp({super.key});
@@ -39,6 +49,7 @@ class HukukReelsApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Hukuk Reels · Oyunlar',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
       // Türkçe tarih/saat seçicileri ve Material metinleri.

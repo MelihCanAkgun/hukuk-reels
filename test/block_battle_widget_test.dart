@@ -257,7 +257,14 @@ void main() {
     expect(find.byKey(const ValueKey('battle-mine-attack')), findsOneWidget);
     expect(find.text('250 PUAN KALDI'), findsOneWidget);
     expect(find.byKey(const ValueKey('battle-other-attack')), findsOneWidget);
-    expect(find.text('125 PUAN KALDI'), findsOneWidget);
+    // Rakipte yalnız ilerleme çubuğu: 375/500.
+    expect(
+        tester
+            .widget<FractionallySizedBox>(find.descendant(
+                of: find.byKey(const ValueKey('battle-other-attack')),
+                matching: find.byType(FractionallySizedBox)))
+            .widthFactor,
+        .75);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
     session.dispose();

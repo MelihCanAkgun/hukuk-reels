@@ -45,7 +45,7 @@ class PixelBatIcon extends StatelessWidget {
 final Map<String, ui.Picture> _cache = {};
 
 ui.Picture _picture(List<String> rows, Map<String, Color> palette, double px) {
-  final key = '${identityHashCode(rows)}@$px';
+  final key = '${identityHashCode(rows)}:${identityHashCode(palette)}@$px';
   return _cache.putIfAbsent(key, () {
     final rec = ui.PictureRecorder();
     final c = Canvas(rec);
