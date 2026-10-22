@@ -13,6 +13,7 @@ import '../../core/services/avatar_bridge.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
 import '../../core/services/social_bridge.dart';
+import '../../core/services/update_bridge.dart';
 import '../beat/beat_mode_screen.dart';
 import '../game/game_leaderboard.dart';
 import '../games/games_screen.dart';
@@ -71,6 +72,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   /// Oyuncu 1 (yönetici): fotoğraf indirme ile ilgili bilgiler yalnız ona.
   bool get _isAdmin => _connected && _social['me'] == 1;
+  bool _checkingUpdate = false;
 
   Map<String, dynamic>? get _me {
     final players = _social['players'];
@@ -208,6 +210,26 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                         ),
                       ]),
                     ],
+                    _sectionTitle('UYGULAMA', Icons.system_update_rounded),
+                    _group([
+                      _actionRow(
+                        icon: Icons.system_update_rounded,
+                        color: AppTheme.success,
+                        title: 'Güncellemeleri denetle',
+                        subtitle: _checkingUpdate
+                            ? 'Yeni sürüm aranıyor…'
+                            : 'Yapılmamış bir güncelleme varsa indirilir '
+                                've uygulanır.',
+                        trailing: _checkingUpdate
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2))
+                            : null,
+                        onTap: _checkingUpdate ? null : _onCheckUpdate,
+                      ),
+                    ]),
                     _sectionTitle('VERİ', Icons.storage_rounded),
                     _group([
                       _actionRow(
@@ -719,6 +741,20 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     }
     await _progress.setNick(_serverName ?? trimmed);
     _toast('Takma adın güncellendi.');
+  }
+
+  Future<void> _onCheckUpdate() async {
+    setState(() => _checkingUpdate = true);
+    final result = await checkForUpdate();
+    if (!mounted) return;
+    setState(() => _checkingUpdate = false);
+    _toast(switch (result) {
+      'latest' => 'En güncel sürümü kullanıyorsun.',
+      'updating' => 'Yeni sürüm indirildi, uygulama yeniden açılıyor…',
+      'offline' => 'Güncellemeye ulaşılamadı. Bağlantını kontrol edip '
+          'tekrar dene.',
+      _ => 'Güncelleme denetimi ana ekran/web uygulamasında çalışır.',
+    });
   }
 
   void _toast(String text) {
