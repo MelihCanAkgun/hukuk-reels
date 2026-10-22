@@ -65,7 +65,7 @@ class HomeShellState extends State<HomeShell> {
       // Sayfa yenilenirse kayıtlı Battle odasına (bağlanma süresi içinde)
       // doğrudan dönülür.
       final saved = await battleCall('inspect');
-      if (!mounted) return;
+      if (!mounted || BlockBattleLobby.inviteOpened) return;
       if (saved['room'] != null) {
         Navigator.of(context).push(
             MaterialPageRoute<void>(builder: (_) => const BlockBattleLobby()));

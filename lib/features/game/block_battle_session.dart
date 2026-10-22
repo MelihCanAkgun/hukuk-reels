@@ -19,8 +19,15 @@ class BlockBattleSession extends ChangeNotifier {
   List<dynamic> events = [];
   BlockBattleSession({BattleCall? transport, bool listen = true})
       : call = transport ?? ((action, data) => battleCall(action, data)) {
-    if (listen) listenBattle(receive);
+    if (listen) {
+      listenBattle(receive);
+      _listening = this;
+    }
   }
+
+  /// Köprüyü dinleyen son oturum. Eski ekran geç kapanınca (ör. davetle
+  /// açılan yeni lobi) yeni oturumun bağlantısını koparmaz.
+  static BlockBattleSession? _listening;
   int get now => DateTime.now().millisecondsSinceEpoch + _offset;
   String get status => state?['status'] ?? 'waiting';
   String? get room => state?['roomId'];
@@ -172,7 +179,12 @@ class BlockBattleSession extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    unawaited(call('detach', {}));
+    if (_listening == this) {
+      _listening = null;
+      unawaited(call('detach', {}));
+    } else if (_listening == null) {
+      unawaited(call('detach', {}));
+    }
     super.dispose();
   }
 }
