@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {readFileSync} from 'node:fs';
-import worker, {tokenHash, validSubscription, deliver} from '../src/worker.js';
+import worker, {tokenHash, validSubscription, deliver, inviteBattle} from '../src/worker.js';
 
 const tokens = ['a'.repeat(43), 'b'.repeat(43)];
 async function setup() {
@@ -230,4 +230,24 @@ test('Block Blast season 2: archived, zeroed, and last season cannot return', as
   await call('/score',{score:70},1);
   assert.equal((await call('/board')).data.players.find(p=>p.id===2).best,70);
   assert.equal((await call('/board')).data.scores.find(r=>r.game==='flappy').best,7, 'other games keep their records');
+});
+test('1v1 room invite reaches only the other player and carries the room link', async()=>{
+  const {db,env}=await setup();
+  env.VAPID_PRIVATE_KEY='k';
+  for (const [endpoint, id] of [['https://push.example/a',1],['https://push.example/b',2],['https://push.example/c',2]]) {
+    db.prepare('INSERT INTO subscriptions(endpoint, player_id, subscription) VALUES (?, ?, ?)')
+      .run(endpoint, id, JSON.stringify({endpoint, keys:{}}));
+  }
+  const sent=[];
+  await inviteBattle(env,{id:1,name:'Melih'},'ABC234',async(sub,payload)=>{
+    sent.push([sub.endpoint,payload]);
+    return sub.endpoint.endsWith('/c') ? 410 : 201;
+  });
+  assert.deepEqual(sent.map(s=>s[0]),['https://push.example/b','https://push.example/c']);
+  assert.equal(sent[0][1].url,'https://app.example/?oda=ABC234');
+  assert.equal(sent[0][1].tag,'battle-invite');
+  assert.match(sent[0][1].body,/Melih 1v1 odası kurdu: ABC234/);
+  // Geçersiz abonelik silinir; davet eden kendi bildirimini almaz.
+  assert.deepEqual(db.prepare('SELECT endpoint FROM subscriptions ORDER BY endpoint').all().map(r=>r.endpoint),
+    ['https://push.example/a','https://push.example/b']);
 });

@@ -10,7 +10,10 @@ import 'block_blast_screen.dart';
 import '../../core/services/activity_area.dart';
 
 class BlockBattleLobby extends StatefulWidget {
-  const BlockBattleLobby({super.key});
+  const BlockBattleLobby({super.key, this.invite});
+
+  /// Bildirimdeki davetten gelen oda kodu: kayıtlıysa odaya hemen katılır.
+  final String? invite;
   @override
   State<BlockBattleLobby> createState() => _BlockBattleLobbyState();
 }
@@ -35,7 +38,15 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
       _registered = profile['connected'] == true && profile['me'] != null;
       _busy = false;
     });
-    if (_registered) await _session.action('resume');
+    if (!_registered) {
+      if (widget.invite != null) _code.text = widget.invite!;
+      return;
+    }
+    await _session.action('resume');
+    if (widget.invite != null && mounted && _session.room == null) {
+      _code.text = widget.invite!;
+      await _action('join');
+    }
   }
 
   void _changed() {
@@ -43,7 +54,8 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
     setState(() {});
     if (!_inGame &&
         _session.mine != null &&
-        ['countdown', 'playing', 'finished'].contains(_session.status)) {
+        ['draft', 'countdown', 'playing', 'finished']
+            .contains(_session.status)) {
       _inGame = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;

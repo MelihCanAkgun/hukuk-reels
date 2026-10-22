@@ -333,19 +333,27 @@ class BlockMove {
 }
 
 class BlockBlastEngine {
-  static const size = 8;
+  /// Başlangıç tahtası 8×8; genişletme jokeri bir kez 9×9 yapar.
+  static const baseSize = 8;
+
+  /// Billur tuz jokerinin hücresi: engel. Üstüne parça konamaz ve içinden
+  /// geçen satır/sütun tamamlanamaz (renk değil).
+  static const saltCell = 8;
+  static bool _solid(int? v) => v != null && v != saltCell;
+  static const comboGrace = 3;
 
   /// Kurtarma parçası en çok bu kadar sette bir verilir ve yalnız tahta
   /// sıkışmışken, yarı yarıya şansla.
   static const rescueGap = 6;
-  static const comboGrace = 3;
   final Random random;
   final List<BlockPiece?> Function()? nextTray;
-  List<List<int?>> grid = List.generate(size, (_) => List.filled(size, null));
-  List<BlockPiece?> tray = [null, null, null];
+  List<List<int?>> grid =
+      List.generate(baseSize, (_) => List.filled(baseSize, null));
+  int get size => grid.length;
 
   /// Son kurtarma parçasından beri verilen set sayısı.
   int sinceRescue = rescueGap;
+  List<BlockPiece?> tray = [null, null, null];
   int score = 0, combo = 0, misses = 0, comboBonus = 0;
   // Run summary counters are presentation data; they never affect move rules.
   int placementsMade = 0, linesCleared = 0, bestCombo = 0, allClears = 0;
@@ -377,26 +385,79 @@ class BlockBlastEngine {
 
   static (List<int>, List<int>) _lines(List<List<int?>> b) => (
         [
-          for (var r = 0; r < size; r++)
-            if (b[r].every((v) => v != null)) r
+          for (var r = 0; r < b.length; r++)
+            if (b[r].every(_solid)) r
         ],
         [
-          for (var c = 0; c < size; c++)
-            if (List.generate(size, (r) => b[r][c]).every((v) => v != null)) c
+          for (var c = 0; c < b.length; c++)
+            if (List.generate(b.length, (r) => b[r][c]).every(_solid)) c
         ],
       );
+
+  /// Dolu satır/sütunları siler; anahtar r * n + c.
   static Map<int, int> _clear(List<List<int?>> b) {
     final (rows, cols) = _lines(b);
+    final n = b.length;
     final cells = <int, int>{
       for (final r in rows)
-        for (var c = 0; c < size; c++) r * size + c: b[r][c]!,
+        for (var c = 0; c < n; c++) r * n + c: b[r][c]!,
       for (final c in cols)
-        for (var r = 0; r < size; r++) r * size + c: b[r][c]!,
+        for (var r = 0; r < n; r++) r * n + c: b[r][c]!,
     };
     for (final k in cells.keys) {
-      b[k ~/ size][k % size] = null;
+      b[k ~/ n][k % n] = null;
     }
     return cells;
+  }
+
+  /// Genişletme jokeri: tahta [corner] köşesine doğru bir satır ve bir sütun
+  /// büyür ('tl', 'tr', 'bl', 'br'). Yalnız 8×8 tahtada bir kez.
+  bool expand(String corner) {
+    if (size != baseSize || !const {'tl', 'tr', 'bl', 'br'}.contains(corner)) {
+      return false;
+    }
+    final dr = corner[0] == 't' ? 1 : 0, dc = corner[1] == 'l' ? 1 : 0;
+    final n = size + 1;
+    grid = List.generate(
+        n,
+        (r) => List.generate(n, (c) {
+              final y = r - dr, x = c - dc;
+              return y >= 0 && y < size && x >= 0 && x < size
+                  ? grid[y][x]
+                  : null;
+            }));
+    return true;
+  }
+
+  /// Genişletmenin süresi bitti: [corner] tarafına eklenen satır ve sütun
+  /// gider (üstündeki bloklarla). Kısalınca dolan satırlar puansız silinir.
+  bool shrink(String corner) {
+    if (size != baseSize + 1 ||
+        !const {'tl', 'tr', 'bl', 'br'}.contains(corner)) {
+      return false;
+    }
+    final dr = corner[0] == 't' ? 1 : 0, dc = corner[1] == 'l' ? 1 : 0;
+    grid = List.generate(
+        baseSize, (r) => List.generate(baseSize, (c) => grid[r + dr][c + dc]));
+    _clear(grid);
+    return true;
+  }
+
+  /// Billur tuz: tahtanın ortasına 1 en 3 boy tuzluk; altındaki bloklar
+  /// gider.
+  void placeSalt() {
+    final top = (size - 2) ~/ 2, col = size ~/ 2;
+    for (var r = top; r < top + 3; r++) {
+      grid[r][col] = saltCell;
+    }
+  }
+
+  void removeSalt() {
+    for (final row in grid) {
+      for (var c = 0; c < row.length; c++) {
+        if (row[c] == saltCell) row[c] = null;
+      }
+    }
   }
 
   static List<List<int?>> _copy(List<List<int?>> b) => [
@@ -477,7 +538,8 @@ class BlockBlastEngine {
     }
     for (var slot = pieces.length; slot < 3; slot++) {
       final candidates = <(BlockPiece, List<(int, int)>, double)>[];
-      final fill = scratch.expand((r) => r).where((v) => v != null).length / 64;
+      final fill = scratch.expand((r) => r).where((v) => v != null).length /
+          (scratch.length * scratch.length);
       for (final id in regularShapes) {
         final p = BlockPiece(id, id % 8);
         final spots = placements(p, scratch);
@@ -511,7 +573,8 @@ class BlockBlastEngine {
   /// Sıkışık tahta: yarıdan fazlası dolu ve normal parça türlerinin üçte
   /// birinden azı bir yere sığıyor.
   static bool tightBoard(List<List<int?>> b) {
-    final fill = b.expand((r) => r).where((v) => v != null).length / 64;
+    final n = b.length;
+    final fill = b.expand((r) => r).where((v) => v != null).length / (n * n);
     if (fill < .5) return false;
     final probe = BlockBlastEngine.empty()..grid = b;
     final open = regularShapes
@@ -525,7 +588,7 @@ class BlockBlastEngine {
     combo = 0;
     misses = 0;
     comboBonus = 0;
-    grid = List.generate(size, (_) => List.filled(size, null));
+    grid = List.generate(baseSize, (_) => List.filled(baseSize, null));
     if (tray.every((p) => p == null)) refill();
   }
 
@@ -562,13 +625,16 @@ class BlockBlastEngine {
       if (data['version'] != 1) return null;
       final b = (data['grid'] as List)
           .map((row) => (row as List).map((v) {
-                if (v != null && (v is! int || v < 0 || v >= 8)) {
+                if (v != null && (v is! int || v < 0 || v > saltCell)) {
                   throw const FormatException();
                 }
                 return v as int?;
               }).toList())
           .toList();
-      if (b.length != size || b.any((r) => r.length != size)) return null;
+      if ((b.length != baseSize && b.length != baseSize + 1) ||
+          b.any((r) => r.length != b.length)) {
+        return null;
+      }
       final t = (data['tray'] as List).map((v) {
         if (v == null) return null;
         if (v is! List ||

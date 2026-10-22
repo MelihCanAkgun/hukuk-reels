@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import '../../core/services/battle_bridge.dart';
 import 'block_battle_core.dart';
@@ -28,16 +29,85 @@ class BlockBattleSession extends ChangeNotifier {
       (state?['players'] as List? ?? []).cast<Map<String, dynamic>>();
   Map<String, dynamic>? get mine =>
       players.where((p) => p['id'] == me).firstOrNull;
-  Map<String, dynamic>? get opponent =>
-      players.where((p) => p['id'] != me).firstOrNull;
+
+  /// 'duel' (1v1) ya da 'trio' (üç oyuncu, herkes herkese karşı).
+  String get mode => state?['mode'] == 'trio' ? 'trio' : 'duel';
+  bool get trio => mode == 'trio';
+  int get capacity => trio ? 3 : 2;
+  List<Map<String, dynamic>> get opponents =>
+      players.where((p) => p['id'] != me).toList();
+  Map<String, dynamic>? get opponent => opponents.firstOrNull;
+  bool get eliminated => mine?['out'] == true;
+
+  /// Oyuncunun tahtası dondurma jokeriyle donmuş mu (sunucu saatine göre).
+  bool frozen(Map<String, dynamic>? p) =>
+      p != null && (p['frozenUntil'] as int? ?? 0) > now;
+  bool get stuck => mine?['stuckAt'] != null || mine?['stuckLeft'] != null;
+
+  /// Takılınca kalan süre (ms); köşe seçilirken durur.
+  int get stuckLeft =>
+      mine?['stuckLeft'] as int? ??
+      max(0, (mine?['stuckAt'] as int? ?? now) - now);
+
+  /// 1v1 joker seçimi: sırası gelen oyuncu (yoksa null).
+  int? get turn {
+    if (status != 'draft') return null;
+    final order = draftOrder(
+        state?['picker'] as int?, players.map((p) => p['id'] as int));
+    final picked = players.fold(0, (n, p) => n + jokersOf(p).length);
+    return picked < order.length ? order[picked] : null;
+  }
+
+  List<String> jokersOf(Map<String, dynamic>? p) =>
+      [...?(p?['jokers'] as List?)?.cast<String>()];
+  bool jokerUsed(Map<String, dynamic>? p, String kind) =>
+      (p?['usedJokers'] as List?)?.contains(kind) == true;
+  List<String> get myJokers => jokersOf(mine);
+
+  /// [kind] jokeri şimdi kullanılabilir mi.
+  bool jokerReady(String kind) =>
+      myJokers.contains(kind) &&
+      !jokerUsed(mine, kind) &&
+      status == 'playing' &&
+      connected &&
+      !pending &&
+      !eliminated &&
+      !frozen(mine) &&
+      (kind != 'expand' || (mine!['game']['grid'] as List).length == 8);
+
+  Future<bool> pickJoker(String joker) => action('pick', {'joker': joker});
+  Future<bool> useJoker(String joker, {String? corner}) =>
+      action('joker', {'joker': joker, if (corner != null) 'corner': corner});
+
+  /// Süre duraklatılmışken köşe seçmek için kalan süre (ms), yoksa null.
+  int? get aimLeft {
+    final until = mine?['aimUntil'] as int?;
+    if (mine?['stuckLeft'] == null || until == null) return null;
+    return max(0, until - now);
+  }
+
+  /// Kendi süreli etkinin ([key]: 'reflectUntil', 'expandUntil' …) kalan
+  /// süresi (ms); bitmişse null.
+  int? effectLeft(String key, [Map<String, dynamic>? p]) {
+    final until = (p ?? mine)?[key] as int?;
+    return until == null || until <= now ? null : until - now;
+  }
+
+  /// Genişletme çarkı açık/kapalı: takılıyken sunucu süreyi durdurur.
+  Future<bool> aimJoker(bool on) => action('aim', {'on': on});
+
   bool get canPlay =>
       connected &&
       !pending &&
       status == 'playing' &&
-      players.length == 2 &&
-      players.every((p) => p['connected'] == true);
+      !eliminated &&
+      !frozen(mine) &&
+      !stuck &&
+      players.length == capacity &&
+      players.every((p) => p['out'] == true || p['connected'] == true);
   bool get rematchRequested => mine?['rematch'] == true;
-  bool get opponentRematchRequested => opponent?['rematch'] == true;
+  bool get opponentRematchRequested =>
+      opponents.any((p) => p['rematch'] == true);
 
   void receive(Map<String, dynamic> frame) {
     if (_disposed) return;
@@ -90,7 +160,8 @@ class BlockBattleSession extends ChangeNotifier {
     // Only a completed placement crosses the bridge. The screen may predict its
     // visual impact but every persistent score/HP/board comes back from server.
     unawaited(
-        action('place', {'slot': slot, 'row': row, 'col': col, 'round': round}).then((ok) {
+        action('place', {'slot': slot, 'row': row, 'col': col, 'round': round})
+            .then((ok) {
       if (!ok && !_disposed) {
         pending = false;
         notifyListeners();

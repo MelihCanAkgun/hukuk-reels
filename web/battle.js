@@ -6,6 +6,8 @@
   let socket=null, listener=null, state=null, me=saved?.me, room=saved?.room;
   let pending=saved?.pending||null, retry=null, heartbeat=null, connecting=false;
   let lastSent=0, lastSentAt=0;
+  // Elenen oyuncunun bağlantısı maçı bekletmez.
+  const liveReady=s=>s?.status==='playing' && s.players.every(p=>p.out || p.connected);
   let stopped=true, connected=false, generation=0, error=null, lastPong=0, attempts=0;
   const persist=()=>{
     try {
@@ -69,7 +71,7 @@
         if(event.data==='pong'){lastPong=Date.now();return;}
         let frame;try{frame=JSON.parse(event.data);}catch{return;}
         accept(frame);
-        if(pending && lastSent!==pending.moveId && state?.status==='playing' && state.players.every(p=>p.connected)) {
+        if(pending && lastSent!==pending.moveId && liveReady(state)) {
           lastSent=pending.moveId;lastSentAt=Date.now();ws.send(JSON.stringify(pending));
         }
       };
@@ -110,11 +112,19 @@
         if(action==='place') {
           if(pending)throw new Error('Önceki hamle doğrulanıyor.');
           const mine=state?.players.find(p=>p.id===me);
-          if(state?.status!=='playing' || !state.players.every(p=>p.connected))throw new Error('Maç hazır değil.');
+          if(!liveReady(state))throw new Error('Maç hazır değil.');
           message={type:'PLACE_PIECE',moveId:mine.lastMove+1,slot:data.slot,row:data.row,col:data.col,round:state?.round||1};
           pending=message;lastSent=message.moveId;lastSentAt=Date.now();persist();
         }
         socket.send(JSON.stringify(message));emit({type:'PENDING'});
+      } else if(action==='pick' || action==='joker') {
+        if(!connected || socket?.readyState!==WebSocket.OPEN)throw new Error('Bağlantı yeniden kuruluyor.');
+        if(action==='joker' && pending)throw new Error('Önceki hamle doğrulanıyor.');
+        socket.send(JSON.stringify({type:action==='pick'?'PICK_JOKER':'USE_JOKER',joker:data.joker,
+          ...(typeof data.corner==='string'?{corner:data.corner}:{})}));
+      } else if(action==='aim') {
+        if(connected && socket?.readyState===WebSocket.OPEN)
+          socket.send(JSON.stringify({type:'AIM_JOKER',on:data.on===true}));
       } else if(action==='leave') {
         stopped=true;++generation;cancelTimers();socket?.close();socket=null;connected=false;
         saved=null;room=null;state=null;pending=null;persist();emit({type:'LEFT'});

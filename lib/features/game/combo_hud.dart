@@ -95,8 +95,11 @@ class _ComboChipState extends State<_ComboChip>
       vsync: this,
       duration: Duration(milliseconds: widget.tier.pulseDurationMs),
     );
+    // Tek bir büyüyüp küçülme. Sürekli nabız, kombo sürdükçe ekranı her
+    // karede yeniden çizdirip telefonu ısıtıyordu; rozet her kombo
+    // değişiminde yeniden kurulduğu için vuruş yine de hissedilir.
     if (!widget.reduced && widget.combo > 1) {
-      _pulse.repeat(reverse: true);
+      _pulse.repeat(reverse: true, count: 2);
     }
   }
 

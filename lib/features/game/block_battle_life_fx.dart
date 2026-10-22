@@ -22,7 +22,7 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
       vsync: this, duration: const Duration(milliseconds: 1000));
   int? _lives;
   int _lost = 0;
-  bool _reduced = false;
+  bool _reduced = false, _warned = false;
   @override
   void initState() {
     super.initState();
@@ -54,10 +54,14 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
     final lives = widget.session?.mine?['lives'] as int? ?? _lives;
     final finished = widget.session?.status == 'finished';
     final critical = lives == 1 && !finished && !_reduced;
-    if (critical && !_pulse.isAnimating) {
-      _pulse.repeat(reverse: true);
-    } else if (!critical && _pulse.isAnimating) {
-      _pulse.reset();
+    // Son cana düşünce kenar üç kez yanıp söner, sonra durur. Sonsuz nabız
+    // maç boyunca her kareyi yeniden çizdirip telefonu ısıtıyordu.
+    if (critical && !_warned) {
+      _warned = true;
+      _pulse.repeat(reverse: true, count: 6);
+    } else if (!critical) {
+      _warned = false;
+      if (_pulse.isAnimating || _pulse.value > 0) _pulse.reset();
     }
   }
 
@@ -100,9 +104,7 @@ class _BattleLifeFeedbackState extends State<BattleLifeFeedback>
         final edgeOpacity = math.min(0.24, hit * .10 + pulseOpacity);
         return Stack(fit: StackFit.expand, children: [
           Transform.translate(
-              offset: Offset(shake, 0),
-              transformHitTests: false,
-              child: child),
+              offset: Offset(shake, 0), transformHitTests: false, child: child),
           Positioned.fill(
               child: IgnorePointer(
                   child: RepaintBoundary(
@@ -237,12 +239,18 @@ class _BattleHeartsState extends State<BattleHearts>
   late final _pulse = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 1100));
   int _previous = 0;
+  bool _warned = false;
   void _sync() {
     final reduced = MediaQuery.disableAnimationsOf(context);
     if (reduced) _hit.reset();
+    // Son can kalbi üç kez atar, sonra durur (sürekli çizim telefonu ısıtır).
     if (widget.critical && !reduced) {
-      if (!_pulse.isAnimating) _pulse.repeat(reverse: true);
+      if (!_warned) {
+        _warned = true;
+        _pulse.repeat(reverse: true, count: 6);
+      }
     } else {
+      _warned = false;
       _pulse.reset();
     }
   }

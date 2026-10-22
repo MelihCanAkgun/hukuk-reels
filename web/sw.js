@@ -42,16 +42,22 @@ self.addEventListener('push', (event) => {
     body: data.body || 'Yeni bir bildirimin var.',
     icon: new URL('icons/icon-192x192.png', self.registration.scope).href,
     tag: data.tag || 'block-blast',
-    data: {url: self.registration.scope},
+    renotify: data.tag === 'battle-invite',
+    data: {url: new URL(data.url || './', self.registration.scope).href},
   }));
 });
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const url = event.notification.data?.url || self.registration.scope;
   event.waitUntil((async () => {
     const windows = await self.clients.matchAll({type: 'window', includeUncontrolled: true});
-    for (const client of windows) {
-      if (client.url.startsWith(self.registration.scope) && 'focus' in client) return client.focus();
+    // Açık uygulama öne gelir (davetse oda koduyla); yoksa yeni pencere açılır.
+    const open = windows.find(client => client.url.startsWith(self.registration.scope) && 'focus' in client);
+    if (open) {
+      const room = new URL(url).searchParams.get('oda');
+      if (room) open.postMessage({hukukInvite: room});
+      return open.focus();
     }
-    return self.clients.openWindow(self.registration.scope);
+    return self.clients.openWindow(url);
   })());
 });

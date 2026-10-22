@@ -69,6 +69,14 @@ class SfxService {
     'era': 'assets/sfx/era.wav',
     'miss': 'assets/sfx/miss.wav',
     'girl': 'assets/sfx/girl.wav',
+    // Block Blast 1v1 jokerleri
+    'freeze': 'assets/sfx/freeze.wav',
+    'shatter': 'assets/sfx/shatter.wav',
+    'expand': 'assets/sfx/expand.wav',
+    'tick': 'assets/sfx/tick.wav',
+    'salt': 'assets/sfx/salt.wav',
+    'reflect': 'assets/sfx/reflect.wav',
+    'shrink': 'assets/sfx/shrink.wav',
   };
 
   Future<void> init() =>
@@ -213,4 +221,14 @@ class SfxService {
   void era() => _play('era');
   void miss() => _play('miss');
   void girl() => _play('girl');
+
+  // ── Block Blast 1v1 jokerleri ──
+  void freezeThrow() => _play('freeze');
+  void freezeHit() => _play('freeze', rate: .8);
+  void shatter() => _play('shatter');
+  void expand() => _play('expand');
+  void salt() => _play('salt');
+  void reflect() => _play('reflect');
+  void shrink() => _play('shrink');
+  void tick({double rate = 1}) => _play('tick', rate: rate);
 }

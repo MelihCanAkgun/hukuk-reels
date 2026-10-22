@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'block_blast_engine.dart';
 
 /// Visual snapshots only. The engine commits placements/clears immediately.
 /// One screen-owned clock drives all events; nothing allocates a ticker per cell.
@@ -16,12 +17,15 @@ class BlockBoardFx {
         ..._clears.map((e) => e.start + e.duration),
       ].fold(0.0, max);
 
+  /// Hücre anahtarları r * n + c (tahta n×n; genişletmeyle 9).
+  int n = 8;
+
   void add(double now, Set<int> placed, Map<int, int> cleared, int lines) {
     revision++;
-    impacts.add(BlockImpact(now, placed));
+    impacts.add(BlockImpact(now, placed, n));
     if (impacts.length > 3) impacts.removeAt(0);
     if (cleared.isEmpty) return;
-    final wave = _ClearWave(now, cleared, lines, ++_seed);
+    final wave = _ClearWave(now, cleared, lines, ++_seed, n);
     // Budget all concurrent clears together, including rapid consecutive moves.
     while (_clears.isNotEmpty &&
         (_clears.length >= 2 ||
@@ -60,9 +64,10 @@ class BlockImpact {
   final double start;
   final Set<int> cells;
   late final Offset center;
-  BlockImpact(this.start, Set<int> placed) : cells = Set.of(placed) {
-    final xs = cells.map((k) => k % 8);
-    final ys = cells.map((k) => k ~/ 8);
+  BlockImpact(this.start, Set<int> placed, [int n = 8])
+      : cells = Set.of(placed) {
+    final xs = cells.map((k) => k % n);
+    final ys = cells.map((k) => k ~/ n);
     center = Offset((xs.reduce(min) + xs.reduce(max) + 1) / 2,
         (ys.reduce(min) + ys.reduce(max) + 1) / 2);
   }
@@ -92,16 +97,17 @@ class _ClearWave {
   final cellGlowPaint = Paint();
   final cellGlowEdgePaint = Paint()..style = PaintingStyle.stroke;
 
-  _ClearWave(this.start, Map<int, int> snapshot, int lines, int seed)
+  final int n;
+  _ClearWave(this.start, Map<int, int> snapshot, int lines, int seed, this.n)
       : cells = Map.of(snapshot),
         intensity = lines >= 4 ? 1.0 : (lines >= 2 ? .45 : 0.0) {
     center = cells.keys.fold(
-            Offset.zero, (sum, k) => sum + Offset(k % 8 + .5, k ~/ 8 + .5)) /
+            Offset.zero, (sum, k) => sum + Offset(k % n + .5, k ~/ n + .5)) /
         cells.length.toDouble();
     // Diagonal wave: adjacent cells differ by 28 ms, even at row intersections.
-    final first = cells.keys.map((k) => k % 8 + k ~/ 8).reduce(min);
+    final first = cells.keys.map((k) => k % n + k ~/ n).reduce(min);
     for (final key in cells.keys) {
-      delays[key] = (key % 8 + key ~/ 8 - first) * 28.0;
+      delays[key] = (key % n + key ~/ n - first) * 28.0;
     }
     duration = delays.values.reduce(max) + 300;
     final random = Random(seed);
@@ -187,7 +193,8 @@ class BlockBoardFxPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cell = size.width / 8;
+    final n = grid.length;
+    final cell = size.width / n;
     final now = clock.value;
     canvas.save();
     canvas.clipRect(Offset.zero & size);
@@ -196,11 +203,16 @@ class BlockBoardFxPainter extends CustomPainter {
       canvas.save();
       impact.transform(canvas, cell, now);
       for (final key in impact.cells) {
-        final color = grid[key ~/ 8][key % 8];
-        if (color == null || fx.impactAt(key, now) != impact) continue;
+        if (key >= n * n) continue;
+        final color = grid[key ~/ n][key % n];
+        if (color == null ||
+            color == BlockBlastEngine.saltCell ||
+            fx.impactAt(key, now) != impact) {
+          continue;
+        }
         paintBlockCell(
             canvas,
-            Rect.fromLTWH((key % 8) * cell + 1.5, (key ~/ 8) * cell + 1.5,
+            Rect.fromLTWH((key % n) * cell + 1.5, (key ~/ n) * cell + 1.5,
                 cell - 3, cell - 3),
             palette[color]);
       }
@@ -223,16 +235,18 @@ class BlockBoardFxPainter extends CustomPainter {
             size.width * (.05 + .65 * Curves.easeOutCubic.transform(t)),
             wave.shockwavePaint);
       }
+      // Tahta boyu değiştiyse eski dalga çizilmez.
+      if (wave.n != n) continue;
       for (final entry in wave.cells.entries) {
         final t = ((age - wave.delays[entry.key]!) / 230).clamp(0.0, 1.0);
         // Old ghosts must never hide a newly placed block at the same location.
         if (t >= 1 ||
             preview.contains(entry.key) ||
-            grid[entry.key ~/ 8][entry.key % 8] != null) {
+            grid[entry.key ~/ n][entry.key % n] != null) {
           continue;
         }
         final color = palette[entry.value];
-        final center = Offset(entry.key % 8 + .5, entry.key ~/ 8 + .5) * cell;
+        final center = Offset(entry.key % n + .5, entry.key ~/ n + .5) * cell;
         final shrink = ((t - .24) / .76).clamp(0.0, 1.0);
         final scale = t < .24
             ? 1 + .1 * Curves.easeOutCubic.transform(t / .24)
@@ -260,7 +274,7 @@ class BlockBoardFxPainter extends CustomPainter {
       for (final p in wave.particles) {
         final t = (age - wave.delays[p.key]! - 45) / 255;
         if (t <= 0 || t >= 1) continue;
-        final origin = Offset(p.key % 8 + .5, p.key ~/ 8 + .5) * cell;
+        final origin = Offset(p.key % n + .5, p.key ~/ n + .5) * cell;
         final position = origin +
             p.velocity * cell * Curves.easeOutCubic.transform(t) +
             Offset(0, cell * .13 * t * t);

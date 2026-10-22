@@ -28,13 +28,24 @@ export class BattleRoom {
     if (result.state) this.match = result.state;
     return result;
   }
-  frame(extra = {}) {
-    return {type:'STATE_UPDATE', state:this.match, serverNow:Date.now(), ...extra};
+  /** Oyuncunun gördüğü durum: rakibin yansıt jokeri, yansıtma olana dek
+   * kullanılmamış görünür. */
+  view(viewer) {
+    const m = this.match;
+    const hide = p => p.id !== viewer && !p.reflected &&
+      (p.usedJokers?.includes('reflect') || p.reflectUntil);
+    if (!m?.players.some(hide)) return m;
+    return {...m, players: m.players.map(p => hide(p)
+      ? {...p, usedJokers:p.usedJokers.filter(k => k !== 'reflect'), reflectUntil:null} : p)};
+  }
+  frame(extra = {}, viewer) {
+    return {type:'STATE_UPDATE', state:this.view(viewer), serverNow:Date.now(), ...extra};
   }
   send(ws, frame) { try { ws.send(JSON.stringify(frame)); } catch {} }
   broadcast(extra = {}) {
-    const frame = this.frame(extra);
-    for (const ws of this.ctx.getWebSockets()) this.send(ws, frame);
+    for (const ws of this.ctx.getWebSockets()) {
+      this.send(ws, this.frame(extra, ws.deserializeAttachment().id));
+    }
   }
   async save() {
     await this.ctx.storage.put('room', {match:this.match, tickets:this.tickets, sessions:this.sessions});
@@ -51,7 +62,14 @@ export class BattleRoom {
       : m.status === 'waiting' ? [m.createdAt + 3600000] : [];
     if (m.status !== 'finished') {
       if (m.status === 'countdown') times.push(m.startAt);
-      for (const p of m.players) if (p.disconnectAt) times.push(p.disconnectAt);
+      if (m.status === 'draft') times.push(m.draftEnd);
+      for (const p of m.players) {
+        if (p.disconnectAt) times.push(p.disconnectAt);
+        if (p.stuckAt) times.push(p.stuckAt);
+        if (p.stuckLeft != null && p.aimUntil) times.push(p.aimUntil);
+        if (p.expandUntil) times.push(p.expandUntil);
+        if (p.saltUntil) times.push(p.saltUntil);
+      }
       for (const ws of this.ctx.getWebSockets()) {
         const a = ws.deserializeAttachment();
         if (this.sessions[a.id] === a.session && m.players.find(p => p.id === a.id)?.connected) {
@@ -87,7 +105,8 @@ export class BattleRoom {
       if (url.pathname === '/create') {
         if (this.match) return reply({error:'Kod kullanılıyor.'},409);
         const seed = crypto.getRandomValues(new Uint32Array(1))[0] % 2147483646 + 1;
-        const result = rules({roomId:data.room,seed,action:'join',id:data.id,name:data.name,now});
+        const result = rules({roomId:data.room,seed,action:'join',id:data.id,name:data.name,now,
+          jokers:true});
         if (result.error) return reply({error:result.error},400);
         this.match = result.state;
       } else if (url.pathname === '/join') {
@@ -105,7 +124,7 @@ export class BattleRoom {
       this.tickets[ticket] = {id:data.id,expires:now+60000};
       await this.save();
       this.broadcast();
-      return reply({room:this.match.roomId,me:data.id,ticket,state:this.match,serverNow:now});
+      return reply({room:this.match.roomId,me:data.id,ticket,state:this.view(data.id),serverNow:now});
     });
   }
   async webSocketMessage(ws, message) {
@@ -134,10 +153,23 @@ export class BattleRoom {
           this.send(ws,{type:'ERROR',error:'Geçersiz hamle.'}); return;
         }
         result=this.apply('place',{id:a.id,moveId:data.moveId,slot:data.slot,row:data.row,col:data.col,round:data.round},now);
+      } else if (data.type === 'PICK_JOKER' || data.type === 'USE_JOKER') {
+        if (!['freeze','expand','reflect','salt'].includes(data.joker) ||
+            (data.corner !== undefined && !['tl','tr','bl','br'].includes(data.corner))) {
+          this.send(ws,{type:'ERROR',error:'Geçersiz joker.'}); return;
+        }
+        result = data.type === 'PICK_JOKER'
+          ? this.apply('pick',{id:a.id,joker:data.joker},now)
+          : this.apply('joker',{id:a.id,joker:data.joker,corner:data.corner},now);
+      } else if (data.type === 'AIM_JOKER') {
+        if (typeof data.on !== 'boolean') {
+          this.send(ws,{type:'ERROR',error:'Geçersiz joker.'}); return;
+        }
+        result = this.apply('aim',{id:a.id,on:data.on},now);
       } else if (data.type === 'RECONNECT') result=this.apply('advance',{},now);
       else { this.send(ws,{type:'ERROR',error:'Bilinmeyen mesaj.'}); return; }
       await this.save();
-      if (result.error) this.send(ws,this.frame({type:'ERROR',error:result.error}));
+      if (result.error) this.send(ws,this.frame({type:'ERROR',error:result.error},a.id));
       else this.broadcast({events:result.events,move:result.move});
     });
   }

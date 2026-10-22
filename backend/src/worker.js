@@ -197,9 +197,12 @@ export async function route(request, env, ctx) {
     const room = path.endsWith('/create') ? roomCode() : String(data.room || '').toUpperCase();
     if (!validRoom(room)) fail('6 karakterlik oda kodunu kontrol et.');
     if (!env.BATTLES) fail('Battle servisi henüz etkin değil.',503);
-    return env.BATTLES.get(env.BATTLES.idFromName(room)).fetch(new Request(
+    const response = await env.BATTLES.get(env.BATTLES.idFromName(room)).fetch(new Request(
       'https://room/'+(path.endsWith('/create')?'create':'join'),
       {method:'POST',body:JSON.stringify({room,id:player.id,name:player.name})}));
+    // Oda kuruldu: diğer oyuncuya hemen bildirim (cron kuyruğu beklenmez).
+    if (path.endsWith('/create') && response.ok) ctx?.waitUntil(inviteBattle(env, player, room).catch(() => {}));
+    return response;
   }
   if (path === '/trips') {
     const destination = typeof data.destination === 'string' ? data.destination.trim() : '';
@@ -343,6 +346,28 @@ export async function deliver(env, send = sendPush) {
       .bind(!retry ? 1 : 0, accepted ? (retry ? 'partial' : 'accepted') : deliveryStatus, event.id).run();
   }
   await env.DB.prepare('DELETE FROM notifications WHERE created < ?').bind(now-86400*7).run();
+}
+/** 1v1 daveti: bildirime dokunan oyuncu uygulamayı oda koduyla açar ve
+ * odaya katılır (web/sw.js, web/pwa.js). */
+export async function inviteBattle(env, player, room, send = sendPush) {
+  if (!env.VAPID_PRIVATE_KEY) return;
+  const {results} = await env.DB.prepare(`SELECT s.endpoint, s.subscription FROM subscriptions s
+    JOIN players p ON p.id = s.player_id WHERE s.player_id != ? AND p.active = 1`).bind(player.id).all();
+  const url = new URL(env.APP_URL);
+  url.searchParams.set('oda', room);
+  for (const entry of results) {
+    try {
+      const status = await send(JSON.parse(entry.subscription), {
+        title: 'Block Blast 1v1', body: `${player.name} 1v1 odası kurdu: ${room}. Katılmak için dokun.`,
+        tag: 'battle-invite', url: url.href,
+      }, env);
+      if (status === 404 || status === 410) {
+        await env.DB.prepare('DELETE FROM subscriptions WHERE endpoint = ?').bind(entry.endpoint).run();
+      } else if (status >= 300) console.warn('invite_rejected', {status});
+    } catch (error) {
+      console.warn('invite_failed', {type: error.name});
+    }
+  }
 }
 export async function sendPush(subscription, payload, env, transport = fetch) {
   const details = webpush.generateRequestDetails(subscription, JSON.stringify(payload), {

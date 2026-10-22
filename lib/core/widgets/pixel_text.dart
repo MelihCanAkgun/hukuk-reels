@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
@@ -5,6 +6,9 @@ import 'package:flutter/widgets.dart';
 /// 5×7 piksel yazı tipi: oyun içi ödül yazıları (COMBO!, SSS…) ve küçük
 /// piksel rozetleri için. Yalnız gereken büyük harfler, rakamlar ve birkaç
 /// işaret var; tanımsız karakter boşluk sayılır.
+/// Çengeli taban çizgisinin altına inen harfler.
+const _descenders = {'Ç', 'Ş'};
+
 const Map<String, List<String>> _glyphs = {
   'A': ['.###.', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
   'B': ['####.', '#...#', '#...#', '####.', '#...#', '#...#', '####.'],
@@ -15,6 +19,7 @@ const Map<String, List<String>> _glyphs = {
   'G': ['.###.', '#...#', '#....', '#.###', '#...#', '#...#', '.###.'],
   'H': ['#...#', '#...#', '#...#', '#####', '#...#', '#...#', '#...#'],
   'I': ['###', '.#.', '.#.', '.#.', '.#.', '.#.', '###'],
+  'J': ['..###', '...#.', '...#.', '...#.', '#..#.', '#..#.', '.##..'],
   'K': ['#...#', '#..#.', '#.#..', '##...', '#.#..', '#..#.', '#...#'],
   'L': ['#....', '#....', '#....', '#....', '#....', '#....', '#####'],
   'M': ['#...#', '##.##', '#.#.#', '#.#.#', '#...#', '#...#', '#...#'],
@@ -30,6 +35,64 @@ const Map<String, List<String>> _glyphs = {
   'X': ['#...#', '#...#', '.#.#.', '..#..', '.#.#.', '#...#', '#...#'],
   'Y': ['#...#', '#...#', '.#.#.', '..#..', '..#..', '..#..', '..#..'],
   'Z': ['#####', '....#', '...#.', '..#..', '.#...', '#....', '#####'],
+  // Türkçe harfler tam boy büyük harftir (9 satır). İ Ö Ü Ğ: nokta/şapka
+  // gövdenin üstünde bir boş satırla; Ç Ş: çengel taban çizgisinin altında.
+  'Ç': [
+    '.###.',
+    '#...#',
+    '#....',
+    '#....',
+    '#....',
+    '#...#',
+    '.###.',
+    '..#..',
+    '.##..'
+  ],
+  'Ğ': [
+    '.###.',
+    '.....',
+    '.###.',
+    '#...#',
+    '#....',
+    '#.###',
+    '#...#',
+    '#...#',
+    '.###.'
+  ],
+  'İ': ['.#.', '...', '###', '.#.', '.#.', '.#.', '.#.', '.#.', '###'],
+  'Ö': [
+    '.#.#.',
+    '.....',
+    '.###.',
+    '#...#',
+    '#...#',
+    '#...#',
+    '#...#',
+    '#...#',
+    '.###.'
+  ],
+  'Ş': [
+    '.####',
+    '#....',
+    '#....',
+    '.###.',
+    '....#',
+    '....#',
+    '####.',
+    '..#..',
+    '.##..'
+  ],
+  'Ü': [
+    '.#.#.',
+    '.....',
+    '#...#',
+    '#...#',
+    '#...#',
+    '#...#',
+    '#...#',
+    '#...#',
+    '.###.'
+  ],
   '0': ['.###.', '#...#', '#..##', '#.#.#', '##..#', '#...#', '.###.'],
   '1': ['..#..', '.##..', '..#..', '..#..', '..#..', '..#..', '.###.'],
   '2': ['.###.', '#...#', '....#', '...#.', '..#..', '.#...', '#####'],
@@ -44,6 +107,12 @@ const Map<String, List<String>> _glyphs = {
   '+': ['.....', '..#..', '..#..', '#####', '..#..', '..#..', '.....'],
   '×': ['.....', '#...#', '.#.#.', '..#..', '.#.#.', '#...#', '.....'],
   '·': ['..', '..', '..', '##', '##', '..', '..'],
+  '-': ['...', '...', '...', '###', '...', '...', '...'],
+  ':': ['.', '.', '#', '.', '.', '#', '.'],
+  '.': ['.', '.', '.', '.', '.', '.', '#'],
+  ',': ['..', '..', '..', '..', '..', '.#', '#.'],
+  '%': ['##..#', '##.#.', '...#.', '..#..', '.#...', '.#.##', '#..##'],
+  '/': ['....#', '...#.', '...#.', '..#..', '.#...', '.#...', '#....'],
   ' ': ['..', '..', '..', '..', '..', '..', '..'],
 };
 
@@ -62,15 +131,34 @@ class PixelTextLayout {
         dark = dark ?? Color.lerp(color, const Color(0xFF000000), .28)!,
         fill = color {
     var x = 1;
-    for (final rune in text.toUpperCase().runes) {
-      final rows = _glyphs[String.fromCharCode(rune)] ?? _glyphs[' ']!;
+    final chars = [
+      for (final rune in text.toUpperCase().runes) String.fromCharCode(rune)
+    ];
+    final glyphs = [for (final c in chars) _glyphs[c] ?? _glyphs[' ']!];
+    // Noktalı / şapkalı harf varsa yazı o kadar aşağı iner, çengelli harf
+    // varsa alta yer açılır; ikisi de yoksa yükseklik değişmez.
+    var up = 0, down = 0;
+    for (var i = 0; i < chars.length; i++) {
+      final extra = glyphs[i].length - 7;
+      if (_descenders.contains(chars[i])) {
+        down = max(down, extra);
+      } else {
+        up = max(up, extra);
+      }
+    }
+    top = up;
+    bottom = down;
+    for (var i = 0; i < glyphs.length; i++) {
+      final rows = glyphs[i];
       final g = _Glyph(x, rows.first.length);
+      final accent = _descenders.contains(chars[i]) ? 0 : rows.length - 7;
       for (var y = 0; y < rows.length; y++) {
+        final body = y - accent; // gövde satırı; üstündeki işaretler < 0
         for (var cx = 0; cx < rows[y].length; cx++) {
           if (rows[y][cx] != '#') continue;
-          final ux = (x + cx).toDouble(), uy = y + 1.0;
+          final ux = (x + cx).toDouble(), uy = body + 1.0 + top;
           g.outline.addRect(Rect.fromLTWH(ux - 1, uy - 1, 3, 3));
-          (y < 2 ? g.light : (y < 5 ? g.fill : g.dark))
+          (body < 2 ? g.light : (body < 5 ? g.fill : g.dark))
               .addRect(Rect.fromLTWH(ux, uy, 1, 1));
         }
       }
@@ -86,7 +174,11 @@ class PixelTextLayout {
 
   /// Kontur ve gölge dahil kare cinsinden boyut.
   late final int width;
+
+  /// İşaretsiz yazının yüksekliği; [extent] işaretli harflerle birlikte.
   static const int height = 10;
+  late final int top, bottom;
+  int get extent => height + top + bottom;
   int get letterCount => _letters.length;
 
   /// [origin] sol üst köşedir. [lift] harf başına yukarı kayma (kare
@@ -134,7 +226,7 @@ class PixelTextLayout {
   /// yazının solundan).
   Rect letterBox(int letter) {
     final g = _letters[letter];
-    return Rect.fromLTWH(g.x - 1.0, 0, g.w + 3.0, height.toDouble());
+    return Rect.fromLTWH(g.x - 1.0, 0, g.w + 3.0, extent.toDouble());
   }
 
   /// [letter] harfini tek başına, [px] boyunda ve [dpr] çözünürlüğünde bir
@@ -185,7 +277,7 @@ class PixelText extends StatelessWidget {
       label: text,
       child: SizedBox(
         width: layout.width * px,
-        height: PixelTextLayout.height * px,
+        height: layout.extent * px,
         child: CustomPaint(painter: _PixelTextPainter(layout, px)),
       ),
     );

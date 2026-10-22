@@ -7,6 +7,8 @@ import 'game_leaderboard.dart';
 import 'block_battle_lobby.dart';
 import 'block_battle_session.dart';
 import 'block_battle_widgets.dart';
+import 'block_battle_core.dart';
+import 'block_battle_jokers.dart';
 import 'combo_hud.dart';
 import 'block_battle_life_fx.dart';
 import '../../core/services/social_bridge.dart';
@@ -35,8 +37,6 @@ class BlockBlastScreen extends StatefulWidget {
   State<BlockBlastScreen> createState() => _BlockBlastScreenState();
 }
 
-const int _n = 8; // ızgara boyutu
-
 const List<Color> _palette = [
   Color(0xFFFF5C8A),
   Color(0xFFB06CFF),
@@ -62,6 +62,20 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
   final _gridKey = GlobalKey();
   final _stackKey = GlobalKey();
+
+  // ── Jokerler (1v1) ──
+  final _jokerKeys = {for (final k in jokerKinds) k: GlobalKey()};
+  final _opponentBoardKey = GlobalKey();
+  bool _wheelOpen = false, _wheelDragged = false;
+  Offset _wheelOrigin = Offset.zero; // basılan nokta (dokunma/kaydırma ayrımı)
+  Rect _wheelRect = Rect.zero; // tahtanın yeri (stack uzayı)
+  String? _wheelCorner;
+  late final AnimationController _expandFx;
+  String _expandCorner = 'br';
+  (Offset, Offset)? _projectile;
+  int _projectileId = 0;
+  String _projectileKind = 'freeze';
+  bool _wasFrozen = false, _timed = false;
 
   late BlockBlastEngine _game;
   List<List<int?>> get _grid => _game.grid;
@@ -90,6 +104,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
   QuizQuestion? _reviveQ;
   int? _reviveSelected;
 
+  /// Izgara boyutu: 8, genişletme jokeriyle 9.
+  int get _n => _game.size;
   double _cell = 40; // build'de hesaplanır
   bool _sideTray = false; // yatay ekran: tepsi tahtanın sağında
   static const double _lift = 64; // parmağın belirgin şekilde üstünde göster
@@ -142,6 +158,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           _finishDrag();
         }
       });
+    _expandFx = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..addListener(() => setState(() {}));
     _fxClock = AnimationController.unbounded(vsync: this)
       ..addListener(() {
         if (_boardFx.retire(_fxClock.value) && mounted) setState(() {});
@@ -152,8 +171,26 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       _battleOut = _battle!.mine!['boardOuts'];
       _battleRound = _battle!.round;
       _battle!.addListener(_battleChanged);
+      _wasFrozen = _battle!.frozen(_battle!.mine);
+      _timed = _wasFrozen || _battle!.stuck;
       _battleTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
-        if (mounted && _battle!.status == 'countdown') setState(() {});
+        if (!mounted) return;
+        final s = _battle!;
+        final frozen = s.frozen(s.mine);
+        if (_wasFrozen && !frozen) {
+          SfxService.instance.shatter();
+          HapticFeedback.mediumImpact();
+        }
+        // Buz çözüldüğü an da yeniden çizilir (tepsi ve joker düğmesi açılır).
+        final timed = s.status == 'countdown' ||
+            frozen ||
+            s.stuck ||
+            s.opponents.any(s.frozen) ||
+            s.effectLeft('reflectUntil') != null ||
+            s.effectLeft('expandUntil') != null;
+        if (timed || _timed || _wasFrozen != frozen) setState(() {});
+        _timed = timed;
+        _wasFrozen = frozen;
       });
       return;
     }
@@ -184,6 +221,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     _battleNoticeTimer?.cancel();
     _battle?.removeListener(_battleChanged);
     _fxClock.dispose();
+    _expandFx.dispose();
     _float.dispose();
     _shake.dispose();
     _shakeStep.dispose();
@@ -388,6 +426,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     if (!MediaQuery.disableAnimationsOf(context)) {
       if (_boardFx.isEmpty) _fxClock.value = 0;
       final now = _fxClock.value;
+      _boardFx.n = _n;
       _boardFx.add(
           now,
           {for (final cell in p.cells) (tr + cell[0]) * _n + tc + cell[1]},
@@ -465,11 +504,16 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     final reset = _battleOut != mine['boardOuts'];
     final round = session.round;
     final roundChanged = round != _battleRound;
+    // Genişletme jokeri tahtanın boyunu değiştirir (hamle sayısı değişmez).
+    final resized = (mine['game']['grid'] as List).length != _game.size;
     if (!session.pending &&
         (_predicted ||
             _battleMove != mine['lastMove'] ||
             reset ||
-            roundChanged)) {
+            roundChanged ||
+            resized ||
+            // Tuz gelince/gidince tahta hamlesiz değişir.
+            _gridDiffers(mine['game']['grid'] as List))) {
       _game = session.engine()!;
       _boardRevision++;
       _predicted = false;
@@ -490,15 +534,84 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     final revision = session.state!['revision'] as int;
     if (session.events.isNotEmpty && revision != _battleEventRevision) {
       _battleEventRevision = revision;
+      _battleFeedback = '';
       for (final event in session.events) {
         if (event['type'] == 'BOARD_RESET' && event['player'] == session.me) {
           _battleFeedback = 'HAMLE KALMADI · −1 CAN · Tahta yenilendi';
         } else if (event['type'] == 'DAMAGE') {
+          // Bir hamle iki rakibe birden vurabilir; kendi canın önce gelir.
+          if (event['player'] == session.me) {
+            _battleFeedback =
+                '−${event['amount']} CAN · Rakip 500 puan eşiğini geçti';
+          } else if (!_battleFeedback.startsWith('−')) {
+            _battleFeedback = session.trio
+                ? 'RAKİPLER −${event['amount']} CAN'
+                : 'RAKİP −${event['amount']} CAN';
+          }
+        } else if (event['type'] == 'ELIMINATED') {
+          final name = session.players
+              .where((p) => p['id'] == event['player'])
+              .firstOrNull?['name'];
           _battleFeedback = event['player'] == session.me
-              ? '−${event['amount']} CAN · Rakip 500 puan eşiğini geçti'
-              : 'RAKİP −${event['amount']} CAN';
+              ? 'ELENDİN · Diğerleri oynamaya devam ediyor'
+              : '${name ?? 'Rakip'} ELENDİ';
         } else if (event['type'] == 'REMATCH_STARTED') {
           _battleFeedback = 'YENİ ROUND BAŞLADI!';
+        } else if (event['type'] == 'FREEZE' || event['type'] == 'SALT') {
+          final freeze = event['type'] == 'FREEZE';
+          final reflected = event['reflected'] == true;
+          if (event['player'] == session.me) {
+            _battleFeedback = reflected
+                ? (freeze
+                    ? 'YANSITILDI! KENDİNİ DONDURDUN'
+                    : 'YANSITILDI! TUZ SANA DÖNDÜ')
+                : (freeze ? 'DONDURULDUN · 8 SN' : 'TUZLANDIN · 20 SN');
+            if (reflected) SfxService.instance.reflect();
+            if (freeze) {
+              _wasFrozen = true;
+              SfxService.instance.freezeHit();
+              _finishDrag();
+            } else {
+              SfxService.instance.salt();
+            }
+            HapticFeedback.heavyImpact();
+          } else if (reflected) {
+            _battleFeedback = freeze
+                ? 'YANSITTIN! RAKİP DONDU'
+                : 'YANSITTIN! TUZ RAKİBE DÖNDÜ';
+            SfxService.instance.reflect();
+            HapticFeedback.heavyImpact();
+          } else {
+            _battleFeedback =
+                freeze ? 'RAKİP DONDU · 8 SN' : 'RAKİBE TUZ · 20 SN';
+          }
+        } else if (event['type'] == 'SHRINK') {
+          if (event['player'] == session.me) {
+            _battleFeedback = 'TAHTA 8×8\'E DÖNDÜ';
+            SfxService.instance.shrink();
+            HapticFeedback.mediumImpact();
+          } else {
+            _battleFeedback = 'RAKİBİN TAHTASI 8×8\'E DÖNDÜ';
+          }
+        } else if (event['type'] == 'SALT_GONE' &&
+            event['player'] == session.me) {
+          _battleFeedback = 'TUZ KALKTI';
+        } else if (event['type'] == 'EXPAND') {
+          if (event['player'] == session.me) {
+            _battleFeedback = 'TAHTA 9×9!';
+            _expandCorner = event['corner'] as String? ?? 'br';
+            SfxService.instance.expand();
+            HapticFeedback.heavyImpact();
+            if (!MediaQuery.disableAnimationsOf(context)) {
+              _expandFx.forward(from: 0);
+            }
+          } else {
+            _battleFeedback = 'RAKİP TAHTASINI 9×9 YAPTI';
+          }
+        } else if (event['type'] == 'STUCK' && event['player'] == session.me) {
+          _battleFeedback = 'HAMLE YOK · GENİŞLETME JOKERİNİ KULLAN';
+          SfxService.instance.tick(rate: .7);
+          HapticFeedback.heavyImpact();
         }
       }
       _battleNoticeTimer?.cancel();
@@ -510,6 +623,17 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     setState(() {});
   }
 
+  bool _gridDiffers(List server) {
+    if (server.length != _game.size) return true;
+    for (var r = 0; r < server.length; r++) {
+      final row = server[r] as List;
+      for (var c = 0; c < row.length; c++) {
+        if (row[c] != _game.grid[r][c]) return true;
+      }
+    }
+    return false;
+  }
+
   Future<void> _exitBattle() async {
     final session = _battle!;
     if (session.status != 'finished') {
@@ -517,7 +641,9 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
           context: context,
           builder: (context) => AlertDialog(
                 title: const Text('Maçtan ayrıl?'),
-                content: const Text('Ayrılırsan bu maçı kaybedersin.'),
+                content: Text(session.trio
+                    ? 'Ayrılırsan bu maçta elenirsin.'
+                    : 'Ayrılırsan bu maçı kaybedersin.'),
                 actions: [
                   TextButton(
                       onPressed: () => Navigator.pop(context, false),
@@ -638,13 +764,60 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                               builder: (context, c) {
                                 // Skor sayacı ve kombo çipi canlanırken
                                 // ekranın geri kalanı yeniden çizilmesin.
+                                final battle = _battle;
+                                if (battle != null &&
+                                    battle.status == 'draft') {
+                                  return BattleDraft(session: battle);
+                                }
                                 final hud = RepaintBoundary(
-                                    child: _battle == null
+                                    child: battle == null
                                         ? _scoreText()
                                         : BattleHud(
-                                            session: _battle!,
+                                            session: battle,
                                             palette: _palette,
-                                            feedback: _battleFeedback));
+                                            feedback: _battleFeedback,
+                                            opponentBoardKey: battle.trio
+                                                ? null
+                                                : _opponentBoardKey,
+                                            joker: battle.myJokers.isEmpty
+                                                ? null
+                                                : Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                        for (final kind
+                                                            in battle
+                                                                .myJokers) ...[
+                                                          if (kind !=
+                                                              battle.myJokers
+                                                                  .first)
+                                                            const SizedBox(
+                                                                width: 4),
+                                                          JokerButton(
+                                                              key: _jokerKeys[
+                                                                  kind],
+                                                              session: battle,
+                                                              kind: kind,
+                                                              onTap: () =>
+                                                                  _useJoker(
+                                                                      kind),
+                                                              onExpandDown:
+                                                                  _wheelDown,
+                                                              onExpandMove:
+                                                                  _wheelMove,
+                                                              onExpandUp:
+                                                                  _wheelUp),
+                                                        ],
+                                                      ])));
+                                if (battle != null &&
+                                    battle.eliminated &&
+                                    battle.status == 'playing') {
+                                  return BattleSpectator(
+                                      session: battle, palette: _palette);
+                                }
                                 // Dikey: skor, tahta, tepsi alt alta. Ekran
                                 // yataysa ve tahta yükseklikten kısılıyorsa
                                 // skor solda, tahta ortada, tepsi sağda.
@@ -719,6 +892,16 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
 
                       if (_askContinue) _continueOverlay(),
                       if (_reviveQ != null) _quizOverlay(),
+                      if (_projectile != null)
+                        Positioned.fill(
+                            child: IceProjectile(
+                                key: ValueKey('ice-$_projectileId'),
+                                from: _projectile!.$1,
+                                to: _projectile!.$2,
+                                kind: _projectileKind,
+                                onDone: () =>
+                                    setState(() => _projectile = null))),
+                      if (_wheelOpen) ..._wheel(),
                       if (_over) _overOverlay(best),
                       if (_battle != null && _battle!.status == 'finished')
                         BattleResult(
@@ -729,6 +912,171 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
             ),
           ),
         ));
+  }
+
+  // ── Jokerler ──
+
+  Rect? _rectOf(GlobalKey key) {
+    final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    if (stack == null || box == null || !box.attached) return null;
+    return stack.globalToLocal(box.localToGlobal(Offset.zero)) & box.size;
+  }
+
+  /// Dokunarak kullanılan jokerler. Yansıt sessizdir: ne ses ne titreşim,
+  /// rakip de görmez.
+  Future<void> _useJoker(String kind) async {
+    final s = _battle;
+    if (s == null || !s.jokerReady(kind)) return;
+    if (kind == 'reflect') {
+      await s.useJoker('reflect');
+      return;
+    }
+    final from = _rectOf(_jokerKeys[kind]!)?.center;
+    final to = _rectOf(_opponentBoardKey)?.center;
+    kind == 'salt'
+        ? SfxService.instance.salt()
+        : SfxService.instance.freezeThrow();
+    HapticFeedback.mediumImpact();
+    if (from != null &&
+        to != null &&
+        !MediaQuery.disableAnimationsOf(context)) {
+      setState(() {
+        _projectile = (from, to);
+        _projectileKind = kind;
+        _projectileId++;
+      });
+    }
+    await s.useJoker(kind);
+  }
+
+  void _wheelDown(Offset global) {
+    final s = _battle;
+    final grid = _rectOf(_gridKey);
+    if (s == null || !s.jokerReady('expand') || grid == null) return;
+    _finishDrag();
+    SfxService.instance.tick(rate: .6);
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _wheelOpen = true;
+      _wheelDragged = false;
+      _wheelOrigin = global;
+      _wheelCorner = null;
+      _wheelRect = grid;
+    });
+    // Takılıyken köşe seçilirken süre durur.
+    if (s.stuck) unawaited(s.aimJoker(true));
+  }
+
+  /// Basılı tutarken parmağın bulunduğu yer köşeyi seçer: parmak çarkın
+  /// hangi bölmesinin üstündeyse o.
+  void _wheelMove(Offset global) {
+    if (!_wheelOpen) return;
+    if ((global - _wheelOrigin).distance >= 22) _wheelDragged = true;
+    final stack = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stack == null) return;
+    final corner = ExpandWheel.cornerAt(
+        stack.globalToLocal(global) - _wheelRect.center, _wheelSize / 2,
+        outer: 1.6);
+    if (corner != _wheelCorner) {
+      if (corner == null) {
+        setState(() => _wheelCorner = null);
+        return;
+      }
+      HapticFeedback.selectionClick();
+      SfxService.instance.tick(rate: 1.2);
+      setState(() => _wheelCorner = corner);
+    }
+  }
+
+  void _wheelUp() {
+    if (!_wheelOpen) return;
+    // Kaydırmadan bırakıldıysa çark açık kalır: köşeye dokunarak seçilir.
+    if (!_wheelDragged) return;
+    final corner = _wheelCorner;
+    corner == null ? _closeWheel() : _expand(corner);
+  }
+
+  void _closeWheel({bool resume = true}) {
+    if (resume && _wheelOpen && _battle?.stuck == true) {
+      unawaited(_battle!.aimJoker(false));
+    }
+    setState(() {
+      _wheelOpen = false;
+      _wheelCorner = null;
+    });
+  }
+
+  double get _wheelSize =>
+      min(_wheelRect.width * 1.05, MediaQuery.sizeOf(context).width - 16);
+
+  void _expand(String corner) {
+    _closeWheel(resume: false);
+    final s = _battle;
+    if (s == null || !s.jokerReady('expand')) return;
+    unawaited(s.useJoker('expand', corner: corner));
+  }
+
+  List<Widget> _wheel() {
+    final size = _wheelSize;
+    final center = _wheelRect.center;
+    return [
+      Positioned.fill(
+          child: GestureDetector(
+              onTap: _closeWheel,
+              child: const ColoredBox(color: Color(0xB3050B16)))),
+      Positioned(
+        left: center.dx - size / 2,
+        top: center.dy - size / 2,
+        child: ExpandWheel(
+            size: size,
+            selected: _wheelCorner,
+            seconds: _battle?.aimLeft == null
+                ? null
+                : (_battle!.aimLeft! / 1000).ceil(),
+            onTapCorner: _expand,
+            onCancel: _closeWheel),
+      ),
+    ];
+  }
+
+  /// Hamle kalmadı ama genişletme jokeri duruyor: kalan süre.
+  Widget _stuckBanner() {
+    final left = (_battle!.stuckLeft / 1000).ceil();
+    final flash = (_battle!.now ~/ 250).isEven;
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: Center(
+          child: Container(
+            key: const ValueKey('battle-stuck'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xEE3A1622),
+              border: Border.all(
+                  color:
+                      flash ? const Color(0xFFFF8B85) : const Color(0xFFFFD36A),
+                  width: 3),
+              boxShadow: const [
+                BoxShadow(color: Color(0xFF070F1E), offset: Offset(0, 4))
+              ],
+            ),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('HAMLE YOK!',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                      color: Color(0xFFFF8B85))),
+              Text('Jokeri basılı tut, köşeye kaydır · $left',
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFFFFD36A))),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _topBar(int best) {
@@ -842,7 +1190,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     // 64 ayrı widget yerine tek CustomPaint — sürükleme akıcı olsun.
     return Semantics(
         key: const ValueKey('block-board'),
-        label: '8 × 8 oyun tahtası',
+        label: '$_n × $_n oyun tahtası',
         child: Container(
           key: _gridKey,
           width: size,
@@ -901,6 +1249,20 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                       color: Color(0xFFFFD36A)),
                 )),
               ))),
+            if (_expandFx.isAnimating)
+              Positioned.fill(
+                  child: IgnorePointer(
+                      child: CustomPaint(
+                          painter: ExpandFlashPainter(
+                              _expandFx.value, _expandCorner, _n)))),
+            if (_battle != null && _battle!.frozen(_battle!.mine))
+              Positioned.fill(
+                  child: FreezeOverlay(
+                      key: ValueKey('freeze-${_battle!.mine!['frozenUntil']}'),
+                      until: _battle!.mine!['frozenUntil'] as int,
+                      now: _battle!.now,
+                      n: _n)),
+            if (_battle != null && _battle!.stuck) _stuckBanner(),
             if (_celebration != null)
               Positioned.fill(
                   child: BlockCelebration(
@@ -931,6 +1293,12 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
       padding: vertical
           ? EdgeInsets.zero
           : const EdgeInsets.symmetric(horizontal: _edge),
+      foregroundDecoration: _battle != null && _battle!.frozen(_battle!.mine)
+          // Donmuş tepsi: buz tonu (parçalar sürüklenemez).
+          ? BoxDecoration(
+              color: const Color(0x667FC4FF),
+              border: Border.all(color: const Color(0xFFA9D6FF), width: 2))
+          : null,
       child: Flex(
         direction: vertical ? Axis.vertical : Axis.horizontal,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1486,18 +1854,21 @@ class _GridPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cell = size.width / _n;
+    final n = grid.length;
+    final cell = size.width / n;
     const gap = 3.0;
 
-    for (var r = 0; r < _n; r++) {
-      for (var c = 0; c < _n; c++) {
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
         final rect = Rect.fromLTWH(
             c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap);
-        Color? col = grid[r][c] == null || movingCells.contains(r * _n + c)
+        Color? col = grid[r][c] == null ||
+                grid[r][c] == BlockBlastEngine.saltCell ||
+                movingCells.contains(r * n + c)
             ? null
             : _palette[grid[r][c]!];
         var alpha = 1.0;
-        if (previewColor != null && preview.contains(r * _n + c)) {
+        if (previewColor != null && preview.contains(r * n + c)) {
           col = previewColor;
           alpha = 0.5;
         }
@@ -1506,6 +1877,8 @@ class _GridPainter extends CustomPainter {
         paintBlockCell(canvas, rect, col, alpha: alpha);
       }
     }
+
+    paintSalt(canvas, grid, cell, inset: gap / 2);
 
     // ── Silme önizlemesi: bırakınca tam dolacak satır/sütunlar parlasın ──
     if (clearCells.isNotEmpty) {
@@ -1520,7 +1893,7 @@ class _GridPainter extends CustomPainter {
         ..color = const Color(0xFFFFF7D6).withValues(alpha: .85);
       final glowPath = Path();
       for (final key in clearCells) {
-        final r = key ~/ _n, c = key % _n;
+        final r = key ~/ n, c = key % n;
         final rect = Rect.fromLTWH(
             c * cell + gap / 2, r * cell + gap / 2, cell - gap, cell - gap);
         glowPath.addRect(rect);
