@@ -19,6 +19,8 @@
       worker.postMessage('getVersion', [channel.port2]);
     });
   }
+  // Ayarlardaki "Güncellemeleri denetle" düğmesi (lib/core/services/update_bridge).
+  window.hukukCheckUpdate = async () => 'unavailable';
   window.addEventListener('flutter-first-frame', async () => {
     document.getElementById('loading')?.remove();
     if (!('serviceWorker' in navigator)) return;
@@ -91,6 +93,24 @@
         };
       }
       offerUpdate();
+      // Elle denetim: yeni sürüm varsa indirilmesi beklenir ve hemen uygulanır.
+      window.hukukCheckUpdate = async () => {
+        if (applying) return 'updating';
+        try { await reg.update(); } catch (_) { return 'offline'; }
+        const worker = reg.installing;
+        if (worker && worker.state !== 'installed') {
+          await new Promise((resolve) => {
+            const timer = setTimeout(resolve, 60000);
+            worker.addEventListener('statechange', () => {
+              if (worker.state === 'installed' || worker.state === 'redundant') { clearTimeout(timer); resolve(); }
+            });
+          });
+        }
+        if (!reg.waiting || !sw.controller) return reg.installing ? 'offline' : 'latest';
+        offerUpdate();
+        document.querySelector('#update-app button')?.click();
+        return 'updating';
+      };
       function watch(worker) {
         worker?.addEventListener('statechange', () => {
           if (worker.state === 'installed') offerUpdate();
