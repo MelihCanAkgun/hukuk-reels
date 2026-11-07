@@ -7,6 +7,7 @@ import 'package:hukuk_reels/core/services/progress_service.dart';
 import 'package:hukuk_reels/features/films/film_roulette.dart';
 import 'package:hukuk_reels/features/films/film_store.dart';
 import 'package:hukuk_reels/features/films/films_screen.dart';
+import 'package:hukuk_reels/features/profile/profile_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _now = 1794000000; // 2026-11
@@ -210,6 +211,20 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Amélie'), findsWidgets);
     expect(find.text('Parazit'), findsWidgets);
+  });
+
+  testWidgets('the adder photo: own profile photo or the other player\'s',
+      (tester) async {
+    await _open(tester, [
+      _film(1, title: 'Benim', addedBy: 1),
+      _film(2, title: 'Onun', addedBy: 2),
+    ]);
+    Finder avatarIn(int id, Type type) => find.descendant(
+        of: find.byKey(ValueKey('film-$id')), matching: find.byType(type));
+    expect(avatarIn(1, ProfileAvatar), findsOneWidget);
+    expect(avatarIn(1, PeerAvatar), findsNothing);
+    expect(avatarIn(2, PeerAvatar), findsOneWidget);
+    expect(avatarIn(2, ProfileAvatar), findsNothing);
   });
 
   testWidgets('search adds a film; delete asks first', (tester) async {

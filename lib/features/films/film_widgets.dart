@@ -25,6 +25,25 @@ const kDiceSprite = [
   '.kkkkkkkkkk.',
 ];
 
+/// Oyuncunun profil fotoğrafı: kendimizse profildeki fotoğraf, diğer
+/// oyuncuysa eşitlenen fotoğrafı (ikisi de yoksa baş harf).
+class PlayerAvatar extends StatelessWidget {
+  const PlayerAvatar(
+      {super.key, required this.id, required this.size, this.ring = true});
+
+  final int id;
+  final double size;
+  final bool ring;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = FilmStore.instance;
+    return id == store.me
+        ? ProfileAvatar(size: size, ring: ring)
+        : PeerAvatar(id: id, name: store.nameOf(id), size: size, ring: ring);
+  }
+}
+
 /// Afiş; yoksa ya da yüklenemezse film şeridi deseni ve baş harf.
 class FilmPoster extends StatelessWidget {
   const FilmPoster({super.key, required this.url, required this.title});
@@ -291,10 +310,7 @@ class FilmCard extends StatelessWidget {
                   Positioned(
                     top: 6,
                     right: 6,
-                    child: PeerAvatar(
-                        id: film.addedBy,
-                        name: store.nameOf(film.addedBy),
-                        size: 24),
+                    child: PlayerAvatar(id: film.addedBy, size: 24),
                   ),
                   if (film.providers.isNotEmpty)
                     Positioned(
@@ -374,11 +390,7 @@ class FilmCard extends StatelessWidget {
     return Row(
       children: [
         for (final r in rs) ...[
-          PeerAvatar(
-              id: r.player,
-              name: store.nameOf(r.player),
-              size: 15,
-              ring: false),
+          PlayerAvatar(id: r.player, size: 15, ring: false),
           const SizedBox(width: 3),
           const Icon(Icons.favorite_rounded, size: 12, color: AppTheme.accent),
           Text(' ${r.hearts}',

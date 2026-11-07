@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/services/avatar_sync.dart';
+import '../../core/services/social_bridge.dart';
 import '../../core/widgets/readable_width.dart';
 import 'film_detail_sheet.dart';
 import 'film_roulette.dart';
@@ -126,6 +128,9 @@ class _FilmsScreenState extends State<FilmsScreen> {
     super.initState();
     _store.changes.addListener(_changed);
     _store.refresh(force: true);
+    // Kartlardaki ekleyen fotoğrafları: diğer oyuncunun fotoğrafı yalnız
+    // eşitlemeyle iner (sıralama ya da profil hiç açılmamış olabilir).
+    socialCall('state').then(AvatarSync.instance.sync);
   }
 
   @override

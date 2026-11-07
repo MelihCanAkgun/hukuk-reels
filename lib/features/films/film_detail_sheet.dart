@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
 import '../../core/services/link_bridge.dart';
-import '../profile/profile_avatar.dart';
 import 'film_store.dart';
 import 'film_widgets.dart';
 
@@ -319,11 +318,7 @@ class _FilmDetailState extends State<FilmDetail> {
 
   Widget _added(Film film) => Row(
         children: [
-          PeerAvatar(
-              id: film.addedBy,
-              name: _store.nameOf(film.addedBy),
-              size: 22,
-              ring: false),
+          PlayerAvatar(id: film.addedBy, size: 22, ring: false),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -442,8 +437,7 @@ class _FilmDetailState extends State<FilmDetail> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            PeerAvatar(
-                id: player, name: _store.nameOf(player), size: 30, ring: false),
+            PlayerAvatar(id: player, size: 30, ring: false),
             const SizedBox(width: 10),
             Expanded(
               child: Column(

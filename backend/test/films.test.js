@@ -17,9 +17,18 @@ function upstream({tmdbDown = false} = {}) {
     const reply = (data, status = 200) => new Response(JSON.stringify(data), {status});
     if (url.hostname === 'www.omdbapi.com') return reply({imdbRating: url.searchParams.get('i') === 'tt1375666' ? '8.8' : 'N/A'});
     if (tmdbDown) return reply({status_message: 'down'}, 503);
-    if (url.pathname === '/3/search/movie') return reply({results: [
-      {id: 27205, title: 'Başlangıç', original_title: 'Inception', release_date: '2010-07-15', poster_path: '/inc.jpg', vote_average: 8.369},
-      {id: 99, title: 'Kötü <b>', original_title: 'Bad', release_date: '', poster_path: 'javascript:alert(1)', vote_average: 0},
+    // Each language ranks differently, like TMDB: the 2019 "Parasite" only
+    // comes up in the English search.
+    if (url.pathname === '/3/search/movie') return reply({results: url.searchParams.get('language') === 'tr-TR' ? [
+      {id: 99, title: 'Kötü <b>', original_title: 'Bad', release_date: '', poster_path: 'javascript:alert(1)', vote_average: 0, vote_count: 5},
+      {id: 1982, title: 'Parasite', original_title: 'Parasite', release_date: '1982-03-12', vote_count: 91},
+      {id: 27205, title: 'Başlangıç', original_title: 'Inception', release_date: '2010-07-15', poster_path: '/inc.jpg', vote_average: 8.369, vote_count: 30000},
+      {id: 129, title: 'Ruhların Kaçışı', original_title: '千と千尋の神隠し', release_date: '2001-07-20', vote_count: 19189},
+    ] : [
+      {id: 496243, title: 'Parasite', original_title: '기생충', release_date: '2019-05-30', vote_count: 21647},
+      {id: 1982, title: 'Parasite', original_title: 'Parasite', release_date: '1982-03-12', vote_count: 91},
+      {id: 27205, title: 'Inception', original_title: 'Inception', release_date: '2010-07-15', poster_path: '/inc.jpg', vote_average: 8.369, vote_count: 30000},
+      {id: 129, title: 'Spirited Away', original_title: '千と千尋の神隠し', release_date: '2001-07-20', vote_count: 19189},
     ]});
     const id = Number(url.pathname.split('/').at(-1));
     if (id === 404) return reply({}, 404);
@@ -80,16 +89,36 @@ test('search goes through the worker with the secret key and sanitizes results',
   assert.equal(r.status, 200);
   assert.equal(urls[0].searchParams.get('api_key'), 'tmdb-secret');
   assert.equal(urls[0].searchParams.get('query'), 'inception');
-  assert.equal(urls[0].searchParams.get('language'), 'tr-TR');
-  assert.deepEqual(r.data.results[0], {tmdbId: 27205, title: 'Başlangıç', originalTitle: 'Inception', year: 2010,
-    poster: '/inc.jpg', tmdbRating: 8.4, inList: false});
+  assert.deepEqual(urls.map(u => u.searchParams.get('language')).sort(), ['en-US', 'tr-TR']);
+  assert.deepEqual(r.data.results[0], {tmdbId: 27205, title: 'Başlangıç', originalTitle: 'Inception', englishTitle: null,
+    year: 2010, poster: '/inc.jpg', tmdbRating: 8.4, inList: false});
   // Unsafe poster paths are dropped; text is returned as plain data.
-  assert.equal(r.data.results[1].poster, null);
-  assert.equal(r.data.results[1].year, null);
+  const bad = r.data.results.find(x => x.tmdbId === 99);
+  assert.equal(bad.poster, null);
+  assert.equal(bad.year, null);
   assert.ok(!JSON.stringify(r.data).includes('secret'));
   assert.equal((await call('/films/search', {query: ''})).status, 400);
   assert.equal((await call('/films/search', {query: 'x'.repeat(81)})).status, 400);
   assert.equal((await call('/films/search', {query: 'a\u202eb'})).status, 400);
+});
+
+test('Turkish and English results are merged; exact and well-known titles come first', async () => {
+  const urls = upstream();
+  const {call} = await setup();
+  let r = await call('/films/search', {query: 'parasite'});
+  assert.deepEqual(r.data.results.slice(0, 2).map(x => [x.tmdbId, x.title, x.year]),
+    [[496243, 'Parasite', 2019], [1982, 'Parasite', 1982]]);
+  // English names find the film; the Turkish title is shown with the English one.
+  r = await call('/films/search', {query: 'Spirited away'});
+  assert.deepEqual(r.data.results[0], {tmdbId: 129, title: 'Ruhların Kaçışı', originalTitle: '千と千尋の神隠し',
+    englishTitle: 'Spirited Away', year: 2001, poster: null, tmdbRating: null, inList: false});
+  r = await call('/films/search', {query: 'ruhlarin kacisi'});
+  assert.equal(r.data.results[0].tmdbId, 129);
+  // A trailing year filters by year.
+  urls.length = 0;
+  await call('/films/search', {query: 'parasite 2019'});
+  assert.deepEqual(urls.map(u => [u.searchParams.get('query'), u.searchParams.get('year')]),
+    [['parasite', '2019'], ['parasite', '2019']]);
 });
 
 test('adding a film stores TMDB details, the IMDb rating and TR providers, once', async () => {

@@ -210,6 +210,7 @@ class FilmSearchResult {
       : tmdbId = j['tmdbId'] as int,
         title = j['title'] as String,
         originalTitle = (j['originalTitle'] as String?) ?? '',
+        englishTitle = j['englishTitle'] as String?,
         year = j['year'] as int?,
         poster = j['poster'] as String?,
         tmdbRating = (j['tmdbRating'] as num?)?.toDouble(),
@@ -217,6 +218,9 @@ class FilmSearchResult {
 
   final int tmdbId;
   final String title, originalTitle;
+
+  /// İngilizce ad, Türkçe ve orijinal addan farklıysa (ör. Spirited Away).
+  final String? englishTitle;
   final int? year;
   final String? poster;
   final double? tmdbRating;
