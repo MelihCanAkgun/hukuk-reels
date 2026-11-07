@@ -1,8 +1,8 @@
 {
-  "source_commit": "02aee76830077393ff35960375fa6d6d37735175",
-  "built_at": "2026-11-07T12:31:19Z",
-  "checks": "flutter analyze (no issues); flutter test (470 passed); backend tests (73 passed, battle-network excluded); migration 0011 checked on old schema; release build --wasm with base-href /hukuk-reels/",
-  "change": "İzle: single TV episodes; smaller Pages upload",
+  "source_commit": "dafa71ab55ccd1b6177f215f6a5304e5c4a63a28",
+  "built_at": "2026-11-07T20:44:03Z",
+  "checks": "flutter analyze (no issues); flutter test (472 passed); backend tests (74 passed, battle-network excluded); migration 0012 checked on old schema and applied remote; release build --wasm with base-href /hukuk-reels/",
+  "change": "İzle: half hearts, review likes and replies, score table, arcade look, dice redesign",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "8351878bfea46e88"
+  "app_build": "ab07207d0de68a72"
 }
