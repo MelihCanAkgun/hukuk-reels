@@ -1,8 +1,8 @@
 {
-  "source_commit": "cb250bf3c56fa709108e0e37300afe97f506ec38",
-  "built_at": "2026-11-07T11:39:56Z",
-  "checks": "flutter test (467 passed); headless Chrome skwasm screenshots of game scores; release build --wasm with base-href /hukuk-reels/",
-  "change": "Pixel font: clear 5x7 arcade digits",
+  "source_commit": "d91f28bc5ccc3100311c456084ffe8c41c7de17c",
+  "built_at": "2026-11-07T12:16:08Z",
+  "checks": "flutter analyze (no issues); flutter test (470 passed); backend tests (73 passed, battle-network excluded); migration 0011 checked on old schema; release build --wasm with base-href /hukuk-reels/",
+  "change": "İzle: single TV episodes in the shared watchlist",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "b64558680f1f25b6"
+  "app_build": "8351878bfea46e88"
 }

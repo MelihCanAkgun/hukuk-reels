@@ -297,6 +297,10 @@
     }
     if (action === 'filmSearch') return api('/films/search', {query: data.query});
     if (action === 'filmAdd') return {...saveFilms(await api('/films', {tmdbId: data.tmdbId})), connected: true};
+    if (action === 'filmShow') return api('/films/show', {tmdbId: data.tmdbId});
+    if (action === 'filmSeason') return api('/films/season', {tmdbId: data.tmdbId, season: data.season});
+    if (action === 'filmEpisodes') return {...saveFilms(await api('/films/episodes',
+      {showId: data.showId, season: data.season, episodes: data.episodes})), connected: true};
     if (action === 'filmWatched') return {...saveFilms(await api('/films/watched', {id: data.id, watched: data.watched})), connected: true};
     if (action === 'filmRate') return {...saveFilms(await api('/films/rate', {id: data.id, hearts: data.hearts, comment: data.comment})), connected: true};
     if (action === 'filmDelete') return {...saveFilms(await api('/films/delete', {id: data.id})), connected: true};
