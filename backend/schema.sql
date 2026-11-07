@@ -141,9 +141,16 @@ CREATE TABLE IF NOT EXISTS films (
  watched INTEGER,
  watched_by INTEGER REFERENCES players(id),
  watch_notified INTEGER NOT NULL DEFAULT 0,
- info_updated INTEGER NOT NULL
+ info_updated INTEGER NOT NULL,
+ kind TEXT NOT NULL DEFAULT 'movie',
+ show_id INTEGER,
+ show_title TEXT,
+ season INTEGER,
+ episode INTEGER,
+ still TEXT
 );
 CREATE INDEX IF NOT EXISTS films_added ON films(added_by, added);
+CREATE UNIQUE INDEX IF NOT EXISTS films_episode ON films(show_id, season, episode) WHERE kind = 'episode';
 CREATE TABLE IF NOT EXISTS film_ratings (
  film_id INTEGER NOT NULL REFERENCES films(id) ON DELETE CASCADE,
  player_id INTEGER NOT NULL REFERENCES players(id),

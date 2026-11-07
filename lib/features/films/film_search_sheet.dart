@@ -3,10 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import 'film_episode_picker.dart';
 import 'film_store.dart';
 import 'film_widgets.dart';
 
-/// Film ekleme: ad yazılır, afişli TMDB sonuçlarından biri seçilir.
+/// Film ya da dizi bölümü ekleme: ad yazılır, afişli TMDB sonuçlarından film
+/// seçilir; dizi seçilince sezon ve bölümler açılır.
 Future<void> showFilmSearch(BuildContext context) => showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -36,6 +38,9 @@ class _FilmSearchState extends State<FilmSearch> {
   bool _searching = false;
   int _generation = 0;
   final Set<int> _adding = {};
+
+  /// Bölüm seçimi açık olan dizi.
+  FilmSearchResult? _show;
 
   @override
   void dispose() {
@@ -73,6 +78,13 @@ class _FilmSearchState extends State<FilmSearch> {
   }
 
   Future<void> _add(FilmSearchResult m) async {
+    if (m.isShow) {
+      setState(() {
+        _show = m;
+        _message = null;
+      });
+      return;
+    }
     if (m.inList || _adding.contains(m.tmdbId)) return;
     setState(() {
       _adding.add(m.tmdbId);
@@ -104,57 +116,68 @@ class _FilmSearchState extends State<FilmSearch> {
                     borderRadius: BorderRadius.circular(2)),
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 18),
-              child: Text('Film ekle 🍿', style: AppTheme.sheetTitle),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-              child: TextField(
-                key: const ValueKey('film-search-field'),
-                controller: _query,
-                autofocus: true,
-                maxLength: 80,
-                onChanged: _changed,
-                onSubmitted: (q) {
-                  _debounce?.cancel();
-                  if (q.trim().isNotEmpty) _search(q.trim());
-                },
-                textInputAction: TextInputAction.search,
-                style:
-                    const TextStyle(color: AppTheme.textPrimary, fontSize: 16),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: 'Film adı (Türkçe ya da İngilizce)',
-                  hintStyle: const TextStyle(color: AppTheme.textMuted),
-                  prefixIcon: const Icon(Icons.search_rounded,
-                      color: AppTheme.textSecondary),
-                  suffixIcon: _searching
-                      ? const Padding(
-                          padding: EdgeInsets.all(14),
-                          child: SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppTheme.accent)),
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppTheme.surface,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none),
+            if (_show != null)
+              Expanded(
+                child: EpisodePicker(
+                  key: ValueKey('picker-${_show!.tmdbId}'),
+                  show: _show!,
+                  onBack: () => setState(() => _show = null),
+                ),
+              )
+            else ...[
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child:
+                    Text('Film ya da dizi ekle 🍿', style: AppTheme.sheetTitle),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                child: TextField(
+                  key: const ValueKey('film-search-field'),
+                  controller: _query,
+                  autofocus: true,
+                  maxLength: 80,
+                  onChanged: _changed,
+                  onSubmitted: (q) {
+                    _debounce?.cancel();
+                    if (q.trim().isNotEmpty) _search(q.trim());
+                  },
+                  textInputAction: TextInputAction.search,
+                  style: const TextStyle(
+                      color: AppTheme.textPrimary, fontSize: 16),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: 'Film ya da dizi adı (Türkçe/İngilizce)',
+                    hintStyle: const TextStyle(color: AppTheme.textMuted),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                        color: AppTheme.textSecondary),
+                    suffixIcon: _searching
+                        ? const Padding(
+                            padding: EdgeInsets.all(14),
+                            child: SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: AppTheme.accent)),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: AppTheme.surface,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none),
+                  ),
                 ),
               ),
-            ),
-            if (_message != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 2, 18, 4),
-                child: Text(_message!,
-                    key: const ValueKey('film-search-message'),
-                    style:
-                        const TextStyle(color: AppTheme.accent, fontSize: 13)),
-              ),
-            Expanded(child: _body()),
+              if (_message != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 2, 18, 4),
+                  child: Text(_message!,
+                      key: const ValueKey('film-search-message'),
+                      style: const TextStyle(
+                          color: AppTheme.accent, fontSize: 13)),
+                ),
+              Expanded(child: _body()),
+            ],
             const Padding(
               padding: EdgeInsets.fromLTRB(16, 4, 16, 12),
               child: Text(
@@ -171,7 +194,8 @@ class _FilmSearchState extends State<FilmSearch> {
     if (_error != null) return _hint('😿', _error!);
     if (_results.isEmpty) {
       return _query.text.trim().isEmpty || _searching
-          ? _hint('🎞️', 'İzlemek istediğiniz filmin adını yazın.')
+          ? _hint('🎞️',
+              'İzlemek istediğiniz filmin ya da dizinin adını yazın.\nDizide bölümleri tek tek seçersiniz.')
           : _hint('🔍', 'Sonuç bulunamadı. Başka bir ad dene.');
     }
     return ListView.separated(
@@ -202,6 +226,7 @@ class _FilmSearchState extends State<FilmSearch> {
   Widget _tile(FilmSearchResult m) {
     final adding = _adding.contains(m.tmdbId);
     final sub = [
+      if (m.isShow) '📺 Dizi',
       if (m.englishTitle != null) m.englishTitle!,
       if (m.originalTitle.isNotEmpty && m.originalTitle != m.title)
         m.originalTitle,
@@ -262,6 +287,21 @@ class _FilmSearchState extends State<FilmSearch> {
                     dimension: 22,
                     child: CircularProgressIndicator(
                         strokeWidth: 2.2, color: AppTheme.accent))
+              else if (m.isShow)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.chevron_right_rounded,
+                        color: AppTheme.accent, size: 30),
+                    if (m.listedEpisodes > 0)
+                      Text('${m.listedEpisodes} bölüm\nlistede',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: AppTheme.success,
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700)),
+                  ],
+                )
               else if (m.inList)
                 const Text('Listede ✓',
                     style: TextStyle(

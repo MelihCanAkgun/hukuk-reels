@@ -2,7 +2,8 @@ import 'package:flutter/widgets.dart';
 
 import '../../core/services/social_bridge.dart';
 
-/// Ortak film listesi (Filmler sekmesi). Film bilgileri TMDB'den, IMDb puanı
+/// Ortak izleme listesi (İzle sekmesi): filmler ve tek tek dizi bölümleri
+/// (Black Mirror'ın her bölümü ayrı bir öğe). Bilgiler TMDB'den, IMDb puanı
 /// OMDb'den Worker üzerinden gelir; API anahtarları uygulamada değildir.
 ///
 /// Liste sekme açılınca, aşağı çekip yenileyince ve her değişiklikten sonra
@@ -75,9 +76,40 @@ class FilmStore {
     );
   }
 
+  /// Dizinin sezonları (bölüm seçmek için).
+  Future<({ShowInfo? show, String? error})> show(int tmdbId) async {
+    final r = await call('filmShow', {'tmdbId': tmdbId});
+    if (r['error'] != null) return (show: null, error: r['error'] as String);
+    final m = r['show'];
+    return m is Map
+        ? (show: ShowInfo.fromJson(m.cast<String, dynamic>()), error: null)
+        : (show: null, error: 'Dizi bilgisi alınamadı.');
+  }
+
+  /// Bir sezonun bölümleri; listede olanlar işaretli.
+  Future<({List<EpisodeResult> episodes, String? error})> season(
+      int tmdbId, int season) async {
+    final r = await call('filmSeason', {'tmdbId': tmdbId, 'season': season});
+    if (r['error'] != null) {
+      return (episodes: const <EpisodeResult>[], error: r['error'] as String);
+    }
+    return (
+      episodes: [
+        for (final m in (r['episodes'] as List? ?? const []).whereType<Map>())
+          EpisodeResult.fromJson(m.cast<String, dynamic>())
+      ],
+      error: null,
+    );
+  }
+
   /// Ekleme/değişiklik: sunucunun döndürdüğü güncel liste hemen uygulanır.
   /// Hata varsa mesajı döner.
   Future<String?> add(int tmdbId) => _write('filmAdd', {'tmdbId': tmdbId});
+
+  /// Seçilen bölümler ayrı ayrı listeye eklenir (en fazla 10).
+  Future<String?> addEpisodes(int showId, int season, List<int> episodes) =>
+      _write('filmEpisodes',
+          {'showId': showId, 'season': season, 'episodes': episodes});
 
   Future<String?> setWatched(int id, bool watched) =>
       _write('filmWatched', {'id': id, 'watched': watched});
@@ -167,7 +199,13 @@ class Film {
         addedBy = j['addedBy'] as int,
         added = _time(j['added'] as int),
         watched = j['watched'] == null ? null : _time(j['watched'] as int),
-        watchedBy = j['watchedBy'] as int?;
+        watchedBy = j['watchedBy'] as int?,
+        isEpisode = j['kind'] == 'episode',
+        showId = j['showId'] as int?,
+        showTitle = j['showTitle'] as String?,
+        season = j['season'] as int?,
+        episode = j['episode'] as int?,
+        still = j['still'] as String?;
 
   final int id, tmdbId, addedBy;
   final String? imdbId, poster;
@@ -179,7 +217,15 @@ class Film {
   final DateTime added;
   final DateTime? watched;
 
+  /// Film değil, bir dizinin tek bölümü.
+  final bool isEpisode;
+  final int? showId, season, episode;
+  final String? showTitle, still;
+
   bool get isWatched => watched != null;
+
+  /// "S3:B1" (bölümlerde).
+  String? get episodeCode => isEpisode ? 'S$season:B$episode' : null;
 
   /// Türkçe ad orijinalinden farklıysa orijinal ad küçük yazılır.
   String? get subtitle =>
@@ -188,10 +234,17 @@ class Film {
   String? posterUrl([String size = 'w342']) =>
       poster == null ? null : '$_tmdbImages$size$poster';
 
+  String? get stillUrl => still == null ? null : '${_tmdbImages}w780$still';
+
   String? get imdbUrl =>
       imdbId == null ? null : 'https://www.imdb.com/title/$imdbId/';
-  String get letterboxdUrl => 'https://letterboxd.com/tmdb/$tmdbId/';
-  String get tmdbUrl => 'https://www.themoviedb.org/movie/$tmdbId';
+
+  /// Letterboxd'da dizi yok; yalnız filmlerde.
+  String? get letterboxdUrl =>
+      isEpisode ? null : 'https://letterboxd.com/tmdb/$tmdbId/';
+  String get tmdbUrl => isEpisode
+      ? 'https://www.themoviedb.org/tv/$showId/season/$season/episode/$episode'
+      : 'https://www.themoviedb.org/movie/$tmdbId';
 }
 
 class FilmRating {
@@ -207,7 +260,9 @@ class FilmRating {
 
 class FilmSearchResult {
   FilmSearchResult.fromJson(Map<String, dynamic> j)
-      : tmdbId = j['tmdbId'] as int,
+      : isShow = j['kind'] == 'tv',
+        listedEpisodes = (j['listedEpisodes'] as int?) ?? 0,
+        tmdbId = j['tmdbId'] as int,
         title = j['title'] as String,
         originalTitle = (j['originalTitle'] as String?) ?? '',
         englishTitle = j['englishTitle'] as String?,
@@ -216,6 +271,11 @@ class FilmSearchResult {
         tmdbRating = (j['tmdbRating'] as num?)?.toDouble(),
         inList = j['inList'] == true;
 
+  /// Dizi: dokununca sezon/bölüm seçimi açılır.
+  final bool isShow;
+
+  /// Dizinin listede olan bölüm sayısı.
+  final int listedEpisodes;
   final int tmdbId;
   final String title, originalTitle;
 
@@ -227,6 +287,63 @@ class FilmSearchResult {
   bool inList;
 
   String? get posterUrl => poster == null ? null : '${_tmdbImages}w154$poster';
+}
+
+class ShowSeason {
+  ShowSeason.fromJson(Map<String, dynamic> j)
+      : season = j['season'] as int,
+        name = (j['name'] as String?) ?? '',
+        episodes = j['episodes'] as int,
+        year = j['year'] as int?;
+
+  final int season, episodes;
+  final String name;
+  final int? year;
+
+  /// "3. Sezon"; 0. sezon özel bölümler.
+  String get label => season == 0 ? 'Özel bölümler' : '$season. Sezon';
+}
+
+class ShowInfo {
+  ShowInfo.fromJson(Map<String, dynamic> j)
+      : tmdbId = j['tmdbId'] as int,
+        title = j['title'] as String,
+        year = j['year'] as int?,
+        poster = j['poster'] as String?,
+        seasons = [
+          for (final m in (j['seasons'] as List? ?? const []).whereType<Map>())
+            ShowSeason.fromJson(m.cast<String, dynamic>())
+        ];
+
+  final int tmdbId;
+  final String title;
+  final int? year;
+  final String? poster;
+  final List<ShowSeason> seasons;
+
+  String? get posterUrl => poster == null ? null : '${_tmdbImages}w154$poster';
+}
+
+class EpisodeResult {
+  EpisodeResult.fromJson(Map<String, dynamic> j)
+      : episode = j['episode'] as int,
+        title = j['title'] as String,
+        englishTitle = j['englishTitle'] as String?,
+        overview = (j['overview'] as String?) ?? '',
+        runtime = j['runtime'] as int?,
+        year = j['year'] as int?,
+        still = j['still'] as String?,
+        tmdbRating = (j['tmdbRating'] as num?)?.toDouble(),
+        inList = j['inList'] == true;
+
+  final int episode;
+  final String title, overview;
+  final String? englishTitle, still;
+  final int? runtime, year;
+  final double? tmdbRating;
+  bool inList;
+
+  String? get stillUrl => still == null ? null : '${_tmdbImages}w300$still';
 }
 
 DateTime _time(int seconds) =>

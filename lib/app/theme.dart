@@ -22,7 +22,7 @@ class AppTheme {
   /// açıklamalar, düğmeler) Inter'de kalır.
   static const String pixelFont = 'PixelifySans';
 
-  /// Sekme / ekran başlığı ("Hukuk Reels", "Oyunlar", "Film Listemiz").
+  /// Sekme / ekran başlığı ("Hukuk Reels", "Oyunlar", "İzleme Listemiz").
   static const TextStyle screenTitle = TextStyle(
     fontFamily: pixelFont,
     fontSize: 24,
@@ -40,7 +40,7 @@ class AppTheme {
     letterSpacing: 1.2,
   );
 
-  /// Alt sayfa / pencere başlığı ("Film ekle", "Bu akşam ne izlesek?").
+  /// Alt sayfa / pencere başlığı ("Film ya da dizi ekle", "Bu akşam ne izlesek?").
   static const TextStyle sheetTitle = TextStyle(
     fontFamily: pixelFont,
     fontSize: 21,

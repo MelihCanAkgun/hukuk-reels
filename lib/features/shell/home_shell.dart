@@ -41,7 +41,7 @@ const _tabs = [
   _Tab('Ana sayfa', kLogoHome, 'home'),
   _Tab('Oyunlar', kLogoGames, 'games'),
   _Tab('Çalış', kLogoLawBook, 'study'),
-  _Tab('Filmler', kLogoFilm, 'films'),
+  _Tab('İzle', kLogoFilm, 'films'),
   _Tab('Profil', null, 'profile'),
 ];
 
