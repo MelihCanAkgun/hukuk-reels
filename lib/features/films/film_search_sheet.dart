@@ -130,7 +130,7 @@ class _FilmSearchState extends State<FilmSearch> {
                     const TextStyle(color: AppTheme.textPrimary, fontSize: 16),
                 decoration: InputDecoration(
                   counterText: '',
-                  hintText: 'Film adı (Türkçe ya da orijinal)',
+                  hintText: 'Film adı (Türkçe ya da İngilizce)',
                   hintStyle: const TextStyle(color: AppTheme.textMuted),
                   prefixIcon: const Icon(Icons.search_rounded,
                       color: AppTheme.textSecondary),
@@ -207,6 +207,7 @@ class _FilmSearchState extends State<FilmSearch> {
   Widget _tile(FilmSearchResult m) {
     final adding = _adding.contains(m.tmdbId);
     final sub = [
+      if (m.englishTitle != null) m.englishTitle!,
       if (m.originalTitle.isNotEmpty && m.originalTitle != m.title)
         m.originalTitle,
       if (m.year != null) '${m.year}',

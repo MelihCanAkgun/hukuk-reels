@@ -84,6 +84,55 @@ export async function filmDetails(env, tmdbId) {
   };
 }
 
+// Comparison key for titles: case, accents, dotted/dotless i and punctuation
+// are ignored ("Amélie" == "amelie", "Ruhların Kaçışı" == "ruhlarin kacisi").
+const titleKey = t => String(t || '').normalize('NFKD').replace(/\p{M}/gu, '')
+  .replace(/[İIı]/g, 'i').toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+
+// Turkish and English searches run together: TMDB ranks a query best in the
+// language it is written in ("Parasite" in tr-TR puts the 1982 film first).
+// Results are merged and ranked: exact title match (Turkish, English or
+// original), then prefix match, then the rest; well-known films (more votes)
+// first within each group. A trailing year ("parasite 2019") filters by year.
+async function search(env, raw) {
+  const m = raw.match(/^(.*\S)\s+((?:19|20)\d{2})$/);
+  const query = m ? m[1] : raw;
+  const params = {query, include_adult: 'false', page: '1', ...(m ? {year: m[2]} : {})};
+  const [tr, en] = await Promise.allSettled([
+    tmdb(env, '/search/movie', {...params, language: 'tr-TR'}),
+    tmdb(env, '/search/movie', {...params, language: 'en-US'}),
+  ]);
+  if (tr.status === 'rejected' && en.status === 'rejected') throw tr.reason;
+  const films = new Map();
+  for (const [lang, r] of [['tr', tr], ['en', en]]) {
+    if (r.status !== 'fulfilled') continue;
+    for (const f of r.value.results || []) {
+      if (!Number.isSafeInteger(f.id) || f.id <= 0) continue;
+      const entry = films.get(f.id) || {movie: f};
+      entry[lang] = clip(f.title, 120);
+      films.set(f.id, entry);
+    }
+  }
+  const key = titleKey(query);
+  const rank = e => {
+    const titles = [e.tr, e.en, e.movie.original_title].map(titleKey).filter(Boolean);
+    return titles.includes(key) ? 0 : titles.some(t => t.startsWith(key)) ? 1 : 2;
+  };
+  return [...films.values()]
+    .map(e => ({e, rank: rank(e), votes: Number(e.movie.vote_count) || 0}))
+    .sort((a, b) => a.rank - b.rank || b.votes - a.votes)
+    .slice(0, 12)
+    .map(({e}) => {
+      const original = clip(e.movie.original_title, 120);
+      const title = e.tr || e.en || original;
+      return {
+        tmdbId: e.movie.id, title, originalTitle: original,
+        englishTitle: e.en && e.en !== title && e.en !== original ? e.en : null,
+        year: yearOf(e.movie.release_date), poster: imagePath(e.movie.poster_path), tmdbRating: rating(e.movie.vote_average),
+      };
+    });
+}
+
 const filmJson = f => ({
   id: f.id, tmdbId: f.tmdb_id, imdbId: f.imdb_id, title: f.title, originalTitle: f.original_title,
   year: f.year, runtime: f.runtime, genres: JSON.parse(f.genres), overview: f.overview, poster: f.poster,
@@ -167,15 +216,10 @@ export async function filmsRoute(env, ctx, player, path, method, data, deliver) 
   if (path === '/films/search') {
     const query = typeof data.query === 'string' ? data.query.trim() : '';
     if (query.length < 1 || query.length > 80 || HIDDEN.test(query)) fail('1–80 karakterlik bir film adı yaz.');
-    const found = await tmdb(env, '/search/movie', {query, language: 'tr-TR', include_adult: 'false', page: '1'});
-    const results = (found.results || []).filter(m => Number.isSafeInteger(m.id) && m.id > 0).slice(0, 12);
+    const results = await search(env, query);
     const {results: listed} = await env.DB.prepare('SELECT tmdb_id FROM films').all();
     const inList = new Set(listed.map(r => r.tmdb_id));
-    return {results: results.map(m => ({
-      tmdbId: m.id, title: clip(m.title || m.original_title, 120), originalTitle: clip(m.original_title, 120),
-      year: yearOf(m.release_date), poster: imagePath(m.poster_path), tmdbRating: rating(m.vote_average),
-      inList: inList.has(m.id),
-    }))};
+    return {results: results.map(r => ({...r, inList: inList.has(r.tmdbId)}))};
   }
   if (path === '/films') {
     const tmdbId = Number.isSafeInteger(data.tmdbId) && data.tmdbId > 0 ? data.tmdbId : fail('Geçersiz film.');

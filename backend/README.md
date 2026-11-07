@@ -51,7 +51,7 @@ Profile → **YÖNETİCİ → Aktiflik** shows when each player last used the ap
 The **Filmler** tab is a shared watchlist (migration `0010_films.sql`). The Worker proxies TMDB (search, Turkish title, poster, genres, TMDB rating, TR subscription providers) and OMDb (IMDb rating); the keys are the Worker secrets `TMDB_API_KEY` (TMDB v3 key) and `OMDB_API_KEY`. Letterboxd has no API; the app only links to `letterboxd.com/tmdb/<id>`.
 
 - `GET /films` → `{films, ratings, players, me, now}`. One film older than seven days is refreshed per load (`waitUntil`).
-- `POST /films/search {query}` (1–80 chars) → up to 12 TMDB results with `inList`.
+- `POST /films/search {query}` (1–80 chars; a trailing year filters by year) searches TMDB in Turkish and English together and returns up to 12 merged results (exact title matches first, then better-known films) with `englishTitle` and `inList`.
 - `POST /films {tmdbId}` adds a film once (409 if listed; at most 400). The other player gets "<name> watchlist'e bir film ekledi! 🎬" at once; further additions within ten minutes share one queued notification ("N film daha") that becomes due when the window ends (`film_digest`).
 - `POST /films/watched {id, watched}` sets/undoes the watched date; "<name>, <film> filmini izlendi olarak işaretledi" is sent only the first time per film.
 - `POST /films/rate {id, hearts 1–5, comment ≤140}` (watched films only), one rating per player. `POST /films/delete {id}` removes the film and its ratings (either player).
