@@ -80,6 +80,7 @@ const kAreaNames = {
   'profile': 'Profil',
   'countdown': 'Geri sayım',
   'leaderboard': 'Sıralama',
+  'films': 'Filmler',
   'other': 'Diğer',
 };
 String areaName(String area) => kAreaNames[area] ?? kAreaNames['other']!;
