@@ -5,6 +5,7 @@ import 'block_blast_engine.dart';
 import 'block_battle_life_fx.dart';
 import 'block_board_fx.dart';
 import 'block_battle_jokers.dart';
+import '../../app/theme.dart';
 import '../../core/widgets/pixel_logo.dart';
 import 'combo_hud.dart';
 
@@ -148,6 +149,7 @@ class BattleHud extends StatelessWidget {
               color: Color(0xFFFFD36A))),
       Text('$score',
           style: const TextStyle(
+              fontFamily: AppTheme.pixelFont,
               fontSize: 24,
               fontWeight: FontWeight.w900,
               height: 1.05,
@@ -380,6 +382,7 @@ class BattleSpectator extends StatelessWidget {
                 color: out ? Colors.white38 : const Color(0xFFFFD36A))),
         Text('${game['score'] ?? 0}',
             style: const TextStyle(
+                fontFamily: AppTheme.pixelFont,
                 fontSize: 22,
                 fontWeight: FontWeight.w900,
                 height: 1.1,
@@ -961,6 +964,7 @@ class _BattleResultState extends State<BattleResult>
           Text(
             '$score',
             style: TextStyle(
+              fontFamily: AppTheme.pixelFont,
               fontSize: 22,
               fontWeight: FontWeight.w900,
               height: 1.05,
@@ -1020,17 +1024,12 @@ class _BattleResultState extends State<BattleResult>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          Expanded(
-              child: _summaryPill(
-                  '⏱', '$minutes:$seconds', 'Maç süresi')),
+          Expanded(child: _summaryPill('⏱', '$minutes:$seconds', 'Maç süresi')),
           _summaryDivider(),
           Expanded(
-              child: _summaryPill(
-                  '⚔️', '$myDamage hasar', 'Skor Hasarın')),
+              child: _summaryPill('⚔️', '$myDamage hasar', 'Skor Hasarın')),
           _summaryDivider(),
-          Expanded(
-              child: _summaryPill(
-                  '💥', '$myBoardOuts kez', 'Board-out')),
+          Expanded(child: _summaryPill('💥', '$myBoardOuts kez', 'Board-out')),
         ],
       ),
     );

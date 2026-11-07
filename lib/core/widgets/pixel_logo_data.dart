@@ -592,3 +592,37 @@ const List<String> kLogoUpdateCloud = [
   '.......kgk.......',
   '........k........',
 ];
+
+const List<String> kLogoHome = [
+  '.......kk.......',
+  '......kqqk......',
+  '.....kqppqk.....',
+  '....kqpPPpqk....',
+  '...kqpPppppqk...',
+  '..kqpPppppppqk..',
+  '.kqppppppppppqk.',
+  'kqqqqqqqqqqqqqqk',
+  '.kwwwwwwwwwwwwk.',
+  '.kwBWBwwwwLLLwk.',
+  '.kwBBBwwwwLlLwk.',
+  '.kwwwwwwwwLlywk.',
+  '.kwwwwwwwwLlLwk.',
+  '.kwwwwwwwwLlLwk.',
+  '..kkkkkkkkkkkk..',
+];
+
+const List<String> kLogoFilm = [
+  '.kkkkkkkkkkkk...',
+  'ksWWssWWssWWsk..',
+  'kWWssWWssWWssk..',
+  '.kkkkkkkkkkkkkk.',
+  'kssWWssWWssWWssk',
+  'kssssssssssssssk',
+  'ksppppppppppppsk',
+  'kspwwwwppwwwwpsk',
+  'ksppppppppppppsk',
+  'kspwwwwwwwwwwpsk',
+  'ksppppppppppppsk',
+  'kssssssssssssssk',
+  '.kkkkkkkkkkkkkk.',
+];

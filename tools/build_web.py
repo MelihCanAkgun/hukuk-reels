@@ -9,7 +9,12 @@ import subprocess
 import sys
 
 root = Path(__file__).resolve().parents[1]
-subprocess.run(['flutter', 'build', 'web', '--release', '--no-web-resources-cdn', *sys.argv[1:]], cwd=root, check=True)
+# --wasm: main.dart.wasm (skwasm) and main.dart.js (CanvasKit) side by side;
+# web/flutter_bootstrap.js picks one (Settings → App lets Safari opt in).
+subprocess.run(['flutter', 'build', 'web', '--release', '--wasm', '--no-web-resources-cdn', *sys.argv[1:]], cwd=root, check=True)
+# Safari has no Chromium break iterators, so it loads skwasm_heavy; Chrome loads skwasm.
+wasm_files = ['main.dart.mjs', 'main.dart.wasm', *(f'canvaskit/{n}' for n in (
+    'skwasm.js', 'skwasm.wasm', 'skwasm_heavy.js', 'skwasm_heavy.wasm'))]
 out = root / 'build/web'
 files = []
 for path in sorted(out.rglob('*')):
@@ -20,11 +25,16 @@ for path in sorted(out.rglob('*')):
         continue
     if name.startswith('assets/assets/audio/'):
         continue
+    if name in wasm_files:
+        continue
     if name.startswith('canvaskit/') and name not in {'canvaskit/canvaskit.js', 'canvaskit/canvaskit.wasm'}:
         continue
     files.append(name)
+missing = [name for name in wasm_files if not (out / name).is_file()]
+if missing:
+    sys.exit(f'WebAssembly build is missing {missing}')
 hash_value = hashlib.sha256()
-for name in files:
+for name in files + wasm_files:
     hash_value.update(name.encode())
     hash_value.update((out / name).read_bytes())
 source = (root / 'web/sw.js').read_text()
@@ -32,7 +42,10 @@ hash_value.update(source.encode())
 version = hash_value.hexdigest()[:16]
 index = out / 'index.html'
 index.write_text(index.read_text().replace('__BUILD_VERSION__', version))
-worker = source.replace('__BUILD_VERSION__', version).replace('__CORE_FILES__', json.dumps(files))
+worker = (source.replace('__BUILD_VERSION__', version).replace('__CORE_FILES__', json.dumps(files))
+          .replace('__WASM_FILES__', json.dumps(wasm_files)))
 (out / 'flutter_service_worker.js').write_text(worker)
 (out / 'sw.js').unlink(missing_ok=True)
-print(f'Offline game shell: {len(files)} files, {sum((out / f).stat().st_size for f in files) / 1024**2:.1f} MiB. Music requires a connection.')
+size = lambda names: sum((out / f).stat().st_size for f in names) / 1024**2
+print(f'Offline game shell: {len(files)} files, {size(files):.1f} MiB (+{size(wasm_files):.1f} MiB WebAssembly engine '
+      'where chosen). Music requires a connection.')

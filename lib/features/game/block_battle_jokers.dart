@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/theme.dart';
 import '../../core/services/sfx_service.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pixel_text.dart';
@@ -713,6 +714,7 @@ class ExpandWheel extends StatelessWidget {
                   Text('$seconds',
                       key: const ValueKey('wheel-seconds'),
                       style: const TextStyle(
+                          fontFamily: AppTheme.pixelFont,
                           fontSize: 22,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFFFF8B85))),

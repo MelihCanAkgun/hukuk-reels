@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/arcade_title.dart';
 import '../../core/services/activity_area.dart';
 import '../../core/services/notes_bridge.dart';
 import '../../core/services/progress_service.dart';
@@ -169,34 +170,18 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _topBar() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 12, 6),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Hukuk Reels',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'PixelifySans',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                  letterSpacing: .3,
-                ),
-              ),
-            ),
-            _updateButton(),
+  Widget _topBar() => ArcadeTitleBar(
+        title: 'Hukuk Reels',
+        actions: [
+          _updateButton(),
+          const SizedBox(width: 6),
+          // Sürpriz görülmeden 🌷 görünmesin (spoiler olmasın).
+          if (_progress.flowerSurpriseSeen) ...[
+            _flowerButton(),
             const SizedBox(width: 6),
-            // Sürpriz görülmeden 🌷 görünmesin (spoiler olmasın).
-            if (_progress.flowerSurpriseSeen) ...[
-              _flowerButton(),
-              const SizedBox(width: 6),
-            ],
-            const MusicButton(),
           ],
-        ),
+          const MusicButton(),
+        ],
       );
 
   Widget _greeting() {
@@ -220,18 +205,8 @@ class _HomeTabState extends State<HomeTab> {
     );
   }
 
-  Widget _title(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 26, 4, 10),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-      );
+  Widget _title(String text) => ArcadeSectionLabel(text,
+      padding: const EdgeInsets.fromLTRB(4, 26, 4, 10));
 
   List<Widget> _continueCards() {
     final block = _savedBlock;

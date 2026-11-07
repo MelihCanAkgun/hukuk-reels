@@ -1153,6 +1153,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                     : const Duration(milliseconds: 240),
                 builder: (context, value, child) => Text('${value.round()}',
                     style: const TextStyle(
+                        fontFamily: AppTheme.pixelFont,
                         fontSize: 36,
                         height: 1.1,
                         fontWeight: FontWeight.w900,
@@ -1244,6 +1245,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                   '${max(1, (((_battle!.state!['startAt'] as int) - _battle!.now) / 1000).ceil())}',
                   key: const ValueKey('battle-countdown'),
                   style: const TextStyle(
+                      fontFamily: AppTheme.pixelFont,
                       fontSize: 72,
                       fontWeight: FontWeight.w900,
                       color: Color(0xFFFFD36A)),
@@ -1389,6 +1391,7 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
             const Text(
               'Sığacak yer kalmadı!',
               style: TextStyle(
+                  fontFamily: AppTheme.pixelFont,
                   fontSize: 21,
                   fontWeight: FontWeight.w800,
                   color: AppTheme.textPrimary),
@@ -1664,10 +1667,10 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
                             key: const ValueKey('block-run-score'),
                             style: TextStyle(
                               color: Colors.white,
+                              fontFamily: AppTheme.pixelFont,
                               fontSize: 42,
                               height: 1.05,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: -1.2,
                               shadows: [
                                 Shadow(
                                   color: recordColor.withValues(alpha: .25),

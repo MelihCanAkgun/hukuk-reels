@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/arcade_title.dart';
 import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/progress_service.dart';
@@ -48,23 +49,7 @@ class _StudyScreenState extends State<StudyScreen> {
           bottom: false,
           child: Column(
             children: [
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 10, 12, 10),
-                child: Row(
-                  children: [
-                    PixelLogo(kLogoLawBook, size: 24),
-                    SizedBox(width: 8),
-                    Text(
-                      'Çalış',
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const ArcadeTitleBar(title: 'Çalış', logo: kLogoLawBook),
               Expanded(
                 child: ListView(
                   primary: true,
@@ -117,18 +102,8 @@ class _StudyScreenState extends State<StudyScreen> {
     );
   }
 
-  Widget _title(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(4, 18, 4, 10),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.1,
-            color: AppTheme.textSecondary,
-          ),
-        ),
-      );
+  Widget _title(String text) => ArcadeSectionLabel(text,
+      padding: const EdgeInsets.fromLTRB(4, 18, 4, 10));
 
   Widget _card({
     required Key key,

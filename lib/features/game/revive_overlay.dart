@@ -86,6 +86,7 @@ class _ReviveOverlayState extends State<ReviveOverlay> {
           const Text(
             'Bir şansın daha!',
             style: TextStyle(
+                fontFamily: AppTheme.pixelFont,
                 fontSize: 21,
                 fontWeight: FontWeight.w800,
                 color: AppTheme.textPrimary),

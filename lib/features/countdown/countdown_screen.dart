@@ -170,9 +170,13 @@ class _CountdownScreenState extends State<CountdownScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             PixelLogo(kLogoPlane, size: 26),
-            SizedBox(width: 8),
-            Text('Kavuşma Sayacı',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+            SizedBox(width: 9),
+            Flexible(
+              child: Text('Kavuşma Sayacı',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.screenTitle),
+            ),
           ],
         ),
       ),

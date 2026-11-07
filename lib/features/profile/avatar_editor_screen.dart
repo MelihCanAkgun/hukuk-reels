@@ -324,8 +324,7 @@ class _AvatarEditorScreenState extends State<AvatarEditorScreen> {
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
         backgroundColor: AppTheme.bg,
-        title: const Text('Fotoğrafı düzenle',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        title: const Text('Fotoğrafı düzenle', style: AppTheme.screenTitle),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 10),

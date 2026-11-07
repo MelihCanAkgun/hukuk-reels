@@ -747,6 +747,42 @@ def update_cloud():
     ])
 
 
+def home():
+    """Alt çubuk "Ana sayfa": pembe çatılı ev, mavi pencere, kapı."""
+    return outlined([
+        '......qq......',
+        '.....qppq.....',
+        '....qpPPpq....',
+        '...qpPppppq...',
+        '..qpPppppppq..',
+        '.qppppppppppq.',
+        'qqqqqqqqqqqqqq',
+        '.wwwwwwwwwwww.',
+        '.wBWBwwwwLLLw.',
+        '.wBBBwwwwLlLw.',
+        '.wwwwwwwwLlyw.',
+        '.wwwwwwwwLlLw.',
+        '.wwwwwwwwLlLw.',
+    ])
+
+
+def film():
+    """Alt çubuk "Filmler": klaket (çizgili kol, pembe tahta)."""
+    return outlined([
+        'sWWssWWssWWs..',
+        'WWssWWssWWss..',
+        '..............',
+        'ssWWssWWssWWss',
+        'ssssssssssssss',
+        'spppppppppppps',
+        'spwwwwppwwwwps',
+        'spppppppppppps',
+        'spwwwwwwwwwwps',
+        'spppppppppppps',
+        'ssssssssssssss',
+    ])
+
+
 def adliye_kulesi():
     """Kat kat yükselen adalet sarayı: her kat başka renkte, tepede
     altın terazi."""
@@ -806,6 +842,8 @@ SPRITES = {
     'pinBlue': pin('b', 'B'),
     'bow': bow(),
     'updateCloud': update_cloud(),
+    'home': home(),
+    'film': film(),
 }
 
 

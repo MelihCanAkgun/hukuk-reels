@@ -82,14 +82,22 @@ class FilmPoster extends StatelessWidget {
     );
     final u = url;
     if (u == null) return placeholder;
-    return Image.network(
-      u,
-      fit: BoxFit.cover,
-      gaplessPlayback: true,
-      errorBuilder: (_, __, ___) => placeholder,
-      frameBuilder: (_, child, frame, sync) => sync || frame != null
-          ? child
-          : Container(color: AppTheme.surfaceHigh),
+    // Afiş kutunun piksel genişliğinde çözülür: liste kaydırırken büyük
+    // dokular taşınmaz, bellek ve çözme süresi azalır.
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    return LayoutBuilder(
+      builder: (_, box) => Image.network(
+        u,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        cacheWidth: box.maxWidth.isFinite && box.maxWidth > 0
+            ? (box.maxWidth * dpr).round()
+            : null,
+        errorBuilder: (_, __, ___) => placeholder,
+        frameBuilder: (_, child, frame, sync) => sync || frame != null
+            ? child
+            : Container(color: AppTheme.surfaceHigh),
+      ),
     );
   }
 }
