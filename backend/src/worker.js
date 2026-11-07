@@ -1,6 +1,7 @@
 import webpush from 'web-push';
 import {validRoom, roomCode} from './battle-room.js';
 import {avatarRoute, avatarFullRoute} from './avatar.js';
+import {filmsRoute} from './films.js';
 export {BattleRoom} from './battle-room.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -80,7 +81,7 @@ const pruneNotes = env => env.DB.prepare('DELETE FROM notes WHERE created <= ?')
 // An open never adds time: the app was hidden before it.
 export const DEVICES = ['ipad', 'iphone', 'android', 'mac', 'windows', 'other'];
 export const AREAS = ['home', 'games', 'study', 'block', 'battle', 'flappy', 'subway', 'tower', 'summaries',
-  'questions', 'beat', 'profile', 'countdown', 'leaderboard', 'other'];
+  'questions', 'beat', 'profile', 'countdown', 'leaderboard', 'films', 'other'];
 const SESSION_JOIN = 120, SESSION_GAP = 600, MAX_STEP = 150, ACTIVITY_TTL = 90 * 86400;
 // Turkey has used UTC+3 all year since 2016.
 export const trDay = seconds => Math.floor((seconds + 10800) / 86400);
@@ -169,6 +170,12 @@ export async function route(request, env, ctx) {
     if (isTestPlayer) fail('Bu bölüm yalnız kayıtlı oyunculara açıktır.', 403);
     if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
     if ((path === '/home' || path === '/trips') && request.method === 'GET') return json(await home(env, player.id));
+  }
+  if (path === '/films' || path.startsWith('/films/')) {
+    if (isTestPlayer) fail('Bu bölüm yalnız kayıtlı oyunculara açıktır.', 403);
+    if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
+    const data = request.method === 'POST' ? await body(request) : undefined;
+    return json(await filmsRoute(env, ctx, player, path, request.method, data, deliver));
   }
   if (isTestPlayer && ['/profile', '/score', '/subscribe', '/unsubscribe'].includes(path))
     return json({ok: true, players: [], me: 0});

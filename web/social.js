@@ -32,6 +32,8 @@
   const tripsKey = 'hukuk_home_v1';
   try { localStorage.removeItem('hukuk_trips_v1'); } catch (_) {}
   const saveTrips = (r) => { try { localStorage.setItem(tripsKey, JSON.stringify(r)); } catch (_) {} return r; };
+  const filmsKey = 'hukuk_films_v1';
+  const saveFilms = (r) => { try { localStorage.setItem(filmsKey, JSON.stringify(r)); } catch (_) {} return r; };
   async function api(path, data, token = config.token) {
     if (!config.url) throw new Error('İki kişilik servis henüz etkinleştirilmedi.');
     const response = await fetch(config.url + path, {
@@ -220,7 +222,7 @@
         config.token = ''; config.best = 0; config.bests = {}; verifiedSubscription = ''; lastBoard = null; persist();
         avatars = {}; persistAvatars();
         for (const k of Object.keys(fullCache)) delete fullCache[k];
-        try { localStorage.removeItem(tripsKey); } catch (_) {}
+        try { localStorage.removeItem(tripsKey); localStorage.removeItem(filmsKey); } catch (_) {}
       }
       return state(false);
     }
@@ -282,6 +284,22 @@
     if (action === 'tripDelete') return {...saveTrips(await api('/trips/delete', {id: data.id})), connected: true};
     if (action === 'noteAdd') return {...saveTrips(await api('/notes', {text: data.text})), connected: true};
     if (action === 'noteDelete') return {...saveTrips(await api('/notes/delete', {id: data.id})), connected: true};
+    // Film listesi: son kopya çevrimdışı açılış için saklanır.
+    if (action === 'films') {
+      if (!config.token) return {films: [], ratings: [], players: [], connected: false};
+      try { return {...saveFilms(await api('/films')), connected: true}; }
+      catch (e) {
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(filmsKey) || 'null'); } catch (_) {}
+        if (cached) return {...cached, connected: true, offline: true, error: e.message};
+        throw e;
+      }
+    }
+    if (action === 'filmSearch') return api('/films/search', {query: data.query});
+    if (action === 'filmAdd') return {...saveFilms(await api('/films', {tmdbId: data.tmdbId})), connected: true};
+    if (action === 'filmWatched') return {...saveFilms(await api('/films/watched', {id: data.id, watched: data.watched})), connected: true};
+    if (action === 'filmRate') return {...saveFilms(await api('/films/rate', {id: data.id, hearts: data.hearts, comment: data.comment})), connected: true};
+    if (action === 'filmDelete') return {...saveFilms(await api('/films/delete', {id: data.id})), connected: true};
     if (action === 'message') return api('/message', {message: data.message});
     if (action === 'area') {
       // Flutter hangi bölümde olunduğunu bildirir; hızlı geçişler birleşir.
@@ -299,6 +317,17 @@
     }
     throw new Error('İşlem bulunamadı.');
   }
+  // Film detayındaki IMDb / Letterboxd / TMDB bağlantıları: yalnız bu siteler,
+  // yeni sekmede ve sayfaya erişimsiz (noopener) açılır.
+  const linkHosts = ['www.imdb.com', 'letterboxd.com', 'www.themoviedb.org'];
+  window.hukukOpenUrl = (raw) => {
+    try {
+      const url = new URL(String(raw));
+      if (url.protocol !== 'https:' || !linkHosts.includes(url.hostname)) return false;
+      window.open(url.href, '_blank', 'noopener,noreferrer');
+      return true;
+    } catch (_) { return false; }
+  };
   window.hukukSocialCall = (action, raw) => call(action, JSON.parse(raw)).then(
     data=>JSON.stringify(data), e=>JSON.stringify({error:e.message || 'Bağlantı kurulamadı.', status:e.status}));
   window.addEventListener('online', () => void flush());

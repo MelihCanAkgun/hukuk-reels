@@ -4,6 +4,7 @@ import '../../app/theme.dart';
 import '../../core/services/activity_area.dart';
 import '../../core/services/battle_bridge.dart';
 import '../../core/services/progress_service.dart';
+import '../films/films_screen.dart';
 import '../game/block_battle_lobby.dart';
 import '../games/games_screen.dart';
 import '../home/home_store.dart';
@@ -13,7 +14,7 @@ import '../profile/profile_settings_screen.dart';
 import '../study/study_screen.dart';
 import '../surprise/flower_surprise_flow.dart';
 
-/// Uygulamanın kabuğu: altta (geniş yatay ekranda solda) dört sekme.
+/// Uygulamanın kabuğu: altta (geniş yatay ekranda solda) beş sekme.
 /// Sekmeler bir kez kurulduktan sonra yaşamaya devam eder (kaydırma konumu
 /// korunur); etkin sekmeye yeniden dokunmak başa kaydırır. Oyunlar ve özetler
 /// tam ekran açılır, sekme çubuğu gizlenir.
@@ -38,12 +39,13 @@ const _tabs = [
   _Tab('Oyunlar', Icons.sports_esports_outlined, Icons.sports_esports_rounded,
       'games'),
   _Tab('Çalış', Icons.menu_book_outlined, Icons.menu_book_rounded, 'study'),
+  _Tab('Filmler', Icons.movie_outlined, Icons.movie_rounded, 'films'),
   _Tab('Profil', Icons.person_outline_rounded, Icons.person_rounded, 'profile'),
 ];
 
 /// Sekme numaraları (ana sayfadaki kısayollar için).
 abstract final class ShellTab {
-  static const home = 0, games = 1, study = 2, profile = 3;
+  static const home = 0, games = 1, study = 2, films = 3, profile = 4;
 }
 
 class HomeShellState extends State<HomeShell> {
@@ -109,6 +111,7 @@ class HomeShellState extends State<HomeShell> {
         ShellTab.home => HomeTab(onOpenTab: select),
         ShellTab.games => GamesScreen(),
         ShellTab.study => StudyScreen(),
+        ShellTab.films => const FilmsScreen(),
         _ => ProfileSettingsScreen(),
       };
 

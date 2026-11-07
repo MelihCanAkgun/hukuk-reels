@@ -46,6 +46,17 @@ Profile → **YÖNETİCİ → Aktiflik** shows when each player last used the ap
 - Areas (migration `0008_activity_areas.sql`): Flutter reports the top screen (the tabs `home, games, study, profile` and the screens `block, battle, flappy, subway, tower, summaries, questions, beat, countdown, leaderboard`) through `lib/core/services/activity_area.dart`; `social.js` sends it with the next report (an area change is reported after 2 s; hiding the app sends a final `keepalive` report). Each heartbeat, area change or hide adds the elapsed time (at most 150 s) to the previous report's area in `usage` (per Turkey calendar day); an open never adds time, because the app was hidden before it.
 - The screen shows live status with the current area, 7/30-day totals, a daily chart, a weekday × hour heat map, time per area and the entries.
 
+## Films (ortak izleme listesi)
+
+The **Filmler** tab is a shared watchlist (migration `0010_films.sql`). The Worker proxies TMDB (search, Turkish title, poster, genres, TMDB rating, TR subscription providers) and OMDb (IMDb rating); the keys are the Worker secrets `TMDB_API_KEY` (TMDB v3 key) and `OMDB_API_KEY`. Letterboxd has no API; the app only links to `letterboxd.com/tmdb/<id>`.
+
+- `GET /films` → `{films, ratings, players, me, now}`. One film older than seven days is refreshed per load (`waitUntil`).
+- `POST /films/search {query}` (1–80 chars) → up to 12 TMDB results with `inList`.
+- `POST /films {tmdbId}` adds a film once (409 if listed; at most 400). The other player gets "<name> watchlist'e bir film ekledi! 🎬" at once; further additions within ten minutes share one queued notification ("N film daha") that becomes due when the window ends (`film_digest`).
+- `POST /films/watched {id, watched}` sets/undoes the watched date; "<name>, <film> filmini izlendi olarak işaretledi" is sent only the first time per film.
+- `POST /films/rate {id, hearts 1–5, comment ≤140}` (watched films only), one rating per player. `POST /films/delete {id}` removes the film and its ratings (either player).
+- Posters and logos load from `https://image.tmdb.org` (allowed in the web CSP `img-src`/`connect-src`). Upstream URLs carry the API key and are never logged; errors log only service and status.
+
 ## Security notes
 
 - Every endpoint except `/health` requires a player's 256-bit Bearer code; foreign origins are refused. Responses carry `nosniff`, `no-referrer`, `X-Frame-Options: DENY` and a deny-all CSP.
