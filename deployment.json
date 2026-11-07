@@ -1,8 +1,8 @@
 {
-  "source_commit": "4923c46630ae987d2c0d2b7cd12798f35d224e2f",
-  "built_at": "2026-11-07T00:57:13Z",
-  "checks": "flutter analyze (no issues); flutter test (466 passed); backend film tests; release build with base-href /hukuk-reels/",
-  "change": "Filmler tab (shared watchlist via TMDB/OMDb) and home update button",
+  "source_commit": "bbdb42faedf2290b32d9254a1005748a013f4dcd",
+  "built_at": "2026-11-07T01:15:32Z",
+  "checks": "flutter analyze (no issues); flutter test (467 passed); backend film tests; release build with base-href /hukuk-reels/",
+  "change": "Filmler: English search, adder profile photos",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "d51bba66f8d253d9"
+  "app_build": "beb54b102ff5e6c8"
 }
