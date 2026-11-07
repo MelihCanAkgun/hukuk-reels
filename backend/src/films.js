@@ -1,7 +1,8 @@
-// Shared film watchlist ("Filmler" tab). The Worker proxies TMDB (search,
-// Turkish title, poster, rating, TR streaming providers) and OMDb (IMDb
-// rating); the API keys never leave the Worker secrets. Letterboxd has no API,
-// so the app only links to letterboxd.com/tmdb/<id>.
+// Shared watchlist ("İzle" tab): films and single TV episodes (each Black
+// Mirror episode is its own item). The Worker proxies TMDB (search, Turkish
+// title, poster, rating, TR streaming providers) and OMDb (IMDb rating); the
+// API keys never leave the Worker secrets. Letterboxd has no API, so the app
+// only links to letterboxd.com/tmdb/<id> (films only: Letterboxd has no TV).
 const TMDB = 'https://api.themoviedb.org/3';
 const OMDB = 'https://www.omdbapi.com/';
 // Details and ratings change slowly: one stale film is refreshed per list load.
@@ -9,6 +10,8 @@ const REFRESH_AFTER = 7 * 86400;
 // Additions within this window share one (delayed) notification.
 const DIGEST_WINDOW = 600;
 const MAX_FILMS = 400;
+// Episodes added in one request (each costs two upstream calls).
+const MAX_EPISODES = 10;
 const HIDDEN = /[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/;
 
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
@@ -32,7 +35,7 @@ async function upstream(url, service) {
   if (!response.ok) {
     await response.body?.cancel();
     console.warn('film_upstream_rejected', {service, status: response.status});
-    fail(response.status === 404 ? 'Film bulunamadı.' : 'Film servisine ulaşılamadı. Biraz sonra tekrar dene.',
+    fail(response.status === 404 ? 'Film ya da dizi bulunamadı.' : 'Film servisine ulaşılamadı. Biraz sonra tekrar dene.',
       response.status === 404 ? 404 : 502);
   }
   return response.json();
@@ -67,8 +70,6 @@ export async function filmDetails(env, tmdbId) {
     try { overview = clip((await tmdb(env, `/movie/${tmdbId}`, {language: 'en-US'})).overview, 1200); } catch {}
   }
   const imdbId = [m.imdb_id, m.external_ids?.imdb_id].find(id => /^tt\d{5,10}$/.test(id || '')) || null;
-  const providers = (m['watch/providers']?.results?.TR?.flatrate || []).slice(0, 6)
-    .map(p => ({name: clip(p.provider_name, 40), logo: imagePath(p.logo_path)})).filter(p => p.name);
   return {
     imdbId,
     title: clip(m.title || m.original_title, 120) || 'Adsız film',
@@ -80,8 +81,75 @@ export async function filmDetails(env, tmdbId) {
     poster: imagePath(m.poster_path),
     tmdbRating: rating(m.vote_average),
     imdbRating: await imdbRating(env, imdbId),
-    providers,
+    providers: providersOf(m),
   };
+}
+
+const providersOf = m => (m['watch/providers']?.results?.TR?.flatrate || []).slice(0, 6)
+  .map(p => ({name: clip(p.provider_name, 40), logo: imagePath(p.logo_path)})).filter(p => p.name);
+const positive = v => Number.isSafeInteger(v) && v > 0 ? v : null;
+// TMDB fills untranslated episode names with "Bölüm 3"; the English name is better.
+const placeholder = name => /^(bölüm|episode)\s*\d+$/i.test(String(name || '').trim());
+
+async function showInfo(env, showId) {
+  const s = await tmdb(env, `/tv/${showId}`, {language: 'tr-TR', append_to_response: 'watch/providers'});
+  return {
+    title: clip(s.name || s.original_name, 120) || 'Adsız dizi',
+    originalTitle: clip(s.original_name, 120),
+    year: yearOf(s.first_air_date),
+    poster: imagePath(s.poster_path),
+    genres: (s.genres || []).map(g => clip(g.name, 30)).filter(Boolean).slice(0, 4),
+    providers: providersOf(s),
+    seasons: (s.seasons || []).filter(x => Number.isSafeInteger(x.season_number) && x.season_number >= 0
+      && positive(x.episode_count)).map(x => ({season: x.season_number, name: clip(x.name, 60),
+      episodes: x.episode_count, year: yearOf(x.air_date), poster: imagePath(x.poster_path)}))
+      // Specials (season 0) go last.
+      .sort((a, b) => (a.season || 1e9) - (b.season || 1e9)),
+  };
+}
+
+// One season in Turkish with English names/overviews as the fallback.
+async function seasonEpisodes(env, showId, season) {
+  const [tr, en] = await Promise.allSettled([
+    tmdb(env, `/tv/${showId}/season/${season}`, {language: 'tr-TR'}),
+    tmdb(env, `/tv/${showId}/season/${season}`, {language: 'en-US'}),
+  ]);
+  if (tr.status === 'rejected') throw tr.reason;
+  const english = new Map((en.status === 'fulfilled' ? en.value.episodes || [] : []).map(e => [e.episode_number, e]));
+  return {
+    poster: imagePath(tr.value.poster_path),
+    episodes: (tr.value.episodes || []).filter(e => positive(e.id) && positive(e.episode_number)).map(e => {
+      const eng = english.get(e.episode_number) || {};
+      const name = clip(placeholder(e.name) ? eng.name || e.name : e.name, 120);
+      const englishName = clip(eng.name, 120);
+      return {
+        id: e.id, episode: e.episode_number, title: name || `Bölüm ${e.episode_number}`,
+        englishTitle: englishName && englishName !== name && !placeholder(englishName) ? englishName : null,
+        overview: clip(e.overview, 1200) || clip(eng.overview, 1200),
+        runtime: positive(e.runtime), year: yearOf(e.air_date), still: imagePath(e.still_path),
+        tmdbRating: rating(e.vote_average),
+      };
+    }),
+  };
+}
+
+// Details for one or more episodes of one season, shaped like filmDetails.
+export async function episodeDetails(env, showId, season, numbers) {
+  const [show, s] = await Promise.all([showInfo(env, showId), seasonEpisodes(env, showId, season)]);
+  return Promise.all(numbers.map(async n => {
+    const e = s.episodes.find(x => x.episode === n) || fail('Bölüm bulunamadı.', 404);
+    let imdbId = null;
+    try {
+      const ids = await tmdb(env, `/tv/${showId}/season/${season}/episode/${n}/external_ids`, {});
+      imdbId = /^tt\d{5,10}$/.test(ids.imdb_id || '') ? ids.imdb_id : null;
+    } catch {}
+    return {
+      tmdbId: -e.id, imdbId, title: e.title, originalTitle: e.englishTitle || '', year: e.year, runtime: e.runtime,
+      genres: show.genres, overview: e.overview, poster: s.poster || show.poster, still: e.still,
+      tmdbRating: e.tmdbRating, imdbRating: await imdbRating(env, imdbId), providers: show.providers,
+      showId, showTitle: show.title, season, episode: n,
+    };
+  }));
 }
 
 // Comparison key for titles: case, accents, dotted/dotless i and punctuation
@@ -97,38 +165,42 @@ const titleKey = t => String(t || '').normalize('NFKD').replace(/\p{M}/gu, '')
 async function search(env, raw) {
   const m = raw.match(/^(.*\S)\s+((?:19|20)\d{2})$/);
   const query = m ? m[1] : raw;
-  const params = {query, include_adult: 'false', page: '1', ...(m ? {year: m[2]} : {})};
-  const [tr, en] = await Promise.allSettled([
-    tmdb(env, '/search/movie', {...params, language: 'tr-TR'}),
-    tmdb(env, '/search/movie', {...params, language: 'en-US'}),
-  ]);
-  if (tr.status === 'rejected' && en.status === 'rejected') throw tr.reason;
-  const films = new Map();
-  for (const [lang, r] of [['tr', tr], ['en', en]]) {
-    if (r.status !== 'fulfilled') continue;
+  const params = {query, include_adult: 'false', page: '1'};
+  // TV shows are searched too (a show is opened to pick episodes).
+  const kinds = [['movie', 'tr-TR'], ['movie', 'en-US'], ['tv', 'tr-TR'], ['tv', 'en-US']];
+  const replies = await Promise.allSettled(kinds.map(([kind, language]) =>
+    tmdb(env, `/search/${kind}`, {...params, ...(m ? {[kind === 'tv' ? 'first_air_date_year' : 'year']: m[2]} : {}),
+      language})));
+  if (replies.every(r => r.status === 'rejected')) throw replies[0].reason;
+  const items = new Map();
+  replies.forEach((r, i) => {
+    if (r.status !== 'fulfilled') return;
+    const [kind, language] = kinds[i];
     for (const f of r.value.results || []) {
-      if (!Number.isSafeInteger(f.id) || f.id <= 0) continue;
-      const entry = films.get(f.id) || {movie: f};
-      entry[lang] = clip(f.title, 120);
-      films.set(f.id, entry);
+      if (!positive(f.id)) continue;
+      const entry = items.get(`${kind}:${f.id}`) || {kind, item: f};
+      entry[language === 'tr-TR' ? 'tr' : 'en'] = clip(kind === 'tv' ? f.name : f.title, 120);
+      items.set(`${kind}:${f.id}`, entry);
     }
-  }
+  });
   const key = titleKey(query);
+  const originalOf = e => e.kind === 'tv' ? e.item.original_name : e.item.original_title;
   const rank = e => {
-    const titles = [e.tr, e.en, e.movie.original_title].map(titleKey).filter(Boolean);
+    const titles = [e.tr, e.en, originalOf(e)].map(titleKey).filter(Boolean);
     return titles.includes(key) ? 0 : titles.some(t => t.startsWith(key)) ? 1 : 2;
   };
-  return [...films.values()]
-    .map(e => ({e, rank: rank(e), votes: Number(e.movie.vote_count) || 0}))
+  return [...items.values()]
+    .map(e => ({e, rank: rank(e), votes: Number(e.item.vote_count) || 0}))
     .sort((a, b) => a.rank - b.rank || b.votes - a.votes)
     .slice(0, 12)
     .map(({e}) => {
-      const original = clip(e.movie.original_title, 120);
+      const original = clip(originalOf(e), 120);
       const title = e.tr || e.en || original;
       return {
-        tmdbId: e.movie.id, title, originalTitle: original,
+        kind: e.kind, tmdbId: e.item.id, title, originalTitle: original,
         englishTitle: e.en && e.en !== title && e.en !== original ? e.en : null,
-        year: yearOf(e.movie.release_date), poster: imagePath(e.movie.poster_path), tmdbRating: rating(e.movie.vote_average),
+        year: yearOf(e.kind === 'tv' ? e.item.first_air_date : e.item.release_date),
+        poster: imagePath(e.item.poster_path), tmdbRating: rating(e.item.vote_average),
       };
     });
 }
@@ -138,7 +210,10 @@ const filmJson = f => ({
   year: f.year, runtime: f.runtime, genres: JSON.parse(f.genres), overview: f.overview, poster: f.poster,
   tmdbRating: f.tmdb_rating, imdbRating: f.imdb_rating, providers: JSON.parse(f.providers),
   addedBy: f.added_by, added: f.added, watched: f.watched, watchedBy: f.watched_by,
+  kind: f.kind, showId: f.show_id, showTitle: f.show_title, season: f.season, episode: f.episode, still: f.still,
 });
+// "Black Mirror S3:B1 · Nosedive" for notifications.
+const label = f => f.kind === 'episode' ? `${f.show_title} S${f.season}:B${f.episode} · ${f.title}` : f.title;
 
 async function list(env, me) {
   const {results: films} = await env.DB.prepare('SELECT * FROM films ORDER BY added DESC, id DESC').all();
@@ -150,15 +225,18 @@ async function list(env, me) {
 
 async function refreshStale(env) {
   if (!env.TMDB_API_KEY) return;
-  const film = await env.DB.prepare('SELECT id, tmdb_id FROM films WHERE info_updated < ? ORDER BY info_updated LIMIT 1')
-    .bind(nowSec() - REFRESH_AFTER).first();
+  const film = await env.DB.prepare(`SELECT id, tmdb_id, kind, show_id, season, episode FROM films
+    WHERE info_updated < ? ORDER BY info_updated LIMIT 1`).bind(nowSec() - REFRESH_AFTER).first();
   if (!film) return;
   try {
-    const d = await filmDetails(env, film.tmdb_id);
+    const d = film.kind === 'episode'
+      ? (await episodeDetails(env, film.show_id, film.season, [film.episode]))[0]
+      : await filmDetails(env, film.tmdb_id);
     await env.DB.prepare(`UPDATE films SET imdb_id = ?, title = ?, original_title = ?, year = ?, runtime = ?, genres = ?,
-      overview = ?, poster = ?, tmdb_rating = ?, imdb_rating = COALESCE(?, imdb_rating), providers = ?, info_updated = ?
-      WHERE id = ?`).bind(d.imdbId, d.title, d.originalTitle, d.year, d.runtime, JSON.stringify(d.genres), d.overview,
-      d.poster, d.tmdbRating, d.imdbRating, JSON.stringify(d.providers), nowSec(), film.id).run();
+      overview = ?, poster = ?, tmdb_rating = ?, imdb_rating = COALESCE(?, imdb_rating), providers = ?, info_updated = ?,
+      show_title = COALESCE(?, show_title), still = COALESCE(?, still) WHERE id = ?`).bind(d.imdbId, d.title,
+      d.originalTitle, d.year, d.runtime, JSON.stringify(d.genres), d.overview, d.poster, d.tmdbRating, d.imdbRating,
+      JSON.stringify(d.providers), nowSec(), d.showTitle ?? null, d.still ?? null, film.id).run();
   } catch {
     // Try again on a later load instead of the same film on every request.
     await env.DB.prepare('UPDATE films SET info_updated = ? WHERE id = ?')
@@ -166,29 +244,35 @@ async function refreshStale(env) {
   }
 }
 
-// First addition: "<name> watchlist'e bir film ekledi! 🎬" at once. More
-// additions within DIGEST_WINDOW update one queued notification that becomes
-// due when the window ends (the delivery queue picks rows whose `attempted`
-// is more than two minutes old).
-async function notifyAdded(env, ctx, player, film, deliver) {
+// "film", "bölüm", or "yapım" for a mix.
+const noun = rows => rows.every(r => r.kind === 'episode') ? 'bölüm' : rows.some(r => r.kind === 'episode') ? 'yapım' : 'film';
+
+// First addition: "<name> watchlist'e bir film ekledi! 🎬" at once (several
+// episodes added together count as one addition). More additions within
+// DIGEST_WINDOW update one queued notification that becomes due when the
+// window ends (the delivery queue picks rows whose `attempted` is more than two
+// minutes old).
+async function notifyAdded(env, ctx, player, added, deliver) {
   const other = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
   if (!other) return;
   const now = nowSec();
   const digest = await env.DB.prepare('SELECT * FROM film_digest WHERE player_id = ?').bind(player.id).first();
   if (!digest || now - digest.notified >= DIGEST_WINDOW) {
+    const what = added.length > 1 ? `${added.length} ${noun(added)}` : `bir ${noun(added)}`;
+    const icon = added.every(r => r.kind === 'episode') ? '📺' : '🎬';
     await env.DB.prepare('INSERT INTO notifications(player_id, title, body) VALUES (?, ?, ?)')
-      .bind(other.id, `${player.name} watchlist'e bir film ekledi! 🎬`, film.title).run();
+      .bind(other.id, `${player.name} watchlist'e ${what} ekledi! ${icon}`, clip(added.map(label).join(', '), 180)).run();
     await env.DB.prepare(`INSERT INTO film_digest(player_id, notified, last_film, notification_id) VALUES (?, ?, ?, NULL)
       ON CONFLICT(player_id) DO UPDATE SET notified = excluded.notified, last_film = excluded.last_film,
-      notification_id = NULL`).bind(player.id, now, film.id).run();
+      notification_id = NULL`).bind(player.id, now, Math.max(...added.map(r => r.id))).run();
     ctx?.waitUntil(deliver(env));
     return;
   }
-  const {results} = await env.DB.prepare('SELECT title FROM films WHERE added_by = ? AND id > ? ORDER BY id')
-    .bind(player.id, digest.last_film).all();
+  const {results} = await env.DB.prepare(`SELECT title, kind, show_title, season, episode FROM films
+    WHERE added_by = ? AND id > ? ORDER BY id`).bind(player.id, digest.last_film).all();
   if (!results.length) return;
-  const title = `${player.name} watchlist'e ${results.length} film daha ekledi! 🎬`;
-  const body = clip(results.map(r => r.title).join(', '), 180);
+  const title = `${player.name} watchlist'e ${results.length} ${noun(results)} daha ekledi! 🎬`;
+  const body = clip(results.map(label).join(', '), 180);
   const pending = digest.notification_id && await env.DB.prepare(
     'SELECT id FROM notifications WHERE id = ? AND sent = 0 AND attempts = 0').bind(digest.notification_id).first();
   if (pending) {
@@ -215,11 +299,57 @@ export async function filmsRoute(env, ctx, player, path, method, data, deliver) 
   if (method !== 'POST') fail('Bulunamadı.', 404);
   if (path === '/films/search') {
     const query = typeof data.query === 'string' ? data.query.trim() : '';
-    if (query.length < 1 || query.length > 80 || HIDDEN.test(query)) fail('1–80 karakterlik bir film adı yaz.');
+    if (query.length < 1 || query.length > 80 || HIDDEN.test(query)) fail('1–80 karakterlik bir film ya da dizi adı yaz.');
     const results = await search(env, query);
-    const {results: listed} = await env.DB.prepare('SELECT tmdb_id FROM films').all();
+    const {results: listed} = await env.DB.prepare("SELECT tmdb_id FROM films WHERE kind = 'movie'").all();
     const inList = new Set(listed.map(r => r.tmdb_id));
-    return {results: results.map(r => ({...r, inList: inList.has(r.tmdbId)}))};
+    const {results: shows} = await env.DB.prepare(
+      "SELECT show_id, COUNT(*) AS count FROM films WHERE kind = 'episode' GROUP BY show_id").all();
+    const episodes = new Map(shows.map(r => [r.show_id, r.count]));
+    return {results: results.map(r => r.kind === 'tv'
+      ? {...r, inList: false, listedEpisodes: episodes.get(r.tmdbId) || 0}
+      : {...r, inList: inList.has(r.tmdbId)})};
+  }
+  if (path === '/films/show') {
+    const showId = positive(data.tmdbId) || fail('Geçersiz dizi.');
+    return {show: {tmdbId: showId, ...await showInfo(env, showId)}};
+  }
+  if (path === '/films/season') {
+    const showId = positive(data.tmdbId) || fail('Geçersiz dizi.');
+    const season = Number.isSafeInteger(data.season) && data.season >= 0 && data.season < 1000 ? data.season : fail('Geçersiz sezon.');
+    const s = await seasonEpisodes(env, showId, season);
+    const {results: listed} = await env.DB.prepare(
+      "SELECT episode FROM films WHERE kind = 'episode' AND show_id = ? AND season = ?").bind(showId, season).all();
+    const inList = new Set(listed.map(r => r.episode));
+    return {episodes: s.episodes.map(({id, ...e}) => ({...e, inList: inList.has(e.episode)}))};
+  }
+  if (path === '/films/episodes') {
+    const showId = positive(data.showId) || fail('Geçersiz dizi.');
+    const season = Number.isSafeInteger(data.season) && data.season >= 0 && data.season < 1000 ? data.season : fail('Geçersiz sezon.');
+    const wanted = Array.isArray(data.episodes) && data.episodes.length >= 1 && data.episodes.length <= MAX_EPISODES
+      && data.episodes.every(positive) ? [...new Set(data.episodes)] : fail(`1–${MAX_EPISODES} bölüm seç.`);
+    const {results: listed} = await env.DB.prepare(
+      "SELECT episode FROM films WHERE kind = 'episode' AND show_id = ? AND season = ?").bind(showId, season).all();
+    const have = new Set(listed.map(r => r.episode));
+    const numbers = wanted.filter(n => !have.has(n));
+    if (!numbers.length) fail(wanted.length > 1 ? 'Bu bölümler zaten listede.' : 'Bu bölüm zaten listede.', 409);
+    const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM films').first();
+    if (count.count + numbers.length > MAX_FILMS) fail(`Listede en fazla ${MAX_FILMS} film ve bölüm olabilir.`);
+    const details = await episodeDetails(env, showId, season, numbers);
+    const now = nowSec();
+    const added = [];
+    for (const d of details) {
+      const row = await env.DB.prepare(`INSERT INTO films(tmdb_id, imdb_id, title, original_title, year, runtime, genres,
+        overview, poster, tmdb_rating, imdb_rating, providers, added_by, added, info_updated, kind, show_id, show_title,
+        season, episode, still) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'episode', ?, ?, ?, ?, ?)
+        ON CONFLICT DO NOTHING RETURNING id`).bind(d.tmdbId, d.imdbId, d.title, d.originalTitle, d.year, d.runtime,
+        JSON.stringify(d.genres), d.overview, d.poster, d.tmdbRating, d.imdbRating, JSON.stringify(d.providers), player.id,
+        now, now, d.showId, d.showTitle, d.season, d.episode, d.still).first();
+      if (row) added.push({id: row.id, kind: 'episode', title: d.title, show_title: d.showTitle, season, episode: d.episode});
+    }
+    if (!added.length) fail('Bu bölümler zaten listede.', 409);
+    await notifyAdded(env, ctx, player, added, deliver);
+    return {...await list(env, player.id), added: added.map(r => r.id)};
   }
   if (path === '/films') {
     const tmdbId = Number.isSafeInteger(data.tmdbId) && data.tmdbId > 0 ? data.tmdbId : fail('Geçersiz film.');
@@ -234,7 +364,7 @@ export async function filmsRoute(env, ctx, player, path, method, data, deliver) 
       .bind(tmdbId, d.imdbId, d.title, d.originalTitle, d.year, d.runtime, JSON.stringify(d.genres), d.overview,
         d.poster, d.tmdbRating, d.imdbRating, JSON.stringify(d.providers), player.id, now, now).first();
     if (!added) fail('Bu film zaten listede.', 409);
-    await notifyAdded(env, ctx, player, {id: added.id, title: d.title}, deliver);
+    await notifyAdded(env, ctx, player, [{id: added.id, kind: 'movie', title: d.title}], deliver);
     return {...await list(env, player.id), added: added.id};
   }
   if (path === '/films/watched') {
@@ -250,7 +380,9 @@ export async function filmsRoute(env, ctx, player, path, method, data, deliver) 
       const other = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).first();
       if (first && other) {
         await env.DB.prepare('INSERT INTO notifications(player_id, title, body) VALUES (?, ?, ?)')
-          .bind(other.id, `${player.name}, ${clip(f.title, 60)} filmini izlendi olarak işaretledi`, 'Puanını ver! 🍿').run();
+          .bind(other.id, f.kind === 'episode'
+            ? `${player.name}, ${clip(f.show_title, 50)} S${f.season}:B${f.episode} bölümünü izlendi olarak işaretledi`
+            : `${player.name}, ${clip(f.title, 60)} filmini izlendi olarak işaretledi`, 'Puanını ver! 🍿').run();
         ctx?.waitUntil(deliver(env));
       }
     }
@@ -258,7 +390,8 @@ export async function filmsRoute(env, ctx, player, path, method, data, deliver) 
   }
   if (path === '/films/rate') {
     const f = await film(env, filmId(data));
-    if (!f.watched) fail('Puan için önce filmi izlendi olarak işaretle.');
+    if (!f.watched) fail(f.kind === 'episode' ? 'Puan için önce bölümü izlendi olarak işaretle.'
+      : 'Puan için önce filmi izlendi olarak işaretle.');
     if (!Number.isSafeInteger(data.hearts) || data.hearts < 1 || data.hearts > 5) fail('1–5 arası kalp seç.');
     const comment = typeof data.comment === 'string' ? data.comment.trim() : '';
     if (comment.length > 140 || HIDDEN.test(comment)) fail('Yorum en fazla 140 karakter, tek satır olabilir.');

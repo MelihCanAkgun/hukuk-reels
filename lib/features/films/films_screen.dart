@@ -18,6 +18,14 @@ enum FilmSort { added, imdb, runtime }
 
 enum FilmLength { short, medium, long }
 
+/// Film mi, dizi bölümü mü.
+enum FilmKind { movie, episode }
+
+const _kindLabels = {
+  FilmKind.movie: 'Filmler',
+  FilmKind.episode: 'Dizi bölümleri',
+};
+
 const _sortLabels = {
   FilmSort.added: 'Eklenme',
   FilmSort.imdb: 'IMDb puanı',
@@ -39,6 +47,7 @@ class FilmFilter {
     this.length,
     this.addedBy,
     this.platform,
+    this.kind,
   });
 
   final bool watched;
@@ -46,9 +55,14 @@ class FilmFilter {
   final String? genre, platform;
   final FilmLength? length;
   final int? addedBy;
+  final FilmKind? kind;
 
   bool get narrowed =>
-      genre != null || length != null || addedBy != null || platform != null;
+      genre != null ||
+      length != null ||
+      addedBy != null ||
+      platform != null ||
+      kind != null;
 
   FilmFilter copy({
     bool? watched,
@@ -57,6 +71,7 @@ class FilmFilter {
     FilmLength? Function()? length,
     int? Function()? addedBy,
     String? Function()? platform,
+    FilmKind? Function()? kind,
   }) =>
       FilmFilter(
         watched: watched ?? this.watched,
@@ -65,6 +80,7 @@ class FilmFilter {
         length: length == null ? this.length : length(),
         addedBy: addedBy == null ? this.addedBy : addedBy(),
         platform: platform == null ? this.platform : platform(),
+        kind: kind == null ? this.kind : kind(),
       );
 
   FilmFilter cleared() => FilmFilter(watched: watched, sort: sort);
@@ -88,6 +104,7 @@ List<Film> filterFilms(List<Film> films, FilmFilter f) {
           (f.genre == null || film.genres.contains(f.genre)) &&
           (f.length == null || _lengthMatches(film.runtime, f.length!)) &&
           (f.addedBy == null || film.addedBy == f.addedBy) &&
+          (f.kind == null || film.isEpisode == (f.kind == FilmKind.episode)) &&
           (f.platform == null ||
               film.providers.any((p) => p.name == f.platform)))
         film
@@ -109,7 +126,7 @@ List<Film> filterFilms(List<Film> films, FilmFilter f) {
   return out;
 }
 
-/// Filmler sekmesi: ikimizin ortak izleme listesi.
+/// İzle sekmesi: ikimizin ortak izleme listesi (filmler ve dizi bölümleri).
 class FilmsScreen extends StatefulWidget {
   const FilmsScreen({super.key});
 
@@ -152,7 +169,8 @@ class _FilmsScreenState extends State<FilmsScreen> {
     final pool = filterFilms(_store.films, _filter.copy(watched: false));
     if (pool.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Zar için önce izleyeceklerinize film ekleyin 🍿')));
+          content: Text(
+              'Zar için önce izleyeceklerinize film ya da bölüm ekleyin 🍿')));
       return;
     }
     final film = await showFilmRoulette(context, pool);
@@ -173,7 +191,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
               backgroundColor: AppTheme.accent,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Film ekle',
+              label: const Text('Ekle',
                   style: TextStyle(fontWeight: FontWeight.w800)),
             )
           : null,
@@ -203,7 +221,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
   }
 
   Widget _topBar() => ArcadeTitleBar(
-        title: 'Film Listemiz',
+        title: 'İzleme Listemiz',
         logo: kLogoFilm,
         actions: [if (_store.connected) DiceButton(onTap: _roll)],
       );
@@ -285,6 +303,14 @@ class _FilmsScreenState extends State<FilmsScreen> {
               active: false,
               onTap: () => setState(() => _filter = _filter.cleared()),
             ),
+          _chip(
+            key: 'kind',
+            label:
+                _filter.kind == null ? 'Film/Dizi' : _kindLabels[_filter.kind]!,
+            active: _filter.kind != null,
+            onTap: () => _pick<FilmKind>('Film/Dizi', _kindLabels, _filter.kind,
+                (v) => _filter.copy(kind: () => v)),
+          ),
           _chip(
             key: 'genre',
             label: _filter.genre ?? 'Tür',
@@ -368,7 +394,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
       {bool allowNone = true}) async {
     if (options.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$title seçeneği için önce listeye film ekleyin.')));
+          content: Text('$title seçeneği için önce listeye bir şey ekleyin.')));
       return;
     }
     final picked = await showModalBottomSheet<({T? value})>(
@@ -427,25 +453,25 @@ class _FilmsScreenState extends State<FilmsScreen> {
       return _scrollable(_message(
         '🎬',
         _store.error ??
-            'Film listesi ikinizin ortak listesi. Açmak için Profil\'den '
+            'İzleme listesi ikinizin ortak listesi. Açmak için Profil\'den '
                 'oyuncu kodunla bağlan.',
       ));
     }
     if (films.isEmpty) {
       return _scrollable(_filter.narrowed
-          ? _message('🔍', 'Bu filtrelere uyan film yok.',
+          ? _message('🔍', 'Bu filtrelere uyan film ya da bölüm yok.',
               action: TextButton(
                 onPressed: () => setState(() => _filter = _filter.cleared()),
                 child: const Text('Filtreleri temizle'),
               ))
           : _filter.watched
               ? _message('🍿',
-                  'Henüz birlikte izlediğiniz film yok.\nİzlediğinizde filme dokunup "İzledik ✓"e basın.')
-              : _message('💌', 'Listeniz boş. İlk filmi ekleyin!',
+                  'Henüz birlikte izlediğiniz bir şey yok.\nİzlediğinizde karta dokunup "İzledik ✓"e basın.')
+              : _message('💌', 'Listeniz boş. İlk filmi ya da bölümü ekleyin!',
                   action: FilledButton.icon(
                     onPressed: () => showFilmSearch(context),
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text('Film ekle'),
+                    label: const Text('Film ya da dizi ekle'),
                   )));
     }
     return LayoutBuilder(builder: (context, box) {
@@ -488,7 +514,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
             child: Padding(
               padding: EdgeInsets.fromLTRB(24, 20, 24, 100),
               child: Text(
-                'Film bilgileri ve afişler TMDB\'den, IMDb puanı OMDb\'den.\n'
+                'Film ve dizi bilgileri TMDB\'den, IMDb puanı OMDb\'den.\n'
                 'This product uses the TMDB API but is not endorsed or certified by TMDB.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppTheme.textMuted, fontSize: 10.5),

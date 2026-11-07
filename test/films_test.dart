@@ -41,12 +41,27 @@ Map<String, dynamic> _film(int id,
       'watchedBy': watched == null ? null : 1,
     };
 
+Map<String, dynamic> _episode(int id, int season, int episode,
+        {String? title, int? watched}) =>
+    {
+      ..._film(id,
+          title: title ?? 'Bölüm $episode', runtime: 60, watched: watched),
+      'tmdbId': -(5000 + id),
+      'kind': 'episode',
+      'showId': 42009,
+      'showTitle': 'Black Mirror',
+      'season': season,
+      'episode': episode,
+      'still': '/still$id.jpg',
+    };
+
 /// Sahte Worker: aynı yanıt biçimini döndürür ve çağrıları kaydeder.
 class _Server {
   _Server(this.films);
   final List<Map<String, dynamic>> films;
   final List<Map<String, dynamic>> ratings = [];
   final calls = <String>[];
+  final data = <String, Map<String, dynamic>>{};
   bool connected = true;
 
   Map<String, dynamic> list() => {
@@ -63,6 +78,7 @@ class _Server {
   Future<Map<String, dynamic>> call(String action,
       [Map<String, dynamic> data = const {}]) async {
     calls.add(action);
+    this.data[action] = data;
     if (!connected) return {'films': [], 'connected': false};
     switch (action) {
       case 'filmSearch':
@@ -76,9 +92,64 @@ class _Server {
               'poster': null,
               'tmdbRating': 8.4,
               'inList': false,
-            }
+            },
+            {
+              'kind': 'tv',
+              'tmdbId': 42009,
+              'title': 'Black Mirror',
+              'originalTitle': 'Black Mirror',
+              'year': 2011,
+              'poster': null,
+              'tmdbRating': 8.3,
+              'inList': false,
+              'listedEpisodes': 0,
+            },
           ]
         };
+      case 'filmShow':
+        return {
+          'show': {
+            'tmdbId': 42009,
+            'title': 'Black Mirror',
+            'year': 2011,
+            'poster': null,
+            'seasons': [
+              {'season': 1, 'name': 'Sezon 1', 'episodes': 3, 'year': 2011},
+              {'season': 3, 'name': 'Sezon 3', 'episodes': 2, 'year': 2016},
+            ],
+          }
+        };
+      case 'filmSeason':
+        final listed = {
+          for (final f in films)
+            if (f['kind'] == 'episode' && f['season'] == data['season'])
+              f['episode']
+        };
+        return {
+          'episodes': [
+            for (final (n, title) in data['season'] == 3
+                ? [(1, 'Nosedive'), (2, 'Oyun Testi')]
+                : [(1, 'Milli Marş'), (2, '15 Milyon'), (3, 'Geçmişin')])
+              {
+                'episode': n,
+                'title': title,
+                'englishTitle': null,
+                'overview': '',
+                'runtime': 60,
+                'year': 2016,
+                'still': null,
+                'tmdbRating': 7.9,
+                'inList': listed.contains(n),
+              }
+          ]
+        };
+      case 'filmEpisodes':
+        for (final n in (data['episodes'] as List).cast<int>()) {
+          films.insert(
+              0,
+              _episode(200 + n, data['season'] as int, n,
+                  title: n == 1 ? 'Nosedive' : 'Oyun Testi'));
+        }
       case 'filmAdd':
         films.insert(0, _film(99, title: 'Başlangıç'));
       case 'filmWatched':
@@ -150,6 +221,36 @@ void main() {
     expect(ids(const FilmFilter(addedBy: 2)), [2]);
     expect(ids(const FilmFilter(platform: 'Netflix')), [2]);
     expect(const FilmFilter(genre: 'Dram').cleared().narrowed, isFalse);
+
+    final mixed = [...films, _parsed(_episode(6, 3, 1, title: 'Nosedive'))];
+    expect([
+      for (final x
+          in filterFilms(mixed, const FilmFilter(kind: FilmKind.episode)))
+        x.id
+    ], [
+      6
+    ]);
+    expect([
+      for (final x
+          in filterFilms(mixed, const FilmFilter(kind: FilmKind.movie)))
+        x.id
+    ], [
+      3,
+      2,
+      1
+    ]);
+  });
+
+  test('an episode knows its code and links', () {
+    final e = _parsed(_episode(7, 3, 4));
+    expect(e.isEpisode, isTrue);
+    expect(e.episodeCode, 'S3:B4');
+    expect(e.letterboxdUrl, isNull);
+    expect(e.tmdbUrl, 'https://www.themoviedb.org/tv/42009/season/3/episode/4');
+    final f = _parsed(_film(1));
+    expect(f.isEpisode, isFalse);
+    expect(f.episodeCode, isNull);
+    expect(f.letterboxdUrl, 'https://letterboxd.com/tmdb/1001/');
   });
 
   test('runtime and date texts', () {
@@ -229,7 +330,8 @@ void main() {
 
   testWidgets('search adds a film; delete asks first', (tester) async {
     final server = await _open(tester, []);
-    expect(find.text('Listeniz boş. İlk filmi ekleyin!'), findsOneWidget);
+    expect(find.text('Listeniz boş. İlk filmi ya da bölümü ekleyin!'),
+        findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('film-add')));
     await tester.pumpAndSettle();
     await tester.enterText(
@@ -256,7 +358,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('film-delete-confirm')));
     await tester.pumpAndSettle();
     expect(server.calls, contains('filmDelete'));
-    expect(find.text('Listeniz boş. İlk filmi ekleyin!'), findsOneWidget);
+    expect(find.text('Listeniz boş. İlk filmi ya da bölümü ekleyin!'),
+        findsOneWidget);
   });
 
   testWidgets('filter chips narrow the grid', (tester) async {
@@ -264,12 +367,26 @@ void main() {
       _film(1, title: 'Kısa', runtime: 80),
       _film(2, title: 'Uzun', runtime: 170),
     ]);
+    await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('film-chip-length')), 120,
+        scrollable: find
+            .descendant(
+                of: find.byType(ListView).first,
+                matching: find.byType(Scrollable))
+            .first);
     await tester.tap(find.byKey(const ValueKey('film-chip-length')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('film-option-120 dk üstü')));
     await tester.pumpAndSettle();
     expect(find.text('Uzun'), findsWidgets);
     expect(find.text('Kısa'), findsNothing);
+    await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('film-chip-clear')), -120,
+        scrollable: find
+            .descendant(
+                of: find.byType(ListView).first,
+                matching: find.byType(Scrollable))
+            .first);
     await tester.tap(find.byKey(const ValueKey('film-chip-clear')));
     await tester.pumpAndSettle();
     expect(find.text('Kısa'), findsWidgets);
@@ -303,5 +420,73 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('roulette-pick')));
     await tester.pumpAndSettle();
     expect(picked?.title, title);
+  });
+
+  testWidgets('a show opens its seasons; picked episodes are added one by one',
+      (tester) async {
+    final server = await _open(tester, []);
+    await tester.tap(find.byKey(const ValueKey('film-add')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const ValueKey('film-search-field')), 'black mirror');
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('📺 Dizi'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('film-result-42009')));
+    await tester.pumpAndSettle();
+    expect(server.calls, containsAll(['filmShow', 'filmSeason']));
+    expect(server.data['filmSeason']!['season'], 1);
+    expect(find.text('Milli Marş'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('season-3')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nosedive'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('episode-1')));
+    await tester.tap(find.byKey(const ValueKey('episode-2')));
+    await tester.pump();
+    expect(find.text('2 bölümü ekle'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('episode-add')));
+    await tester.pumpAndSettle();
+    expect(server.data['filmEpisodes'], {
+      'showId': 42009,
+      'season': 3,
+      'episodes': [1, 2]
+    });
+    expect(find.text('Listede ✓'), findsNWidgets(2));
+    expect(find.textContaining('2 bölüm listeye eklendi'), findsOneWidget);
+
+    // Aramaya dönülür; sayfa kapanınca bölümler ayrı kartlar.
+    await tester.tap(find.byKey(const ValueKey('episode-back')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('film-search-field')), findsOneWidget);
+    Navigator.of(
+            tester.element(find.byKey(const ValueKey('film-search-field'))))
+        .pop();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('film-201')), findsOneWidget);
+    expect(find.byKey(const ValueKey('film-202')), findsOneWidget);
+    expect(find.text('S3:B1'), findsOneWidget);
+    expect(find.text('S3:B2'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('film-201')));
+    await tester.pumpAndSettle();
+    expect(find.text('📺 Black Mirror'), findsOneWidget);
+    expect(find.text('3. Sezon 1. Bölüm'), findsOneWidget);
+    expect(find.byKey(const ValueKey('film-link-Letterboxd')), findsNothing);
+    expect(find.byKey(const ValueKey('film-link-TMDB')), findsOneWidget);
+  });
+
+  testWidgets('the Film/Dizi chip shows only episodes', (tester) async {
+    await _open(tester, [
+      _film(1, title: 'Amélie'),
+      _episode(2, 3, 1, title: 'Nosedive'),
+    ]);
+    expect(find.text('Amélie'), findsWidgets);
+    await tester.tap(find.byKey(const ValueKey('film-chip-kind')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('film-option-Dizi bölümleri')));
+    await tester.pumpAndSettle();
+    expect(find.text('Nosedive'), findsWidgets);
+    expect(find.text('Amélie'), findsNothing);
   });
 }

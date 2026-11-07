@@ -265,8 +265,9 @@ class HeartRow extends StatelessWidget {
       );
 }
 
-/// Izgaradaki film kartı: afiş üstte (platformlar ve ekleyen üzerinde),
-/// bilgiler altta. İzlenenlerde iki kişinin kalp puanı görünür.
+/// Izgaradaki film/bölüm kartı: afiş üstte (platformlar, ekleyen ve bölümde
+/// "S3:B1" üzerinde), bilgiler altta. İzlenenlerde iki kişinin kalp puanı
+/// görünür.
 class FilmCard extends StatelessWidget {
   const FilmCard({super.key, required this.film, required this.onTap});
 
@@ -280,7 +281,10 @@ class FilmCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = FilmStore.instance;
     final meta = [
-      if (film.year != null) '${film.year}',
+      if (film.isEpisode)
+        film.showTitle ?? 'Dizi'
+      else if (film.year != null)
+        '${film.year}',
       if (film.runtime != null) runtimeText(film.runtime!),
     ].join(' · ');
     return Pressable(
@@ -332,6 +336,12 @@ class FilmCard extends StatelessWidget {
                       top: 6,
                       left: 6,
                       child: _WatchedTag(),
+                    ),
+                  if (film.episodeCode != null)
+                    Positioned(
+                      right: 6,
+                      bottom: 6,
+                      child: EpisodeBadge(code: film.episodeCode!),
                     ),
                 ],
               ),
@@ -412,6 +422,29 @@ class FilmCard extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Afişin köşesindeki "S3:B1" etiketi (piksel yazı).
+class EpisodeBadge extends StatelessWidget {
+  const EpisodeBadge({super.key, required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.fromLTRB(6, 2, 6, 3),
+        decoration: BoxDecoration(
+          color: const Color(0xE6140C14),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppTheme.accent.withValues(alpha: .7)),
+        ),
+        child: Text(code,
+            style: const TextStyle(
+                fontFamily: AppTheme.pixelFont,
+                color: Colors.white,
+                fontSize: 13,
+                fontWeight: FontWeight.w700)),
+      );
 }
 
 class _WatchedTag extends StatelessWidget {

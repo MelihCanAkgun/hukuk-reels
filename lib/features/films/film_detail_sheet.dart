@@ -5,8 +5,9 @@ import '../../core/services/link_bridge.dart';
 import 'film_store.dart';
 import 'film_widgets.dart';
 
-/// Film detayı: büyük afiş, özet, nerede izlenir, IMDb/Letterboxd bağlantıları,
-/// "İzledik ✓", iki kişinin kalp puanı ve yorumu, listeden çıkarma.
+/// Film ya da bölüm detayı: büyük afiş (bölümde sahne görseli de), özet,
+/// nerede izlenir, IMDb/Letterboxd/TMDB bağlantıları, "İzledik ✓", iki kişinin
+/// kalp puanı ve yorumu, listeden çıkarma.
 Future<void> showFilmDetail(BuildContext context, int filmId) =>
     showModalBottomSheet<void>(
       context: context,
@@ -135,6 +136,16 @@ class _FilmDetailState extends State<FilmDetail> {
         _header(film),
         const SizedBox(height: 16),
         _providers(film),
+        if (film.stillUrl != null) ...[
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: FilmPoster(url: film.stillUrl, title: film.title),
+            ),
+          ),
+        ],
         if (film.overview.isNotEmpty) ...[
           const SizedBox(height: 16),
           Text(film.overview,
@@ -167,7 +178,7 @@ class _FilmDetailState extends State<FilmDetail> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Film bilgileri ve afişler TMDB\'den, IMDb puanı OMDb\'den alınır.',
+          'Film ve dizi bilgileri TMDB\'den, IMDb puanı OMDb\'den alınır.',
           textAlign: TextAlign.center,
           style: TextStyle(color: AppTheme.textMuted, fontSize: 11),
         ),
@@ -196,6 +207,25 @@ class _FilmDetailState extends State<FilmDetail> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (film.isEpisode) ...[
+                Text(
+                  '📺 ${film.showTitle ?? 'Dizi'}',
+                  key: const ValueKey('film-show-title'),
+                  style: const TextStyle(
+                      color: AppTheme.accent,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  film.season == 0
+                      ? 'Özel bölüm ${film.episode}'
+                      : '${film.season}. Sezon ${film.episode}. Bölüm',
+                  style: const TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 12.5),
+                ),
+                const SizedBox(height: 6),
+              ],
               Text(film.title,
                   style: const TextStyle(
                       color: AppTheme.textPrimary,
@@ -295,8 +325,9 @@ class _FilmDetailState extends State<FilmDetail> {
         children: [
           if (film.imdbUrl != null)
             _linkButton('IMDb', kImdbYellow, () => _open(film.imdbUrl!)),
-          _linkButton('Letterboxd', const Color(0xFF40BCF4),
-              () => _open(film.letterboxdUrl)),
+          if (film.letterboxdUrl != null)
+            _linkButton('Letterboxd', const Color(0xFF40BCF4),
+                () => _open(film.letterboxdUrl!)),
           _linkButton('TMDB', kTmdbGreen, () => _open(film.tmdbUrl)),
         ],
       );

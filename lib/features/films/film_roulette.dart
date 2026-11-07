@@ -130,6 +130,14 @@ class _FilmRouletteState extends State<FilmRoulette> {
               ),
             ),
             const SizedBox(height: 14),
+            if (film.isEpisode)
+              Text('📺 ${film.showTitle ?? 'Dizi'} · ${film.episodeCode}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      color: _done ? AppTheme.accent : AppTheme.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700)),
             Text(
               film.title,
               key: const ValueKey('roulette-title'),

@@ -48,7 +48,7 @@ Profile → **YÖNETİCİ → Aktiflik** shows when each player last used the ap
 
 ## Films (ortak izleme listesi)
 
-The **Filmler** tab is a shared watchlist (migration `0010_films.sql`). The Worker proxies TMDB (search, Turkish title, poster, genres, TMDB rating, TR subscription providers) and OMDb (IMDb rating); the keys are the Worker secrets `TMDB_API_KEY` (TMDB v3 key) and `OMDB_API_KEY`. Letterboxd has no API; the app only links to `letterboxd.com/tmdb/<id>`.
+The **Filmler** tab is a shared watchlist (migration `0010_films.sql`). The Worker proxies TMDB (search, Turkish title, poster, genres, TMDB rating, TR subscription providers) and OMDb (IMDb rating); the keys are the Worker secrets `TMDB_API_KEY` (TMDB v3 key) and `OMDB_API_KEY`. Letterboxd has no API; the app only links to `letterboxd.com/tmdb/<id>`. Single TV episodes can be listed too (migration `0011_film_episodes.sql`): a TV search result opens its seasons (`/films/show`, `/films/season`), and `/films/episodes` adds up to 10 picked episodes as their own rows (`kind = 'episode'`, TMDB episode id stored negated in `tmdb_id`). Letterboxd links are films only.
 
 - `GET /films` → `{films, ratings, players, me, now}`. One film older than seven days is refreshed per load (`waitUntil`).
 - `POST /films/search {query}` (1–80 chars; a trailing year filters by year) searches TMDB in Turkish and English together and returns up to 12 merged results (exact title matches first, then better-known films) with `englishTitle` and `inList`.
