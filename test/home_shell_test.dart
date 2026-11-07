@@ -100,6 +100,19 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('home update button sits left of the flower and reports',
+      (tester) async {
+    await _shell(tester, const Size(393, 852));
+    final update = find.byKey(const ValueKey('home-update'));
+    final flower = find.bySemanticsLabel('Çiçeğin');
+    expect(update, findsOneWidget);
+    expect(tester.getCenter(update).dx, lessThan(tester.getCenter(flower).dx));
+    await tester.tap(update);
+    await _frames(tester, 100);
+    expect(find.textContaining('Güncelleme denetimi'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('start cards open the games and study tabs', (tester) async {
     await tester.runAsync(ProgressService.instance.clearBlockGame);
     await _shell(tester, const Size(393, 852));

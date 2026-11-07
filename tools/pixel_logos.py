@@ -726,6 +726,27 @@ def bow():
     ])
 
 
+def update_cloud():
+    """Ana sayfadaki güncelleme düğmesi: yüzlü bulut, aşağı ok, parıltı."""
+    return outlined([
+        '.....WWW.....y.',
+        '...WWWWWWW..yYy',
+        '..WWWWWWWWW..y.',
+        '.WWWWWWWWWWWWW.',
+        'WWWkWWWWWkWWWWW',
+        'WWWkWWWWWkWWWWW',
+        'WpWWWWkWWWWpWBW',
+        'BBBBBBBBBBBBBBB',
+        '.BBBBBBBBBBBBB.',
+        '......Ggg......',
+        '......Ggg......',
+        '....gGggggg....',
+        '.....ggggg.....',
+        '......ggg......',
+        '.......g.......',
+    ])
+
+
 def adliye_kulesi():
     """Kat kat yükselen adalet sarayı: her kat başka renkte, tepede
     altın terazi."""
@@ -784,6 +805,7 @@ SPRITES = {
     'pinPink': pin('p', 'P'),
     'pinBlue': pin('b', 'B'),
     'bow': bow(),
+    'updateCloud': update_cloud(),
 }
 
 

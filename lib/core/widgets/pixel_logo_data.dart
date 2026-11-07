@@ -572,3 +572,23 @@ const List<String> kLogoBow = [
   '..kqk.kqk..',
   '...k...k...',
 ];
+
+const List<String> kLogoUpdateCloud = [
+  '......kkk.....k..',
+  '....kkWWWkk..kyk.',
+  '...kWWWWWWWkkyYyk',
+  '..kWWWWWWWWWkkyk.',
+  '.kWWWWWWWWWWWWWk.',
+  'kWWWkWWWWWkWWWWWk',
+  'kWWWkWWWWWkWWWWWk',
+  'kWpWWWWkWWWWpWBWk',
+  'kBBBBBBBBBBBBBBBk',
+  '.kBBBBBBBBBBBBBk.',
+  '..kkkkkGggkkkkk..',
+  '.....kkGggkk.....',
+  '....kgGgggggk....',
+  '.....kgggggk.....',
+  '......kgggk......',
+  '.......kgk.......',
+  '........k........',
+];
