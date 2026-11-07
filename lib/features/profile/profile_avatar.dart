@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme.dart';
 import '../../core/services/avatar_sync.dart';
 import '../../core/services/progress_service.dart';
+import '../../core/services/engine_bridge.dart';
 
 /// Kendi profil fotoğrafımız; yoksa takma adın baş harfi (o da yoksa 👤).
 /// [ProgressService.profileChanges] dinlenir, değişince kendini yeniler.
@@ -84,7 +85,7 @@ class AvatarCircle extends StatelessWidget {
             data,
             fit: BoxFit.cover,
             gaplessPlayback: true,
-            cacheWidth: (size * dpr).round(),
+            cacheWidth: decodeWidth(size * dpr),
             errorBuilder: (_, __, ___) => _fallback(),
           )
         : _fallback();

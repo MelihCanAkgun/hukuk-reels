@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/config/app_config.dart';
+import '../../../core/services/engine_bridge.dart';
 
 /// Soru kartının dört köşesine yerleştirilen dekoratif görseller.
 ///
@@ -63,7 +64,7 @@ class CornerDecorations extends StatelessWidget {
             height: size,
             fit: BoxFit.contain,
             // Büyük PNG'ler küçük çözünürlükte decode edilsin (bellek + hız).
-            cacheWidth: 360,
+            cacheWidth: decodeWidth(360),
             errorBuilder: (_, __, ___) => const SizedBox.shrink(),
           ),
         ),
