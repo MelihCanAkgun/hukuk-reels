@@ -5,6 +5,7 @@ import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pressable.dart';
 import '../profile/profile_avatar.dart';
 import 'film_store.dart';
+import '../../core/services/engine_bridge.dart';
 
 const kImdbYellow = Color(0xFFF5C518);
 const kTmdbGreen = Color(0xFF01D277);
@@ -91,7 +92,7 @@ class FilmPoster extends StatelessWidget {
         fit: BoxFit.cover,
         gaplessPlayback: true,
         cacheWidth: box.maxWidth.isFinite && box.maxWidth > 0
-            ? (box.maxWidth * dpr).round()
+            ? decodeWidth(box.maxWidth * dpr)
             : null,
         errorBuilder: (_, __, ___) => placeholder,
         frameBuilder: (_, child, frame, sync) => sync || frame != null
