@@ -4,6 +4,7 @@ Pass Flutter options through, e.g. --base-href /hukuk_reels/.
 """
 import hashlib
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -16,6 +17,16 @@ subprocess.run(['flutter', 'build', 'web', '--release', '--wasm', '--no-web-reso
 wasm_files = ['main.dart.mjs', 'main.dart.wasm', *(f'canvaskit/{n}' for n in (
     'skwasm.js', 'skwasm.wasm', 'skwasm_heavy.js', 'skwasm_heavy.wasm'))]
 out = root / 'build/web'
+# Never loaded (flutter_bootstrap.js asks for the 'full' CanvasKit and does not
+# enable wimp; .symbols are only for debugging). Dropping them keeps the Pages
+# upload ~19 MB smaller, which makes GitHub's file sync faster.
+for unused in ['canvaskit/chromium', 'canvaskit/wimp.js', 'canvaskit/wimp.wasm', *(
+        p.relative_to(out).as_posix() for p in out.rglob('*.symbols'))]:
+    target = out / unused
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink(missing_ok=True)
 files = []
 for path in sorted(out.rglob('*')):
     if not path.is_file():
