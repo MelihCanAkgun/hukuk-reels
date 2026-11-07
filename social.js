@@ -302,7 +302,10 @@
     if (action === 'filmEpisodes') return {...saveFilms(await api('/films/episodes',
       {showId: data.showId, season: data.season, episodes: data.episodes})), connected: true};
     if (action === 'filmWatched') return {...saveFilms(await api('/films/watched', {id: data.id, watched: data.watched})), connected: true};
-    if (action === 'filmRate') return {...saveFilms(await api('/films/rate', {id: data.id, hearts: data.hearts, comment: data.comment})), connected: true};
+    if (action === 'filmRate') return {...saveFilms(await api('/films/rate', {id: data.id, halves: data.halves, comment: data.comment})), connected: true};
+    if (action === 'filmReply') return {...saveFilms(await api('/films/reply', {id: data.id, reviewBy: data.reviewBy, text: data.text})), connected: true};
+    if (action === 'filmReplyDelete') return {...saveFilms(await api('/films/reply/delete', {reply: data.reply})), connected: true};
+    if (action === 'filmLike') return {...saveFilms(await api('/films/like', {id: data.id, target: data.target, like: data.like})), connected: true};
     if (action === 'filmDelete') return {...saveFilms(await api('/films/delete', {id: data.id})), connected: true};
     if (action === 'message') return api('/message', {message: data.message});
     if (action === 'area') {
