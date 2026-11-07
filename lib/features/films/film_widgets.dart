@@ -230,38 +230,159 @@ class ProviderLogos extends StatelessWidget {
       );
 }
 
-/// 1–5 kalp; [onChanged] verilirse dokunulabilir.
+/// Arcade can kalbi (10×9 piksel). Sol yarı ve sağ yarı ayrı dolar: yarım
+/// kalp sol yarısı pembe, sağ yarısı boş görünür.
+const _heartSprite = [
+  '.kkk..kkk.',
+  'kwwrk.krrk',
+  'kwrrrkrrdk',
+  'krrrrrrrdk',
+  'krrrrrrrdk',
+  '.krrrrrdk.',
+  '..krrrdk..',
+  '...krdk...',
+  '....kk....',
+];
+
+const _heartFull = {
+  'k': Color(0xFF6E0F35),
+  'w': Color(0xFFFFE0EC),
+  'r': Color(0xFFFF5C95),
+  'd': Color(0xFFC7245F),
+};
+const _heartEmpty = {
+  'k': Color(0xFF6B4A5C),
+  'w': Color(0xFF3F2635),
+  'r': Color(0xFF2E1825),
+  'd': Color(0xFF24121C),
+};
+
+/// Tek piksel kalp: [fill] 0 boş, 1 yarım (sol yarı), 2 dolu.
+class PixelHeart extends StatelessWidget {
+  const PixelHeart({super.key, this.fill = 2, this.size = 16});
+
+  final int fill;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: size,
+        height: size * .9,
+        child: CustomPaint(painter: _HeartPainter(fill)),
+      );
+}
+
+class _HeartPainter extends CustomPainter {
+  const _HeartPainter(this.fill);
+  final int fill;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final px = size.width / 10;
+    final paint = Paint()..isAntiAlias = false;
+    for (var y = 0; y < _heartSprite.length; y++) {
+      final row = _heartSprite[y];
+      for (var x = 0; x < row.length; x++) {
+        final ch = row[x];
+        if (ch == '.') continue;
+        final full = fill >= 2 || (fill == 1 && x < 5);
+        paint.color = (full ? _heartFull : _heartEmpty)[ch]!;
+        canvas.drawRect(
+            Rect.fromLTWH(x * px, y * px, px + .35, px + .35), paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HeartPainter old) => old.fill != fill;
+}
+
+/// 5 piksel kalp; [halves] yarım kalp cinsinden puan (0–10). [onChanged]
+/// verilirse kalbin sol yarısına dokunmak yarım, sağ yarısına dokunmak tam
+/// puan verir; parmağı kaydırarak da seçilir.
 class HeartRow extends StatelessWidget {
   const HeartRow(
-      {super.key, required this.value, this.onChanged, this.size = 16});
+      {super.key, required this.halves, this.onChanged, this.size = 16});
 
-  final int value;
+  final int halves;
   final ValueChanged<int>? onChanged;
+  final double size;
+
+  static const _gap = .22;
+
+  @override
+  Widget build(BuildContext context) {
+    final step = size * (1 + _gap);
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < 5; i++) ...[
+          if (i > 0) SizedBox(width: size * _gap),
+          PixelHeart(
+            key: ValueKey('heart-${i + 1}'),
+            size: size,
+            fill: (halves - i * 2).clamp(0, 2),
+          ),
+        ],
+      ],
+    );
+    final change = onChanged;
+    if (change == null) return row;
+    int at(double dx) {
+      final i = (dx / step).floor().clamp(0, 4);
+      final inHeart = (dx - i * step) / size;
+      return (i * 2 + (inHeart < .5 ? 1 : 2)).clamp(1, 10);
+    }
+
+    void pick(double dx) {
+      final v = at(dx);
+      if (v != halves) change(v);
+    }
+
+    return Semantics(
+      slider: true,
+      label: 'Puan',
+      value: '${heartsText(halves)} kalp',
+      increasedValue: '${heartsText((halves + 1).clamp(1, 10))} kalp',
+      decreasedValue: '${heartsText((halves - 1).clamp(1, 10))} kalp',
+      onIncrease: () => change((halves + 1).clamp(1, 10)),
+      onDecrease: () => change((halves - 1).clamp(1, 10)),
+      child: GestureDetector(
+        key: const ValueKey('heart-picker'),
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (d) => pick(d.localPosition.dx),
+        onHorizontalDragStart: (d) => pick(d.localPosition.dx),
+        onHorizontalDragUpdate: (d) => pick(d.localPosition.dx),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: row,
+        ),
+      ),
+    );
+  }
+}
+
+/// Küçük puan rozeti: piksel kalp ve "3,5".
+class HeartScore extends StatelessWidget {
+  const HeartScore({super.key, required this.halves, this.size = 12});
+
+  final int halves;
   final double size;
 
   @override
   Widget build(BuildContext context) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          for (var i = 1; i <= 5; i++)
-            onChanged == null
-                ? _heart(i)
-                : Pressable(
-                    key: ValueKey('heart-$i'),
-                    onTap: () => onChanged!(i),
-                    semanticLabel: '$i kalp',
-                    child: Padding(
-                      padding: const EdgeInsets.all(3),
-                      child: _heart(i),
-                    ),
-                  ),
+          PixelHeart(size: size, fill: halves >= 2 ? 2 : 1),
+          SizedBox(width: size * .3),
+          Text(heartsText(halves),
+              style: TextStyle(
+                  fontFamily: AppTheme.pixelFont,
+                  color: AppTheme.textPrimary,
+                  fontSize: size + 1,
+                  height: 1,
+                  fontWeight: FontWeight.w700)),
         ],
-      );
-
-  Widget _heart(int i) => Icon(
-        i <= value ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-        size: size,
-        color: i <= value ? AppTheme.accent : AppTheme.textMuted,
       );
 }
 
@@ -293,13 +414,17 @@ class FilmCard extends StatelessWidget {
       pressedScale: .97,
       child: Container(
         clipBehavior: Clip.antiAlias,
+        // Arcade kart: köşeli, kalın çerçeve, yumuşatılmamış sert gölge.
         decoration: BoxDecoration(
           color: AppTheme.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppTheme.border, width: .8),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+              color: film.isWatched
+                  ? AppTheme.accent.withValues(alpha: .55)
+                  : AppTheme.border,
+              width: 1.5),
           boxShadow: const [
-            BoxShadow(
-                color: Color(0x33000000), blurRadius: 10, offset: Offset(0, 4))
+            BoxShadow(color: Color(0xFF0B0408), offset: Offset(3, 3))
           ],
         ),
         child: Column(
@@ -411,12 +536,7 @@ class FilmCard extends StatelessWidget {
         for (final r in rs) ...[
           PlayerAvatar(id: r.player, size: 15, ring: false),
           const SizedBox(width: 3),
-          const Icon(Icons.favorite_rounded, size: 12, color: AppTheme.accent),
-          Text(' ${r.hearts}',
-              style: const TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w700)),
+          HeartScore(halves: r.halves, size: 11),
           const SizedBox(width: 8),
         ],
       ],

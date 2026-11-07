@@ -225,6 +225,51 @@ test('watched notifies once, can be undone, and both players rate separately', a
   assert.equal((await call('/films/watched', {id, watched: true})).status, 404);
 });
 
+test('half hearts, replies and likes on reviews', async () => {
+  upstream();
+  const {call, notifications} = await setup();
+  const id = (await call('/films', {tmdbId: 27205}, 1)).data.added;
+  await call('/films/watched', {id, watched: true});
+  for (const halves of [0, 11, 2.5, '7']) assert.equal((await call('/films/rate', {id, halves})).status, 400);
+  let r = await call('/films/rate', {id, halves: 7, comment: 'Rüya içinde rüya'});
+  assert.deepEqual(r.data.ratings.map(x => [x.hearts, x.halves]), [[4, 7]]);
+  r = await call('/films/rate', {id, hearts: 3, comment: 'Uzundu'}, 1);
+  assert.equal(r.data.ratings.find(x => x.player === 2).halves, 6, 'old apps send whole hearts');
+  // Reply to the other player's review: they are notified.
+  const before = notifications().length;
+  assert.equal((await call('/films/reply', {id, reviewBy: 9, text: 'x'})).status, 404);
+  assert.equal((await call('/films/reply', {id, reviewBy: 2, text: '  '})).status, 400);
+  r = await call('/films/reply', {id, reviewBy: 2, text: ' Bence tam kıvamındaydı '});
+  assert.deepEqual(r.data.replies.map(x => [x.reviewBy, x.player, x.text]), [[2, 1, 'Bence tam kıvamındaydı']]);
+  assert.equal(notifications().length, before + 1);
+  assert.equal(notifications().at(-1).title, 'mqcan 😎 yorumuna yanıt verdi 💬');
+  const reply = r.data.replies[0].id;
+  // Likes: not your own, once notified, toggles.
+  assert.equal((await call('/films/like', {id, target: 'c1', like: true})).status, 400);
+  assert.equal((await call('/films/like', {id, target: 'c3', like: true})).status, 404);
+  assert.equal((await call('/films/like', {id, target: 'x1', like: true})).status, 400);
+  r = await call('/films/like', {id, target: 'c1', like: true}, 1);
+  assert.deepEqual(r.data.likes, [{film: id, target: 'c1', player: 2}]);
+  assert.equal(notifications().at(-1).title, 'ari yorumunu beğendi 💗');
+  r = await call('/films/like', {id, target: `r${reply}`, like: true}, 1);
+  assert.equal(r.data.likes.length, 2);
+  assert.equal(notifications().at(-1).title, 'ari yanıtını beğendi 💗');
+  const count = notifications().length;
+  await call('/films/like', {id, target: 'c1', like: false}, 1);
+  r = await call('/films/like', {id, target: 'c1', like: true}, 1);
+  assert.equal(r.data.likes.length, 2);
+  assert.equal(notifications().length, count, 'liking again stays quiet');
+  // Only the author deletes a reply; its likes go with it.
+  assert.equal((await call('/films/reply/delete', {reply}, 1)).status, 403);
+  r = await call('/films/reply/delete', {reply});
+  assert.deepEqual(r.data.replies, []);
+  assert.deepEqual(r.data.likes.map(x => x.target), ['c1']);
+  await call('/films/reply', {id, reviewBy: 1, text: 'Ek: müzik efsane'});
+  assert.equal(notifications().at(-1).title, 'mqcan 😎 yorumlara yanıt verdi 💬');
+  r = await call('/films/delete', {id});
+  assert.deepEqual([r.data.replies, r.data.likes], [[], []]);
+});
+
 test('missing OMDb key leaves the IMDb rating empty; TMDB errors never leak the key', async () => {
   upstream();
   const {call} = await setup({OMDB_API_KEY: undefined});

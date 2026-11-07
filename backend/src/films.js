@@ -12,6 +12,9 @@ const DIGEST_WINDOW = 600;
 const MAX_FILMS = 400;
 // Episodes added in one request (each costs two upstream calls).
 const MAX_EPISODES = 10;
+// Replies under the two reviews of one film.
+const MAX_REPLIES = 200;
+const MAX_REPLY = 280;
 const HIDDEN = /[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/;
 
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
@@ -217,10 +220,14 @@ const label = f => f.kind === 'episode' ? `${f.show_title} S${f.season}:B${f.epi
 
 async function list(env, me) {
   const {results: films} = await env.DB.prepare('SELECT * FROM films ORDER BY added DESC, id DESC').all();
-  const {results: ratings} = await env.DB.prepare(
-    'SELECT film_id AS film, player_id AS player, hearts, comment, updated FROM film_ratings').all();
+  const {results: ratings} = await env.DB.prepare(`SELECT film_id AS film, player_id AS player, hearts,
+    COALESCE(halves, hearts * 2) AS halves, comment, updated FROM film_ratings`).all();
+  const {results: replies} = await env.DB.prepare(`SELECT id, film_id AS film, review_by AS reviewBy,
+    player_id AS player, text, created FROM film_replies ORDER BY id`).all();
+  const {results: likes} = await env.DB.prepare(
+    'SELECT film_id AS film, target, player_id AS player FROM film_likes WHERE liked = 1').all();
   const {results: players} = await env.DB.prepare('SELECT id, name FROM players WHERE active = 1 ORDER BY id').all();
-  return {films: films.map(filmJson), ratings, players, me, now: nowSec()};
+  return {films: films.map(filmJson), ratings, replies, likes, players, me, now: nowSec()};
 }
 
 async function refreshStale(env) {
@@ -392,16 +399,83 @@ export async function filmsRoute(env, ctx, player, path, method, data, deliver) 
     const f = await film(env, filmId(data));
     if (!f.watched) fail(f.kind === 'episode' ? 'Puan için önce bölümü izlendi olarak işaretle.'
       : 'Puan için önce filmi izlendi olarak işaretle.');
-    if (!Number.isSafeInteger(data.hearts) || data.hearts < 1 || data.hearts > 5) fail('1–5 arası kalp seç.');
+    // Half hearts: `halves` 1–10; older apps send whole `hearts` 1–5.
+    const halves = data.halves !== undefined
+      ? (Number.isSafeInteger(data.halves) && data.halves >= 1 && data.halves <= 10 ? data.halves : fail('½–5 arası kalp seç.'))
+      : (Number.isSafeInteger(data.hearts) && data.hearts >= 1 && data.hearts <= 5 ? data.hearts * 2 : fail('1–5 arası kalp seç.'));
     const comment = typeof data.comment === 'string' ? data.comment.trim() : '';
     if (comment.length > 140 || HIDDEN.test(comment)) fail('Yorum en fazla 140 karakter, tek satır olabilir.');
-    await env.DB.prepare(`INSERT INTO film_ratings(film_id, player_id, hearts, comment, updated) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(film_id, player_id) DO UPDATE SET hearts = excluded.hearts, comment = excluded.comment,
-      updated = excluded.updated`).bind(f.id, player.id, data.hearts, comment, nowSec()).run();
+    await env.DB.prepare(`INSERT INTO film_ratings(film_id, player_id, hearts, halves, comment, updated) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(film_id, player_id) DO UPDATE SET hearts = excluded.hearts, halves = excluded.halves,
+      comment = excluded.comment, updated = excluded.updated`)
+      .bind(f.id, player.id, Math.ceil(halves / 2), halves, comment, nowSec()).run();
+    return list(env, player.id);
+  }
+  if (path === '/films/reply') {
+    const f = await film(env, filmId(data));
+    const review = Number.isSafeInteger(data.reviewBy) && await env.DB.prepare(
+      'SELECT player_id FROM film_ratings WHERE film_id = ? AND player_id = ?').bind(f.id, data.reviewBy).first();
+    if (!review) fail('Bu yorum artık yok.', 404);
+    const text = typeof data.text === 'string' ? data.text.trim() : '';
+    if (text.length < 1 || text.length > MAX_REPLY || HIDDEN.test(text)) fail(`Yanıt 1–${MAX_REPLY} karakter, tek satır olabilir.`);
+    const count = await env.DB.prepare('SELECT COUNT(*) AS count FROM film_replies WHERE film_id = ?').bind(f.id).first();
+    if (count.count >= MAX_REPLIES) fail(`Bir filmde en fazla ${MAX_REPLIES} yanıt olabilir.`);
+    await env.DB.prepare('INSERT INTO film_replies(film_id, review_by, player_id, text, created) VALUES (?, ?, ?, ?, ?)')
+      .bind(f.id, data.reviewBy, player.id, text, nowSec()).run();
+    const {results: others} = await env.DB.prepare('SELECT id FROM players WHERE id != ? AND active = 1').bind(player.id).all();
+    for (const other of others) {
+      const whose = other.id === data.reviewBy ? 'yorumuna' : 'yorumlara';
+      await env.DB.prepare('INSERT INTO notifications(player_id, title, body) VALUES (?, ?, ?)')
+        .bind(other.id, `${player.name} ${whose} yanıt verdi 💬`, clip(`${label(f)}: ${text}`, 180)).run();
+    }
+    if (others.length) ctx?.waitUntil(deliver(env));
+    return list(env, player.id);
+  }
+  if (path === '/films/reply/delete') {
+    const id = Number.isSafeInteger(data.reply) && data.reply > 0 ? data.reply : fail('Geçersiz yanıt.');
+    const row = await env.DB.prepare('SELECT film_id, player_id FROM film_replies WHERE id = ?').bind(id).first();
+    if (row && row.player_id !== player.id) fail('Yalnız kendi yanıtını silebilirsin.', 403);
+    if (row) {
+      await env.DB.prepare('DELETE FROM film_likes WHERE film_id = ? AND target = ?').bind(row.film_id, `r${id}`).run();
+      await env.DB.prepare('DELETE FROM film_replies WHERE id = ?').bind(id).run();
+    }
+    return list(env, player.id);
+  }
+  if (path === '/films/like') {
+    const f = await film(env, filmId(data));
+    if (typeof data.like !== 'boolean') fail('Geçersiz istek.');
+    const m = typeof data.target === 'string' ? /^([cr])([1-9]\d{0,9})$/.exec(data.target) : null;
+    if (!m) fail('Geçersiz yorum.');
+    const target = m[1] === 'c'
+      ? await env.DB.prepare("SELECT player_id AS owner, comment AS text FROM film_ratings WHERE film_id = ? AND player_id = ? AND comment != ''")
+        .bind(f.id, Number(m[2])).first()
+      : await env.DB.prepare('SELECT player_id AS owner, text FROM film_replies WHERE film_id = ? AND id = ?')
+        .bind(f.id, Number(m[2])).first();
+    if (!target) fail('Bu yorum artık yok.', 404);
+    if (target.owner === player.id) fail('Kendi yorumunu beğenemezsin.');
+    if (!data.like) {
+      await env.DB.prepare('UPDATE film_likes SET liked = 0 WHERE film_id = ? AND target = ? AND player_id = ?')
+        .bind(f.id, data.target, player.id).run();
+      return list(env, player.id);
+    }
+    const first = await env.DB.prepare(`INSERT INTO film_likes(film_id, target, player_id, liked, created) VALUES (?, ?, ?, 1, ?)
+      ON CONFLICT DO NOTHING RETURNING film_id`).bind(f.id, data.target, player.id, nowSec()).first();
+    if (first) {
+      // Only the first like notifies: unlike/like again stays quiet.
+      await env.DB.prepare('INSERT INTO notifications(player_id, title, body) VALUES (?, ?, ?)')
+        .bind(target.owner, `${player.name} ${m[1] === 'c' ? 'yorumunu' : 'yanıtını'} beğendi 💗`,
+          clip(`${label(f)}: ${target.text}`, 180)).run();
+      ctx?.waitUntil(deliver(env));
+    } else {
+      await env.DB.prepare('UPDATE film_likes SET liked = 1 WHERE film_id = ? AND target = ? AND player_id = ?')
+        .bind(f.id, data.target, player.id).run();
+    }
     return list(env, player.id);
   }
   if (path === '/films/delete') {
     const id = filmId(data);
+    await env.DB.prepare('DELETE FROM film_likes WHERE film_id = ?').bind(id).run();
+    await env.DB.prepare('DELETE FROM film_replies WHERE film_id = ?').bind(id).run();
     await env.DB.prepare('DELETE FROM film_ratings WHERE film_id = ?').bind(id).run();
     await env.DB.prepare('DELETE FROM films WHERE id = ?').bind(id).run();
     return list(env, player.id);

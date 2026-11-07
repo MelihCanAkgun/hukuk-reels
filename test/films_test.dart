@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hukuk_reels/app/theme.dart';
 import 'package:hukuk_reels/core/services/progress_service.dart';
+import 'package:hukuk_reels/features/films/film_reviews.dart';
 import 'package:hukuk_reels/features/films/film_roulette.dart';
 import 'package:hukuk_reels/features/films/film_store.dart';
 import 'package:hukuk_reels/features/films/films_screen.dart';
@@ -60,6 +61,8 @@ class _Server {
   _Server(this.films);
   final List<Map<String, dynamic>> films;
   final List<Map<String, dynamic>> ratings = [];
+  final List<Map<String, dynamic>> replies = [];
+  final List<Map<String, dynamic>> likes = [];
   final calls = <String>[];
   final data = <String, Map<String, dynamic>>{};
   bool connected = true;
@@ -67,6 +70,8 @@ class _Server {
   Map<String, dynamic> list() => {
         'films': films,
         'ratings': ratings,
+        'replies': replies,
+        'likes': likes,
         'players': [
           {'id': 1, 'name': 'mqcan'},
           {'id': 2, 'name': 'ari'},
@@ -161,9 +166,26 @@ class _Server {
         ratings.add({
           'film': data['id'],
           'player': 1,
-          'hearts': data['hearts'],
+          'hearts': ((data['halves'] as int) + 1) ~/ 2,
+          'halves': data['halves'],
           'comment': data['comment'],
         });
+      case 'filmReply':
+        replies.add({
+          'id': replies.length + 1,
+          'film': data['id'],
+          'reviewBy': data['reviewBy'],
+          'player': 1,
+          'text': data['text'],
+          'created': _now,
+        });
+      case 'filmLike':
+        likes.removeWhere(
+            (l) => l['film'] == data['id'] && l['target'] == data['target']);
+        if (data['like'] == true) {
+          likes
+              .add({'film': data['id'], 'target': data['target'], 'player': 1});
+        }
       case 'filmDelete':
         films.removeWhere((f) => f['id'] == data['id']);
     }
@@ -277,8 +299,8 @@ void main() {
       _film(1, title: 'Amélie'),
       _film(2, title: 'Parazit', watched: _now),
     ]);
-    expect(find.text('İzleyeceklerimiz (1)'), findsOneWidget);
-    expect(find.text('İzlediklerimiz (1)'), findsOneWidget);
+    expect(find.text('İzleyeceğiz (1)'), findsOneWidget);
+    expect(find.text('İzledik (1)'), findsOneWidget);
     expect(find.text('Amélie'), findsWidgets);
     expect(find.text('Parazit'), findsNothing);
 
@@ -290,28 +312,105 @@ void main() {
     expect(server.calls, contains('filmWatched'));
     expect(find.text('Puanlarımız'), findsOneWidget);
 
+    // Dördüncü kalbin sol yarısı: 3,5 kalp.
     await tester.ensureVisible(find.byKey(const ValueKey('film-rate-save')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('heart-4')));
-    await tester.enterText(
-        find.byKey(const ValueKey('film-comment')), 'Çok tatlıydı');
+    final heart4 = tester.getRect(find.byKey(const ValueKey('heart-4')));
+    await tester.tapAt(heart4.centerLeft + const Offset(4, 0));
     await tester.pump();
+    expect(
+        (tester.widget(find.byKey(const ValueKey('film-rate-value'))) as Text)
+            .data,
+        '3,5');
+    // Yorum ekranın üstünde açılan pencerede yazılır.
+    await tester.tap(find.byKey(const ValueKey('film-comment')));
+    await tester.pumpAndSettle();
+    final field = tester.getRect(find.byKey(const ValueKey('composer-field')));
+    expect(field.bottom, lessThan(852 / 2), reason: 'klavyenin üstünde kalır');
+    await tester.enterText(
+        find.byKey(const ValueKey('composer-field')), 'Çok tatlıydı');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('composer-send')));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('film-rate-save')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('film-rate-save')));
     await tester.pumpAndSettle();
-    expect(server.ratings.single['hearts'], 4);
+    expect(server.ratings.single['halves'], 7);
     expect(server.ratings.single['comment'], 'Çok tatlıydı');
     expect(find.text('Çok tatlıydı'), findsOneWidget);
 
     // Detay kapanınca film İzlediklerimiz'e geçmiş olur.
     Navigator.of(tester.element(find.text('Puanlarımız'))).pop();
     await tester.pumpAndSettle();
-    expect(find.text('İzleyeceklerimiz (0)'), findsOneWidget);
+    expect(find.text('İzleyeceğiz (0)'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('films-watched-tab')));
     await tester.pumpAndSettle();
     expect(find.text('Amélie'), findsWidgets);
     expect(find.text('Parazit'), findsWidgets);
+  });
+
+  testWidgets('table: both ratings side by side, sorting, likes and replies',
+      (tester) async {
+    final server = await _open(tester, [
+      _film(1, title: 'Amélie', watched: _now - 86400),
+      _film(2, title: 'Parazit', watched: _now),
+      _film(3, title: 'Bekleyen'),
+    ]);
+    server.ratings.addAll([
+      {'film': 1, 'player': 1, 'hearts': 5, 'halves': 9, 'comment': ''},
+      {
+        'film': 1,
+        'player': 2,
+        'hearts': 5,
+        'halves': 10,
+        'comment': 'Bayıldım'
+      },
+      {'film': 2, 'player': 1, 'hearts': 3, 'comment': 'İyiydi'},
+    ]);
+    await FilmStore.instance.refresh(force: true);
+    await tester.tap(find.byKey(const ValueKey('films-table-tab')));
+    await tester.pumpAndSettle();
+    expect(find.text('Bekleyen'), findsNothing);
+    double top(int id) =>
+        tester.getTopLeft(find.byKey(ValueKey('film-table-$id'))).dy;
+    expect(top(2), lessThan(top(1)), reason: 'son eklenen önce');
+    String score(int film, int player) => tester
+        .widget<Text>(find.descendant(
+            of: find.byKey(ValueKey('film-table-$film-$player')),
+            matching: find.byType(Text)))
+        .data!;
+    expect(score(1, 1), '4,5');
+    expect(score(1, 2), '5');
+    expect(score(2, 1), '3', reason: 'eski kayıt: tam kalp');
+    expect(find.byKey(const ValueKey('film-table-2-2')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('film-table-score')));
+    await tester.pumpAndSettle();
+    expect(top(1), lessThan(top(2)), reason: 'en yüksek puan önce');
+
+    // Satır: detay incelemelerle açılır; beğeni ve yanıt.
+    await tester.tap(find.byKey(const ValueKey('film-table-1')));
+    await tester.pumpAndSettle();
+    expect(find.text('Bayıldım'), findsOneWidget);
+    expect(find.byKey(const ValueKey('review-like-1')), findsNothing,
+        reason: 'yorumsuz puan beğenilemez');
+    await tester.tap(find.byKey(const ValueKey('review-like-2')));
+    await tester.pumpAndSettle();
+    expect(server.data['filmLike'], {'id': 1, 'target': 'c2', 'like': true});
+    expect(FilmStore.instance.likesOf(1, 'c2'), {1});
+    await tester.tap(find.byKey(const ValueKey('review-reply-2')));
+    await tester.pumpAndSettle();
+    expect(find.text('ari: Bayıldım'), findsOneWidget);
+    await tester.enterText(
+        find.byKey(const ValueKey('composer-field')), 'Ben de!');
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('composer-send')));
+    await tester.pumpAndSettle();
+    expect(
+        server.data['filmReply'], {'id': 1, 'reviewBy': 2, 'text': 'Ben de!'});
+    expect(find.text('Ben de!'), findsOneWidget);
+    expect(find.byKey(const ValueKey('reply-delete-1')), findsOneWidget);
   });
 
   testWidgets('the adder photo: own profile photo or the other player\'s',
@@ -410,8 +509,8 @@ void main() {
     // Dönerken seçilemez.
     expect(
         tester
-            .widget<FilledButton>(find.byKey(const ValueKey('roulette-pick')))
-            .onPressed,
+            .widget<ArcadeButton>(find.byKey(const ValueKey('roulette-pick')))
+            .onTap,
         isNull);
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
@@ -420,6 +519,32 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('roulette-pick')));
     await tester.pumpAndSettle();
     expect(picked?.title, title);
+  });
+
+  testWidgets('the dice closes with ✕ without picking', (tester) async {
+    final pool = [for (var i = 1; i <= 3; i++) _parsed(_film(i))];
+    Film? picked;
+    var closed = false;
+    await tester.pumpWidget(MaterialApp(
+      theme: AppTheme.arcade,
+      home: Builder(
+        builder: (context) => TextButton(
+          onPressed: () async {
+            picked = await showFilmRoulette(context, pool, random: Random(3));
+            closed = true;
+          },
+          child: const Text('zar'),
+        ),
+      ),
+    ));
+    await tester.tap(find.text('zar'));
+    await tester.pump();
+    // Dönerken de kapanır.
+    await tester.tap(find.byKey(const ValueKey('roulette-close')));
+    await tester.pumpAndSettle();
+    expect(closed, isTrue);
+    expect(picked, isNull);
+    expect(find.byKey(const ValueKey('roulette-title')), findsNothing);
   });
 
   testWidgets('a show opens its seasons; picked episodes are added one by one',

@@ -16,6 +16,11 @@ class FilmStore {
   final ValueNotifier<int> changes = ValueNotifier(0);
   List<Film> films = const [];
   List<FilmRating> ratings = const [];
+  List<FilmReply> replies = const [];
+
+  /// Beğeniler: "film:hedef" → beğenen oyuncular. Hedef "c" + oyuncu id
+  /// (o oyuncunun yorumu) ya da "r" + yanıt id.
+  Map<String, Set<int>> likes = const {};
   Map<int, String> players = const {};
 
   /// Bu cihazdaki oyuncu (1 ya da 2).
@@ -114,8 +119,38 @@ class FilmStore {
   Future<String?> setWatched(int id, bool watched) =>
       _write('filmWatched', {'id': id, 'watched': watched});
 
-  Future<String?> rate(int id, int hearts, String comment) =>
-      _write('filmRate', {'id': id, 'hearts': hearts, 'comment': comment});
+  /// [halves]: yarım kalp cinsinden puan (1–10, ör. 7 = 3,5 kalp).
+  Future<String?> rate(int id, int halves, String comment) =>
+      _write('filmRate', {'id': id, 'halves': halves, 'comment': comment});
+
+  /// [reviewBy] oyuncusunun yorumuna yanıt.
+  Future<String?> reply(int id, int reviewBy, String text) =>
+      _write('filmReply', {'id': id, 'reviewBy': reviewBy, 'text': text});
+
+  Future<String?> deleteReply(int reply) =>
+      _write('filmReplyDelete', {'reply': reply});
+
+  /// [target]: "c" + oyuncu id yorum, "r" + yanıt id yanıt.
+  Future<String?> like(int id, String target, bool like) async {
+    // Hemen görünsün; sunucu yanıtı listeyi yeniden kurar.
+    final key = '$id:$target';
+    final before = likes[key] ?? const <int>{};
+    final mine = me;
+    if (mine != null) {
+      likes = {
+        ...likes,
+        key: like ? {...before, mine} : ({...before}..remove(mine)),
+      };
+      changes.value++;
+    }
+    final error =
+        await _write('filmLike', {'id': id, 'target': target, 'like': like});
+    if (error != null) {
+      likes = {...likes, key: before};
+      changes.value++;
+    }
+    return error;
+  }
 
   Future<String?> delete(int id) => _write('filmDelete', {'id': id});
 
@@ -138,6 +173,15 @@ class FilmStore {
       for (final x in (r['ratings'] as List? ?? const []).whereType<Map>())
         FilmRating.fromJson(x.cast<String, dynamic>())
     ];
+    replies = [
+      for (final x in (r['replies'] as List? ?? const []).whereType<Map>())
+        FilmReply.fromJson(x.cast<String, dynamic>())
+    ];
+    final liked = <String, Set<int>>{};
+    for (final x in (r['likes'] as List? ?? const []).whereType<Map>()) {
+      (liked['${x['film']}:${x['target']}'] ??= {}).add(x['player'] as int);
+    }
+    likes = liked;
     players = {
       for (final p in (r['players'] as List? ?? const []).whereType<Map>())
         p['id'] as int: (p['name'] as String?) ?? 'Oyuncu'
@@ -159,6 +203,34 @@ class FilmStore {
         for (final r in ratings)
           if (r.film == film) r
       ]..sort((a, b) => a.player.compareTo(b.player));
+
+  /// Yorumun ya da yanıtın beğenenleri.
+  Set<int> likesOf(int film, String target) =>
+      likes['$film:$target'] ?? const {};
+
+  /// [reviewBy] oyuncusunun yorumuna gelen yanıtlar (eskiden yeniye).
+  List<FilmReply> repliesTo(int film, int reviewBy) => [
+        for (final r in replies)
+          if (r.film == film && r.reviewBy == reviewBy) r
+      ];
+
+  /// İki kişinin de izlediği (izlendi işaretli) yapımların puan tablosu.
+  List<FilmTableRow> table({bool byScore = false}) {
+    final rows = [
+      for (final f in films)
+        if (f.isWatched)
+          FilmTableRow(f, {for (final r in ratingsOf(f.id)) r.player: r})
+    ];
+    int byDate(FilmTableRow a, FilmTableRow b) =>
+        b.film.watched!.compareTo(a.film.watched!);
+    rows.sort(byScore
+        ? (a, b) {
+            final c = (b.average ?? -1).compareTo(a.average ?? -1);
+            return c != 0 ? c : byDate(a, b);
+          }
+        : byDate);
+    return rows;
+  }
 
   FilmRating? myRating(int film) {
     for (final r in ratings) {
@@ -251,12 +323,45 @@ class FilmRating {
   FilmRating.fromJson(Map<String, dynamic> j)
       : film = j['film'] as int,
         player = j['player'] as int,
-        hearts = j['hearts'] as int,
+        halves = (j['halves'] as int?) ?? (j['hearts'] as int) * 2,
         comment = (j['comment'] as String?) ?? '';
 
-  final int film, player, hearts;
+  /// Yarım kalp cinsinden puan (1–10).
+  final int film, player, halves;
   final String comment;
+
+  double get hearts => halves / 2;
 }
+
+class FilmReply {
+  FilmReply.fromJson(Map<String, dynamic> j)
+      : id = j['id'] as int,
+        film = j['film'] as int,
+        reviewBy = j['reviewBy'] as int,
+        player = j['player'] as int,
+        text = (j['text'] as String?) ?? '',
+        created = _time(j['created'] as int);
+
+  final int id, film, reviewBy, player;
+  final String text;
+  final DateTime created;
+}
+
+/// Puan tablosunun bir satırı: yapım ve oyuncuların puanları.
+class FilmTableRow {
+  const FilmTableRow(this.film, this.ratings);
+  final Film film;
+  final Map<int, FilmRating> ratings;
+
+  /// Verilen puanların ortalaması (yarım kalp cinsinden); puan yoksa null.
+  double? get average => ratings.isEmpty
+      ? null
+      : ratings.values.fold<int>(0, (s, r) => s + r.halves) / ratings.length;
+}
+
+/// "3,5" / "4".
+String heartsText(int halves) =>
+    halves.isEven ? '${halves ~/ 2}' : '${halves ~/ 2},5';
 
 class FilmSearchResult {
   FilmSearchResult.fromJson(Map<String, dynamic> j)
