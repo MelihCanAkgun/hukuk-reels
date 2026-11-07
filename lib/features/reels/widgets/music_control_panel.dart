@@ -96,14 +96,7 @@ class _MusicControlPanelState extends State<MusicControlPanel> {
 
   Widget _header() => Row(
         children: [
-          const Text(
-            'Ses',
-            style: TextStyle(
-              color: AppTheme.textPrimary,
-              fontWeight: FontWeight.w800,
-              fontSize: 17,
-            ),
-          ),
+          const Text('Ses', style: AppTheme.sheetTitle),
           const Spacer(),
           Pressable(
             semanticLabel: 'Kapat',
@@ -124,12 +117,7 @@ class _MusicControlPanelState extends State<MusicControlPanel> {
 
   Widget _sectionTitle(String text) => Text(
         text,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
-          letterSpacing: 1.1,
-          color: AppTheme.textMuted,
-        ),
+        style: AppTheme.sectionLabel.copyWith(fontSize: 13),
       );
 
   // ─────────────── Çalan parça ───────────────

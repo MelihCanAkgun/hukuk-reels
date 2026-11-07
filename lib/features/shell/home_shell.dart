@@ -4,6 +4,7 @@ import '../../app/theme.dart';
 import '../../core/services/activity_area.dart';
 import '../../core/services/battle_bridge.dart';
 import '../../core/services/progress_service.dart';
+import '../../core/widgets/pixel_logo.dart';
 import '../films/films_screen.dart';
 import '../game/block_battle_lobby.dart';
 import '../games/games_screen.dart';
@@ -28,20 +29,28 @@ class HomeShell extends StatefulWidget {
 }
 
 class _Tab {
-  const _Tab(this.label, this.icon, this.selectedIcon, this.area);
+  const _Tab(this.label, this.logo, this.area);
   final String label;
-  final IconData icon, selectedIcon;
+
+  /// Piksel simge (arcade teması); profil sekmesinde avatar gösterilir.
+  final List<String>? logo;
   final String area;
 }
 
 const _tabs = [
-  _Tab('Ana sayfa', Icons.home_outlined, Icons.home_rounded, 'home'),
-  _Tab('Oyunlar', Icons.sports_esports_outlined, Icons.sports_esports_rounded,
-      'games'),
-  _Tab('Çalış', Icons.menu_book_outlined, Icons.menu_book_rounded, 'study'),
-  _Tab('Filmler', Icons.movie_outlined, Icons.movie_rounded, 'films'),
-  _Tab('Profil', Icons.person_outline_rounded, Icons.person_rounded, 'profile'),
+  _Tab('Ana sayfa', kLogoHome, 'home'),
+  _Tab('Oyunlar', kLogoGames, 'games'),
+  _Tab('Çalış', kLogoLawBook, 'study'),
+  _Tab('Filmler', kLogoFilm, 'films'),
+  _Tab('Profil', null, 'profile'),
 ];
+
+/// Seçili olmayan sekmelerin soluk piksel simgesi: renkler zemine doğru
+/// karıştırılır (Opacity katmanı açmadan).
+final Map<String, Color> _dimPalette = {
+  for (final e in kLogoPalette.entries)
+    e.key: Color.lerp(e.value, AppTheme.bgElevated, .5)!,
+};
 
 /// Sekme numaraları (ana sayfadaki kısayollar için).
 abstract final class ShellTab {
@@ -144,6 +153,13 @@ class HomeShellState extends State<HomeShell> {
     );
   }
 
+  Widget _icon(int i, bool selected) {
+    final logo = _tabs[i].logo;
+    if (logo == null) return _profileIcon(selected);
+    return PixelLogo(logo,
+        size: 24, palette: selected ? kLogoPalette : _dimPalette);
+  }
+
   Widget _profileIcon(bool selected) => Container(
         padding: const EdgeInsets.all(1.5),
         decoration: BoxDecoration(
@@ -173,12 +189,8 @@ class HomeShellState extends State<HomeShell> {
                 key: ValueKey('tab-${_tabs[i].area}'),
                 label: _tabs[i].label,
                 tooltip: '',
-                icon: i == ShellTab.profile
-                    ? _profileIcon(false)
-                    : Icon(_tabs[i].icon, color: AppTheme.textSecondary),
-                selectedIcon: i == ShellTab.profile
-                    ? _profileIcon(true)
-                    : Icon(_tabs[i].selectedIcon, color: AppTheme.accent),
+                icon: _icon(i, false),
+                selectedIcon: _icon(i, true),
               ),
           ],
         ),
@@ -202,12 +214,8 @@ class HomeShellState extends State<HomeShell> {
               for (var i = 0; i < _tabs.length; i++)
                 NavigationRailDestination(
                   label: Text(_tabs[i].label),
-                  icon: i == ShellTab.profile
-                      ? _profileIcon(false)
-                      : Icon(_tabs[i].icon, color: AppTheme.textSecondary),
-                  selectedIcon: i == ShellTab.profile
-                      ? _profileIcon(true)
-                      : Icon(_tabs[i].selectedIcon, color: AppTheme.accent),
+                  icon: _icon(i, false),
+                  selectedIcon: _icon(i, true),
                 ),
             ],
           ),

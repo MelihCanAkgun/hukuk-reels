@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/arcade_title.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pressable.dart';
@@ -72,40 +73,17 @@ class _GamesScreenState extends State<GamesScreen> {
           bottom: false,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
-                child: Row(
-                  children: [
-                    // Ayrı bir sayfa olarak açıldıysa geri tuşu.
-                    if (ModalRoute.of(context)?.canPop ?? false)
-                      IconButton(
-                        tooltip: 'Geri',
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon: const Icon(Icons.arrow_back_rounded,
-                            color: AppTheme.textPrimary),
-                      )
-                    else
-                      const SizedBox(width: 8),
-                    const PixelLogo(kLogoGames, size: 24),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Oyunlar',
-                        style: TextStyle(
-                          color: AppTheme.textPrimary,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Sıralama',
-                      onPressed: () => _push(const GameLeaderboard()),
-                      icon: const PixelLogo(kLogoLeaderboard, size: 24),
-                    ),
-                    const MusicButton(),
-                  ],
-                ),
+              ArcadeTitleBar(
+                title: 'Oyunlar',
+                logo: kLogoGames,
+                actions: [
+                  IconButton(
+                    tooltip: 'Sıralama',
+                    onPressed: () => _push(const GameLeaderboard()),
+                    icon: const PixelLogo(kLogoLeaderboard, size: 24),
+                  ),
+                  const MusicButton(),
+                ],
               ),
               Expanded(
                 child: ListView(
@@ -129,18 +107,8 @@ class _GamesScreenState extends State<GamesScreen> {
                         ],
                       );
                     }),
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(4, 26, 4, 10),
-                      child: Text(
-                        'SEVGİLİNLE',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                          color: AppTheme.textSecondary,
-                        ),
-                      ),
-                    ),
+                    const ArcadeSectionLabel('SEVGİLİNLE',
+                        padding: EdgeInsets.fromLTRB(4, 26, 4, 10)),
                     _rowCard(
                       logo: kLogoBattle,
                       title: '1v1 Battle',

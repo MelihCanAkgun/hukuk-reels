@@ -17,6 +17,46 @@ class AppTheme {
   static const Color success = Color(0xFF45D6A0);
   static const Color danger = Color(0xFFFB7193);
 
+  /// Arcade teması: ekran başlıkları, bölüm etiketleri, sekme adları ve
+  /// pencere başlıkları piksel yazı tipinde; okunan metin (kart içeriği,
+  /// açıklamalar, düğmeler) Inter'de kalır.
+  static const String pixelFont = 'PixelifySans';
+
+  /// Sekme / ekran başlığı ("Hukuk Reels", "Oyunlar", "Film Listemiz").
+  static const TextStyle screenTitle = TextStyle(
+    fontFamily: pixelFont,
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: textPrimary,
+    letterSpacing: .3,
+  );
+
+  /// Bölüm etiketi ("ÖZETLER", "SEVGİLİNLE", "KALDIĞIN YERDEN").
+  static const TextStyle sectionLabel = TextStyle(
+    fontFamily: pixelFont,
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    color: textSecondary,
+    letterSpacing: 1.2,
+  );
+
+  /// Alt sayfa / pencere başlığı ("Film ekle", "Bu akşam ne izlesek?").
+  static const TextStyle sheetTitle = TextStyle(
+    fontFamily: pixelFont,
+    fontSize: 21,
+    fontWeight: FontWeight.w700,
+    color: textPrimary,
+  );
+
+  static TextStyle _tabLabel(bool selected) => TextStyle(
+        fontFamily: pixelFont,
+        fontSize: 12,
+        height: 4 / 3,
+        fontWeight: FontWeight.w600,
+        letterSpacing: .2,
+        color: selected ? textPrimary : textSecondary,
+      );
+
   /// Arka plan degradesi (sayfa zemini)
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -83,6 +123,19 @@ class AppTheme {
             overlayColor: _pressOverlay(Colors.white),
           ),
         ),
+        appBarTheme: const AppBarTheme(
+          titleTextStyle: screenTitle,
+          foregroundColor: textPrimary,
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          labelTextStyle: WidgetStateProperty.resolveWith(
+              (states) => _tabLabel(states.contains(WidgetState.selected))),
+        ),
+        navigationRailTheme: NavigationRailThemeData(
+          selectedLabelTextStyle: _tabLabel(true),
+          unselectedLabelTextStyle: _tabLabel(false),
+        ),
+        dialogTheme: const DialogThemeData(titleTextStyle: sheetTitle),
         textTheme: const TextTheme(
           headlineMedium: TextStyle(
             fontSize: 26,

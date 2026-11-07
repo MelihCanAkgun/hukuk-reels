@@ -95,12 +95,8 @@ class _FilmRouletteState extends State<FilmRoulette> {
                 PixelLogo(kDiceSprite, size: 24),
                 SizedBox(width: 8),
                 Flexible(
-                  child: Text('Bu akşam ne izlesek?',
-                      style: TextStyle(
-                          fontFamily: 'PixelifySans',
-                          color: AppTheme.textPrimary,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700)),
+                  child:
+                      Text('Bu akşam ne izlesek?', style: AppTheme.sheetTitle),
                 ),
               ],
             ),

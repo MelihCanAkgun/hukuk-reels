@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
+import '../../app/theme.dart';
 import '../../core/services/social_bridge.dart';
 import 'game_leaderboard.dart';
 import 'block_battle_session.dart';
@@ -111,7 +112,10 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
             const SizedBox(height: 16),
             const Text('Aynı parçalar. İki tahta. Beş can.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800)),
+                style: TextStyle(
+                    fontFamily: AppTheme.pixelFont,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800)),
             const SizedBox(height: 10),
             const Text(
                 'Her 500 toplam puanda rakibinden bir can al. Hamlen kalmazsa bir can kaybedersin; tahta yenilenir, puanın kalır.',
@@ -151,6 +155,7 @@ class _BlockBattleLobbyState extends State<BlockBattleLobby> {
               SelectableText(_session.room!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
+                      fontFamily: AppTheme.pixelFont,
                       fontSize: 34,
                       letterSpacing: 5,
                       fontWeight: FontWeight.w900)),

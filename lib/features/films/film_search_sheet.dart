@@ -106,12 +106,7 @@ class _FilmSearchState extends State<FilmSearch> {
             ),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 18),
-              child: Text('Film ekle 🍿',
-                  style: TextStyle(
-                      fontFamily: 'PixelifySans',
-                      color: AppTheme.textPrimary,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700)),
+              child: Text('Film ekle 🍿', style: AppTheme.sheetTitle),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),

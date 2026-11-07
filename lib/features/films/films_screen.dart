@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/arcade_title.dart';
+import '../../core/widgets/pixel_logo.dart';
 import '../../core/services/avatar_sync.dart';
 import '../../core/services/social_bridge.dart';
 import '../../core/widgets/readable_width.dart';
@@ -200,27 +202,10 @@ class _FilmsScreenState extends State<FilmsScreen> {
     );
   }
 
-  Widget _topBar() => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 12, 6),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Film Listemiz',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontFamily: 'PixelifySans',
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textPrimary,
-                  letterSpacing: .3,
-                ),
-              ),
-            ),
-            if (_store.connected) DiceButton(onTap: _roll),
-          ],
-        ),
+  Widget _topBar() => ArcadeTitleBar(
+        title: 'Film Listemiz',
+        logo: kLogoFilm,
+        actions: [if (_store.connected) DiceButton(onTap: _roll)],
       );
 
   Widget _tabs(int toWatch, int watched) => Padding(
@@ -402,11 +387,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Text(title,
-                  style: const TextStyle(
-                      color: AppTheme.textPrimary,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800)),
+              child: Text(title, style: AppTheme.sheetTitle),
             ),
             if (allowNone)
               _option(c, 'Hepsi', current == null, () => (value: null)),

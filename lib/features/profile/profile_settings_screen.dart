@@ -5,10 +5,12 @@ import 'package:hukuk_reels/core/widgets/pixel_logo.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/arcade_title.dart';
 import '../../core/data/questions_data.dart';
 import '../../core/models/quiz_question.dart';
 import '../../core/services/audio_service.dart';
 import '../../core/services/avatar_sync.dart';
+import '../../core/services/engine_bridge.dart';
 import '../../core/services/avatar_bridge.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/sfx_service.dart';
@@ -229,6 +231,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                             : null,
                         onTap: _checkingUpdate ? null : _onCheckUpdate,
                       ),
+                      if (engineSwitchAvailable) _engineRow(),
                     ]),
                     _sectionTitle('VERİ', Icons.storage_rounded),
                     _group([
@@ -286,36 +289,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
   // ───────────────────────── Üst bar ─────────────────────────
 
-  Widget _topBar() => Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 16, 6),
-        child: Row(
-          children: [
-            // Sekmede geri tuşu yok; ayrı sayfa olarak açıldıysa var.
-            if (ModalRoute.of(context)?.canPop ?? false)
-              IconButton(
-                tooltip: 'Geri',
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_rounded,
-                    color: AppTheme.textPrimary),
-              )
-            else
-              const SizedBox(width: 8),
-            const SizedBox(width: 2),
-            const Expanded(
-              child: Text(
-                'Profil & Ayarlar',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+  Widget _topBar() => const ArcadeTitleBar(title: 'Profil & Ayarlar');
 
   // ───────────────────────── Profil kartı ─────────────────────────
 
@@ -775,12 +749,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 title, // Türkçe büyük harfle verilir (İ/I)
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.1,
-                  color: AppTheme.textSecondary,
-                ),
+                style: AppTheme.sectionLabel,
               ),
             ),
           ],
@@ -821,7 +790,27 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         child: Icon(icon, color: color, size: 20),
       );
 
+  /// WebAssembly ↔ JavaScript görüntü motoru; değişince uygulama yeniden
+  /// yüklenir.
+  Widget _engineRow() => _actionRow(
+        key: const ValueKey('engine-row'),
+        icon: Icons.speed_rounded,
+        color: AppTheme.accent,
+        title: 'Hızlı görüntü motoru',
+        subtitle: runningWasm
+            ? 'Şu an: WebAssembly. Sorun olursa kapat, JavaScript\'e döner.'
+            : 'Şu an: JavaScript. Açınca WebAssembly ile yeniden açılır '
+                '(daha akıcı olabilir).',
+        trailing: Switch(
+          value: runningWasm,
+          activeThumbColor: AppTheme.accent,
+          onChanged: (on) => setWasmEngine(on),
+        ),
+        onTap: () => setWasmEngine(!runningWasm),
+      );
+
   Widget _actionRow({
+    Key? key,
     required IconData icon,
     required Color color,
     required String title,
@@ -830,6 +819,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     VoidCallback? onTap,
   }) {
     return InkWell(
+      key: key,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),

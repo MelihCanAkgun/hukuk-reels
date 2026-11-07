@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../../app/theme.dart';
 import '../../core/services/progress_service.dart';
 import '../../core/services/social_bridge.dart';
 import '../../core/services/avatar_sync.dart';
@@ -316,7 +317,10 @@ class _GameLeaderboardState extends State<GameLeaderboard>
           const SizedBox(height: 12),
           const Text('Lider Tablosu',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+              style: TextStyle(
+                  fontFamily: AppTheme.pixelFont,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800)),
           const SizedBox(height: 8),
           const Text('İyi olan kazansın bir tanem 😘',
               textAlign: TextAlign.center),
@@ -401,6 +405,7 @@ class _GameLeaderboardState extends State<GameLeaderboard>
                         child: Text(tied ? '=' : '${i + 1}',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
+                                fontFamily: AppTheme.pixelFont,
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
                                 color: Color(0xFFFFD76A))),
@@ -455,6 +460,7 @@ class _GameLeaderboardState extends State<GameLeaderboard>
                       Text('${players[i]['best']}${_game.unit}',
                           style: const TextStyle(
                               color: Colors.white,
+                              fontFamily: AppTheme.pixelFont,
                               fontSize: 23,
                               fontWeight: FontWeight.w800)),
                     ],
@@ -472,7 +478,10 @@ class _GameLeaderboardState extends State<GameLeaderboard>
                 label: const Text('Sıralamayı yenile')),
             const Divider(height: 32),
             const Text('Bildirimler',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                style: TextStyle(
+                    fontFamily: AppTheme.pixelFont,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             const Text(
                 'Diğer oyuncu herhangi bir oyunda rekorunu geçtiğinde telefonuna bildirim gelsin. iPhone’da uygulamayı ana ekrandan açıp izin ver. (yerse)'),
@@ -499,7 +508,10 @@ class _GameLeaderboardState extends State<GameLeaderboard>
             if (_data['me'] == 1) ...[
               const Divider(height: 32),
               const Text('ariciğime bildirim gönderme paneli: ',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  style: TextStyle(
+                      fontFamily: AppTheme.pixelFont,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
               TextField(
                   controller: _message,
@@ -532,7 +544,10 @@ class _GameLeaderboardState extends State<GameLeaderboard>
                   label: const Text('Bildirim gönder')),
               const Divider(height: 32),
               const Text('Profil fotoğrafları',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  style: TextStyle(
+                      fontFamily: AppTheme.pixelFont,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               _avatarDownloads(),
             ],

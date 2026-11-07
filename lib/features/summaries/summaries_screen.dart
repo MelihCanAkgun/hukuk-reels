@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/arcade_title.dart';
 import '../../core/services/notes_bridge.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pressable.dart';
@@ -83,29 +84,7 @@ class _SummariesScreenState extends State<SummariesScreen> {
         child: SafeArea(
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 6, 12, 6),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Geri',
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: AppTheme.textPrimary),
-                    ),
-                    const PixelLogo(kLogoLawBook, size: 24),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Özetler',
-                      style: TextStyle(
-                        color: AppTheme.textPrimary,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const ArcadeTitleBar(title: 'Özetler', logo: kLogoLawBook),
               Expanded(
                 child: ListView(
                   padding: EdgeInsets.fromLTRB(

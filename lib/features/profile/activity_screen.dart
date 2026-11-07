@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
+import '../../core/widgets/arcade_title.dart';
 import '../../core/services/activity_area.dart';
 import '../../core/services/social_bridge.dart';
 import '../../core/widgets/readable_width.dart';
@@ -233,36 +234,16 @@ class _ActivityScreenState extends State<ActivityScreen>
     );
   }
 
-  Widget _topBar() => Padding(
-        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: 'Geri',
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.arrow_back_rounded,
-                  color: AppTheme.textPrimary),
-            ),
-            const Icon(Icons.insights_rounded, color: AppTheme.accent),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Aktiflik',
-                style: TextStyle(
-                  color: AppTheme.textPrimary,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Yenile',
-              onPressed: _refresh,
-              icon: const Icon(Icons.refresh_rounded,
-                  color: AppTheme.textSecondary),
-            ),
-          ],
-        ),
+  Widget _topBar() => ArcadeTitleBar(
+        title: 'Aktiflik',
+        actions: [
+          IconButton(
+            tooltip: 'Yenile',
+            onPressed: _refresh,
+            icon: const Icon(Icons.refresh_rounded,
+                color: AppTheme.textSecondary),
+          ),
+        ],
       );
 
   List<Widget> _content(DateTime now) {
@@ -353,12 +334,7 @@ class _ActivityScreenState extends State<ActivityScreen>
             const SizedBox(width: 8),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.1,
-                color: AppTheme.textSecondary,
-              ),
+              style: AppTheme.sectionLabel,
             ),
           ],
         ),
