@@ -6,6 +6,7 @@ import '../../app/theme.dart';
 import '../../core/services/activity_area.dart';
 import '../../core/services/notes_bridge.dart';
 import '../../core/services/progress_service.dart';
+import '../../core/services/update_bridge.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pressable.dart';
 import '../../core/widgets/readable_width.dart';
@@ -47,6 +48,7 @@ class _HomeTabState extends State<HomeTab> {
   final _store = HomeStore.instance;
   final Map<String, SummaryNotes> _notes = {};
   Timer? _tick;
+  bool _checkingUpdate = false;
 
   void _changed() {
     if (mounted) setState(() {});
@@ -185,6 +187,8 @@ class _HomeTabState extends State<HomeTab> {
                 ),
               ),
             ),
+            _updateButton(),
+            const SizedBox(width: 6),
             // Sürpriz görülmeden 🌷 görünmesin (spoiler olmasın).
             if (_progress.flowerSurpriseSeen) ...[
               _flowerButton(),
@@ -449,6 +453,47 @@ class _HomeTabState extends State<HomeTab> {
         ),
       ),
     );
+  }
+
+  /// Ayarlardaki "Güncellemeleri denetle"nin kısayolu: bekleyen bir sürüm
+  /// varsa indirir ve uygular.
+  Widget _updateButton() {
+    return Semantics(
+      button: true,
+      label: 'Güncellemeleri denetle',
+      child: Pressable(
+        onTap: _checkingUpdate ? null : _onCheckUpdate,
+        child: Container(
+          key: const ValueKey('home-update'),
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.success.withValues(alpha: 0.12),
+            border: Border.all(color: AppTheme.success.withValues(alpha: 0.45)),
+          ),
+          child: _checkingUpdate
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: AppTheme.success),
+                )
+              : const PixelLogo(kLogoUpdateCloud, size: 26),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onCheckUpdate() async {
+    setState(() => _checkingUpdate = true);
+    final result = await checkForUpdate();
+    if (!mounted) return;
+    setState(() => _checkingUpdate = false);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(updateResultText(result))));
   }
 
   /// Sürprizden sonra kalan çiçek. Dokununca çiçek yeniden açılır; uzun

@@ -748,13 +748,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     final result = await checkForUpdate();
     if (!mounted) return;
     setState(() => _checkingUpdate = false);
-    _toast(switch (result) {
-      'latest' => 'En güncel sürümü kullanıyorsun.',
-      'updating' => 'Yeni sürüm indirildi, uygulama yeniden açılıyor…',
-      'offline' => 'Güncellemeye ulaşılamadı. Bağlantını kontrol edip '
-          'tekrar dene.',
-      _ => 'Güncelleme denetimi ana ekran/web uygulamasında çalışır.',
-    });
+    _toast(updateResultText(result));
   }
 
   void _toast(String text) {
