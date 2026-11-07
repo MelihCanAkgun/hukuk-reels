@@ -1,8 +1,8 @@
 {
-  "source_commit": "d91f28bc5ccc3100311c456084ffe8c41c7de17c",
-  "built_at": "2026-11-07T12:16:08Z",
+  "source_commit": "02aee76830077393ff35960375fa6d6d37735175",
+  "built_at": "2026-11-07T12:31:19Z",
   "checks": "flutter analyze (no issues); flutter test (470 passed); backend tests (73 passed, battle-network excluded); migration 0011 checked on old schema; release build --wasm with base-href /hukuk-reels/",
-  "change": "İzle: single TV episodes in the shared watchlist",
+  "change": "İzle: single TV episodes; smaller Pages upload",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
   "app_build": "8351878bfea46e88"
 }
