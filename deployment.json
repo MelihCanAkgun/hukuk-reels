@@ -1,8 +1,8 @@
 {
-  "source_commit": "c50e72ee3f8b194077f0fe939b2f5d85ecae80f3",
-  "built_at": "2026-11-07T11:30:43Z",
-  "checks": "flutter analyze (no issues); flutter test (467 passed); headless Chrome JS vs skwasm_heavy screenshots of tabs, games, summary (identical); release build --wasm with base-href /hukuk-reels/",
-  "change": "WebAssembly: avatars and posters no longer cropped",
+  "source_commit": "cb250bf3c56fa709108e0e37300afe97f506ec38",
+  "built_at": "2026-11-07T11:39:56Z",
+  "checks": "flutter test (467 passed); headless Chrome skwasm screenshots of game scores; release build --wasm with base-href /hukuk-reels/",
+  "change": "Pixel font: clear 5x7 arcade digits",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "8da9822a0777d2d2"
+  "app_build": "b64558680f1f25b6"
 }
