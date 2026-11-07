@@ -1,8 +1,8 @@
 {
-  "source_commit": "c46c94419a08aedd52ee36c6ad85245e079a98b3",
-  "built_at": "2026-11-07T11:08:49Z",
-  "checks": "flutter analyze (no issues); flutter test (467 passed); headless Chrome boot with default, js and wasm engines; release build --wasm with base-href /hukuk-reels/",
-  "change": "Arcade typography and pixel tab icons; opt-in WebAssembly engine",
+  "source_commit": "c50e72ee3f8b194077f0fe939b2f5d85ecae80f3",
+  "built_at": "2026-11-07T11:30:43Z",
+  "checks": "flutter analyze (no issues); flutter test (467 passed); headless Chrome JS vs skwasm_heavy screenshots of tabs, games, summary (identical); release build --wasm with base-href /hukuk-reels/",
+  "change": "WebAssembly: avatars and posters no longer cropped",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "9b21d0902a482e4b"
+  "app_build": "8da9822a0777d2d2"
 }
