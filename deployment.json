@@ -1,8 +1,8 @@
 {
-  "source_commit": "5ea7f6d90766677a553d46838e328dfed15895aa",
-  "built_at": "2026-10-22T22:51:25Z",
-  "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Smaller offline shell (font subset, corner photos), cached question stats, push icon fix",
+  "source_commit": "4923c46630ae987d2c0d2b7cd12798f35d224e2f",
+  "built_at": "2026-11-07T00:57:13Z",
+  "checks": "flutter analyze (no issues); flutter test (466 passed); backend film tests; release build with base-href /hukuk-reels/",
+  "change": "Filmler tab (shared watchlist via TMDB/OMDb) and home update button",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "ca277ece62d3a726"
+  "app_build": "d51bba66f8d253d9"
 }
