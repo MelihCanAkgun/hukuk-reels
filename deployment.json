@@ -1,8 +1,8 @@
 {
-  "source_commit": "bbdb42faedf2290b32d9254a1005748a013f4dcd",
-  "built_at": "2026-11-07T01:15:32Z",
-  "checks": "flutter analyze (no issues); flutter test (467 passed); backend film tests; release build with base-href /hukuk-reels/",
-  "change": "Filmler: English search, adder profile photos",
+  "source_commit": "c46c94419a08aedd52ee36c6ad85245e079a98b3",
+  "built_at": "2026-11-07T11:08:49Z",
+  "checks": "flutter analyze (no issues); flutter test (467 passed); headless Chrome boot with default, js and wasm engines; release build --wasm with base-href /hukuk-reels/",
+  "change": "Arcade typography and pixel tab icons; opt-in WebAssembly engine",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "beb54b102ff5e6c8"
+  "app_build": "9b21d0902a482e4b"
 }
