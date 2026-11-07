@@ -157,7 +157,26 @@ CREATE TABLE IF NOT EXISTS film_ratings (
  hearts INTEGER NOT NULL CHECK (hearts BETWEEN 1 AND 5),
  comment TEXT NOT NULL DEFAULT '',
  updated INTEGER NOT NULL,
+ -- Rating in half hearts (1–10); NULL on old rows means hearts * 2.
+ halves INTEGER CHECK (halves BETWEEN 1 AND 10),
  PRIMARY KEY (film_id, player_id)
+);
+CREATE TABLE IF NOT EXISTS film_replies (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ film_id INTEGER NOT NULL REFERENCES films(id) ON DELETE CASCADE,
+ review_by INTEGER NOT NULL REFERENCES players(id),
+ player_id INTEGER NOT NULL REFERENCES players(id),
+ text TEXT NOT NULL,
+ created INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS film_replies_film ON film_replies(film_id, id);
+CREATE TABLE IF NOT EXISTS film_likes (
+ film_id INTEGER NOT NULL REFERENCES films(id) ON DELETE CASCADE,
+ target TEXT NOT NULL,
+ player_id INTEGER NOT NULL REFERENCES players(id),
+ liked INTEGER NOT NULL DEFAULT 1,
+ created INTEGER NOT NULL,
+ PRIMARY KEY (film_id, target, player_id)
 );
 CREATE TABLE IF NOT EXISTS film_digest (
  player_id INTEGER PRIMARY KEY REFERENCES players(id),

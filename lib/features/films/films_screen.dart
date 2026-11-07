@@ -12,6 +12,7 @@ import 'film_detail_sheet.dart';
 import 'film_roulette.dart';
 import 'film_search_sheet.dart';
 import 'film_store.dart';
+import 'film_table.dart';
 import 'film_widgets.dart';
 
 enum FilmSort { added, imdb, runtime }
@@ -127,16 +128,28 @@ List<Film> filterFilms(List<Film> films, FilmFilter f) {
 }
 
 /// İzle sekmesi: ikimizin ortak izleme listesi (filmler ve dizi bölümleri).
-class FilmsScreen extends StatefulWidget {
+/// Sekme ve açtığı bütün pencereler arcade temasında (piksel yazı).
+class FilmsScreen extends StatelessWidget {
   const FilmsScreen({super.key});
 
   @override
-  State<FilmsScreen> createState() => _FilmsScreenState();
+  Widget build(BuildContext context) =>
+      Theme(data: AppTheme.arcade, child: const _FilmsView());
 }
 
-class _FilmsScreenState extends State<FilmsScreen> {
+class _FilmsView extends StatefulWidget {
+  const _FilmsView();
+
+  @override
+  State<_FilmsView> createState() => _FilmsScreenState();
+}
+
+class _FilmsScreenState extends State<_FilmsView> {
   final _store = FilmStore.instance;
   FilmFilter _filter = const FilmFilter();
+
+  /// Üçüncü sekme: puan tablomuz.
+  bool _table = false;
 
   void _changed() {
     if (mounted) setState(() {});
@@ -153,7 +166,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
   }
 
   @override
-  void didUpdateWidget(FilmsScreen old) {
+  void didUpdateWidget(_FilmsView old) {
     super.didUpdateWidget(old);
     // Sekmeye dönüldü: diğer kişi film eklemiş olabilir.
     _store.refresh();
@@ -190,6 +203,9 @@ class _FilmsScreenState extends State<FilmsScreen> {
               onPressed: () => showFilmSearch(context),
               backgroundColor: AppTheme.accent,
               foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  side: const BorderSide(color: Color(0xFFFFC2D8), width: 1.5)),
               icon: const Icon(Icons.add_rounded),
               label: const Text('Ekle',
                   style: TextStyle(fontWeight: FontWeight.w800)),
@@ -204,7 +220,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
               _topBar(),
               if (_store.connected) ...[
                 _tabs(toWatch, watched),
-                _chips(),
+                if (!_table) _chips(),
               ],
               Expanded(
                 child: RefreshIndicator(
@@ -232,39 +248,61 @@ class _FilmsScreenState extends State<FilmsScreen> {
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             color: AppTheme.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppTheme.border, width: .8),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: AppTheme.border, width: 1.5),
+            boxShadow: const [
+              BoxShadow(color: Color(0xFF0B0408), offset: Offset(3, 3))
+            ],
           ),
           child: Row(
             children: [
-              _tab('İzleyeceklerimiz ($toWatch)', false),
-              _tab('İzlediklerimiz ($watched)', true),
+              _tab('İzleyeceğiz ($toWatch)', false),
+              _tab('İzledik ($watched)', true),
+              _tab('Tablo', null),
             ],
           ),
         ),
       );
 
-  Widget _tab(String label, bool watched) {
-    final selected = _filter.watched == watched;
+  /// [watched] null: puan tablosu.
+  Widget _tab(String label, bool? watched) {
+    final selected =
+        watched == null ? _table : !_table && _filter.watched == watched;
     return Expanded(
       child: GestureDetector(
-        key: ValueKey(watched ? 'films-watched-tab' : 'films-towatch-tab'),
+        key: ValueKey(watched == null
+            ? 'films-table-tab'
+            : watched
+                ? 'films-watched-tab'
+                : 'films-towatch-tab'),
         behavior: HitTestBehavior.opaque,
-        onTap: () => setState(() => _filter = _filter.copy(watched: watched)),
+        onTap: () => setState(() {
+          _table = watched == null;
+          if (watched != null) _filter = _filter.copy(watched: watched);
+        }),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(vertical: 9),
           decoration: BoxDecoration(
             gradient: selected ? AppTheme.pinkGradient : null,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: FittedBox(
             fit: BoxFit.scaleDown,
-            child: Text(label,
-                style: TextStyle(
-                    color: selected ? Colors.white : AppTheme.textSecondary,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w800)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (watched == null) ...[
+                  const PixelHeart(size: 13),
+                  const SizedBox(width: 5),
+                ],
+                Text(label,
+                    style: TextStyle(
+                        color: selected ? Colors.white : AppTheme.textSecondary,
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
           ),
         ),
       ),
@@ -381,8 +419,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
           backgroundColor: active ? AppTheme.accent : AppTheme.surface,
           side: BorderSide(
               color: active ? AppTheme.accent : AppTheme.border, width: .8),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
           visualDensity: VisualDensity.compact,
           padding: const EdgeInsets.symmetric(horizontal: 4),
         ),
@@ -457,6 +494,7 @@ class _FilmsScreenState extends State<FilmsScreen> {
                 'oyuncu kodunla bağlan.',
       ));
     }
+    if (_table) return FilmTable(gutter: gutter);
     if (films.isEmpty) {
       return _scrollable(_filter.narrowed
           ? _message('🔍', 'Bu filtrelere uyan film ya da bölüm yok.',

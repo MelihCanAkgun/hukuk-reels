@@ -82,11 +82,17 @@ class AppTheme {
         return null;
       });
 
-  static ThemeData get dark => ThemeData(
+  static ThemeData get dark => _build('Inter');
+
+  /// Tamamen arcade: bütün yazılar (kart içerikleri, düğmeler, yorumlar
+  /// dahil) piksel yazı tipinde. İzle sekmesi ve onun pencereleri kullanır.
+  static ThemeData get arcade => _build(pixelFont);
+
+  static ThemeData _build(String font) => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: bg,
-        fontFamily: 'Inter',
+        fontFamily: font,
         colorScheme: const ColorScheme.dark(
           primary: accent,
           secondary: accent,
