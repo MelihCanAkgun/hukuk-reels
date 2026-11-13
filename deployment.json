@@ -1,8 +1,8 @@
 {
-  "source_commit": "dafa71ab55ccd1b6177f215f6a5304e5c4a63a28",
-  "built_at": "2026-11-07T20:44:03Z",
-  "checks": "flutter analyze (no issues); flutter test (472 passed); backend tests (74 passed, battle-network excluded); migration 0012 checked on old schema and applied remote; release build --wasm with base-href /hukuk-reels/",
-  "change": "İzle: half hearts, review likes and replies, score table, arcade look, dice redesign",
+  "source_commit": "5258039db24566d3b41d3db019b78a5489e77a35",
+  "built_at": "2026-11-13T00:40:48Z",
+  "checks": "flutter analyze (no issues); flutter test (492 passed); backend tests (91 passed, battle-network excluded); web runtime test passed; migrations 0013 and 0014 applied remote; release build --wasm with base-href /hukuk-reels/",
+  "change": "Weekly challenge (admin-started rounds, trophies), Ortak karar film swipe, font prewarm and media cache, cache-first lists",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "ab07207d0de68a72"
+  "app_build": "76c6e4b097670e66"
 }

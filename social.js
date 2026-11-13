@@ -11,6 +11,35 @@
   let verifiedSubscription = '';
   let scoreTimer;
   const persist = () => localStorage.setItem(storageKey, JSON.stringify(config));
+  // Haftalık meydan okuma: turu yönetici başlatır, 7 gün sürer. Oynanan
+  // skorlar zamanıyla saklanır (plays) ve sunucuya gönderilir; hangi tura
+  // sayılacağına sunucu karar verir (tur başlamadan yapılan skor sayılmaz).
+  // Bir oyunun listesinde skorlar zamanla azalır: yeni skor, kendinden düşük
+  // eskileri siler. round: sunucunun son bildirdiği tur ({start, end} | null).
+  const weekGames = ['block', 'flappy', 'subway', 'tower'];
+  const nowSec = () => Math.floor(Date.now() / 1000);
+  if (!config.plays || typeof config.plays !== 'object') config.plays = {};
+  const roundActive = () => !!config.round && nowSec() < config.round.end;
+  function addPlay(game, score) {
+    // Tur olmadığı biliniyorsa (ve bilgi tazeyse) skor saklanmaz.
+    if (!roundActive() && nowSec() - (config.roundChecked || 0) < 600) return false;
+    const list = config.plays[game] || [];
+    const start = roundActive() ? config.round.start : Infinity;
+    if (list.some(p => p.t >= start && p.s >= score)) return false;
+    config.plays[game] = [...list.filter(p => p.s > score), {s: score, t: nowSec()}].slice(-12);
+    return true;
+  }
+  const weeklyDue = () => weekGames.flatMap(g => (config.plays[g] || []).filter(p => !p.sent).map(p => ({game: g, play: p})));
+  const weeklyKey = 'hukuk_weekly_v1';
+  // Her yanıt turu günceller; tur dışında kalan skorlar atılır.
+  function saveWeekly(r) {
+    config.round = r.round ? {start: r.round.start, end: r.round.end} : null;
+    config.roundChecked = nowSec();
+    const start = r.round ? r.round.start : Infinity;
+    for (const g of weekGames) config.plays[g] = (config.plays[g] || []).filter(p => p.t >= start);
+    try { persist(); } catch (_) {}
+    return saveCache(weeklyKey, r);
+  }
   // Block Blast season (matches the worker): a new season zeroes this device's
   // stored record, and scores carry the season so old ones are not accepted.
   const blockSeason = 2;
@@ -31,9 +60,36 @@
   // Home data (flights + cork-board notes): last copy kept for offline use.
   const tripsKey = 'hukuk_home_v1';
   try { localStorage.removeItem('hukuk_trips_v1'); } catch (_) {}
-  const saveTrips = (r) => { try { localStorage.setItem(tripsKey, JSON.stringify(r)); } catch (_) {} return r; };
+  const saveTrips = (r) => saveCache(tripsKey, r);
   const filmsKey = 'hukuk_films_v1';
-  const saveFilms = (r) => { try { localStorage.setItem(filmsKey, JSON.stringify(r)); } catch (_) {} return r; };
+  // Önce önbellek, sonra ağ: liste ekranları son kopyayla anında açılır
+  // ({cached: true} isteği ağa gitmez), güncel veri arkadan gelir. Yanıt
+  // Flutter'ın elindekiyle aynıysa {unchanged: true} döner; büyük liste
+  // yeniden çözülmez ve ekran boşuna yeniden kurulmaz. `now` her yanıtta
+  // değiştiği için karşılaştırmaya girmez.
+  const delivered = {};
+  const fingerprint = (r) => JSON.stringify({...r, now: 0});
+  function readCache(key) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
+  }
+  function saveCache(key, r) {
+    const print = fingerprint(r);
+    // Aynı içerik yeniden yazılmaz (localStorage yazımı ana iş parçacığını tutar).
+    if (saveCache.last[key] !== print) {
+      saveCache.last[key] = print;
+      try { localStorage.setItem(key, JSON.stringify(r)); } catch (_) {}
+    }
+    return r;
+  }
+  saveCache.last = {};
+  // Flutter'a giden yanıt: `known` (Flutter'da veri var) ve içerik aynıysa kısa yanıt.
+  function deliver(key, r, known) {
+    const print = fingerprint(r);
+    const same = known && delivered[key] === print;
+    delivered[key] = print;
+    return same ? {unchanged: true, connected: true} : {...r, connected: true};
+  }
+  const saveFilms = (r) => saveCache(filmsKey, r);
   async function api(path, data, token = config.token) {
     if (!config.url) throw new Error('İki kişilik servis henüz etkinleştirilmedi.');
     const response = await fetch(config.url + path, {
@@ -75,7 +131,7 @@
   async function flush() {
     if (sending || !config.token || !config.url || document.hidden) return;
     const due = ['block', ...games].filter(g => localBest(g) > 0 && !(serverBest(g) !== null && localBest(g) <= serverBest(g)));
-    if (!due.length && !(config.legacyBest > 0)) return;
+    if (!due.length && !(config.legacyBest > 0) && !weeklyDue().length) return;
     sending = true;
     const token = config.token;
     try {
@@ -88,6 +144,13 @@
         const next = await api('/score', game === 'block' ? {score: config.best, season: blockSeason} : {game, score: localBest(game)}, token);
         if (token !== config.token) break;
         lastBoard = next;
+      }
+      // Rekorlardan sonra: sunucu aynı anda iki bildirim göndermesin.
+      for (const {game, play} of weeklyDue()) {
+        const next = await api('/weekly/score', {game, score: play.s, at: play.t}, token);
+        if (token !== config.token) break;
+        play.sent = true;
+        saveWeekly(next);
       }
     } catch (_) { /* The local maximum is retained for online/resume/timer retry. */ }
     finally { sending = false; }
@@ -178,6 +241,13 @@
     if (action === 'score') {
       const game = data.game || 'block';
       if (game !== 'block' && !games.includes(game)) throw new Error('Geçersiz oyun.');
+      // Oynanan oyunun skoru meydan okumaya da sayılır (sync: oyun açılırken
+      // eşitlenen eski rekor sayılmaz). Block Blast her hamlede skor bildirir:
+      // o, 30 saniyelik düzenli gönderimle gider; diğerleri oyun bitince hemen.
+      if (config.token && !data.sync && Number.isSafeInteger(data.score) && data.score > 0 && addPlay(game, data.score)) {
+        persist();
+        if (game !== 'block') { clearTimeout(scoreTimer); scoreTimer = setTimeout(flush, 600); }
+      }
       if (config.token && Number.isSafeInteger(data.score) && data.score > localBest(game)) {
         if (game === 'block') config.best = data.score; else config.bests[game] = data.score;
         persist();
@@ -219,10 +289,12 @@
         config.endpoint = ''; verifiedSubscription = ''; persist();
       }
       if (action === 'leave') {
-        config.token = ''; config.best = 0; config.bests = {}; verifiedSubscription = ''; lastBoard = null; persist();
+        config.token = ''; config.best = 0; config.bests = {}; config.plays = {}; delete config.round; delete config.roundChecked; verifiedSubscription = ''; lastBoard = null; persist();
         avatars = {}; persistAvatars();
         for (const k of Object.keys(fullCache)) delete fullCache[k];
-        try { localStorage.removeItem(tripsKey); localStorage.removeItem(filmsKey); } catch (_) {}
+        try { localStorage.removeItem(tripsKey); localStorage.removeItem(filmsKey); localStorage.removeItem(weeklyKey); } catch (_) {}
+        for (const k of Object.keys(delivered)) delete delivered[k];
+        saveCache.last = {};
       }
       return state(false);
     }
@@ -272,41 +344,77 @@
     }
     if (action === 'home' || action === 'trips') {
       if (!config.token) return {trips: [], notes: [], connected: false};
-      try { return {...saveTrips(await api('/home')), connected: true}; }
+      if (data.cached) {
+        const cached = readCache(tripsKey);
+        if (cached) return {...deliver(tripsKey, cached, false), cached: true};
+      }
+      try { return deliver(tripsKey, saveTrips(await api('/home')), data.known); }
       catch (e) {
-        let cached = null;
-        try { cached = JSON.parse(localStorage.getItem(tripsKey) || 'null'); } catch (_) {}
+        const cached = readCache(tripsKey);
         if (cached) return {...cached, connected: true, offline: true, error: e.message};
         throw e;
       }
     }
-    if (action === 'tripAdd') return {...saveTrips(await api('/trips', {destination: data.destination, arrival: data.arrival})), connected: true};
-    if (action === 'tripDelete') return {...saveTrips(await api('/trips/delete', {id: data.id})), connected: true};
-    if (action === 'noteAdd') return {...saveTrips(await api('/notes', {text: data.text})), connected: true};
-    if (action === 'noteDelete') return {...saveTrips(await api('/notes/delete', {id: data.id})), connected: true};
+    if (action === 'tripAdd') return deliver(tripsKey, saveTrips(await api('/trips', {destination: data.destination, arrival: data.arrival})), false);
+    if (action === 'tripDelete') return deliver(tripsKey, saveTrips(await api('/trips/delete', {id: data.id})), false);
+    if (action === 'noteAdd') return deliver(tripsKey, saveTrips(await api('/notes', {text: data.text})), false);
+    if (action === 'noteDelete') return deliver(tripsKey, saveTrips(await api('/notes/delete', {id: data.id})), false);
     // Film listesi: son kopya çevrimdışı açılış için saklanır.
     if (action === 'films') {
       if (!config.token) return {films: [], ratings: [], players: [], connected: false};
-      try { return {...saveFilms(await api('/films')), connected: true}; }
+      if (data.cached) {
+        const cached = readCache(filmsKey);
+        if (cached) return {...deliver(filmsKey, cached, false), cached: true};
+      }
+      try { return deliver(filmsKey, saveFilms(await api('/films')), data.known); }
       catch (e) {
-        let cached = null;
-        try { cached = JSON.parse(localStorage.getItem(filmsKey) || 'null'); } catch (_) {}
+        const cached = readCache(filmsKey);
         if (cached) return {...cached, connected: true, offline: true, error: e.message};
         throw e;
       }
     }
     if (action === 'filmSearch') return api('/films/search', {query: data.query});
-    if (action === 'filmAdd') return {...saveFilms(await api('/films', {tmdbId: data.tmdbId})), connected: true};
+    if (action === 'filmAdd') return deliver(filmsKey, saveFilms(await api('/films', {tmdbId: data.tmdbId})), false);
     if (action === 'filmShow') return api('/films/show', {tmdbId: data.tmdbId});
     if (action === 'filmSeason') return api('/films/season', {tmdbId: data.tmdbId, season: data.season});
-    if (action === 'filmEpisodes') return {...saveFilms(await api('/films/episodes',
-      {showId: data.showId, season: data.season, episodes: data.episodes})), connected: true};
-    if (action === 'filmWatched') return {...saveFilms(await api('/films/watched', {id: data.id, watched: data.watched})), connected: true};
-    if (action === 'filmRate') return {...saveFilms(await api('/films/rate', {id: data.id, halves: data.halves, comment: data.comment})), connected: true};
-    if (action === 'filmReply') return {...saveFilms(await api('/films/reply', {id: data.id, reviewBy: data.reviewBy, text: data.text})), connected: true};
-    if (action === 'filmReplyDelete') return {...saveFilms(await api('/films/reply/delete', {reply: data.reply})), connected: true};
-    if (action === 'filmLike') return {...saveFilms(await api('/films/like', {id: data.id, target: data.target, like: data.like})), connected: true};
-    if (action === 'filmDelete') return {...saveFilms(await api('/films/delete', {id: data.id})), connected: true};
+    if (action === 'filmEpisodes') return deliver(filmsKey, saveFilms(await api('/films/episodes',
+      {showId: data.showId, season: data.season, episodes: data.episodes})), false);
+    if (action === 'filmWatched') return deliver(filmsKey, saveFilms(await api('/films/watched', {id: data.id, watched: data.watched})), false);
+    if (action === 'filmRate') return deliver(filmsKey, saveFilms(await api('/films/rate', {id: data.id, halves: data.halves, comment: data.comment})), false);
+    if (action === 'filmReply') return deliver(filmsKey, saveFilms(await api('/films/reply', {id: data.id, reviewBy: data.reviewBy, text: data.text})), false);
+    if (action === 'filmReplyDelete') return deliver(filmsKey, saveFilms(await api('/films/reply/delete', {reply: data.reply})), false);
+    if (action === 'filmLike') return deliver(filmsKey, saveFilms(await api('/films/like', {id: data.id, target: data.target, like: data.like})), false);
+    if (action === 'filmDelete') return deliver(filmsKey, saveFilms(await api('/films/delete', {id: data.id})), false);
+    // Ortak karar (film kaydırma): durum her çağrıda sunucudan gelir.
+    if (action === 'swipe') return api('/films/swipe', {});
+    if (action === 'swipeStart') return api('/films/swipe/start', {});
+    if (action === 'swipeVote') return api('/films/swipe/vote', {session: data.session, pos: data.pos, vote: data.vote});
+    if (action === 'swipeCancel') return api('/films/swipe/cancel', {session: data.session});
+    // Haftalık meydan okuma: son kopya çevrimdışı açılış için saklanır; bu
+    // cihazın henüz gönderilmemiş skorları da eklenir.
+    if (['weekly', 'weeklySeen', 'weeklyStart', 'weeklyCancel'].includes(action)) {
+      if (!config.token) return {connected: false};
+      const local = () => {
+        const start = roundActive() ? config.round.start : Infinity;
+        return {localBests: Object.fromEntries(weekGames.map(g =>
+          [g, Math.max(0, ...(config.plays[g] || []).filter(p => !p.sent && p.t >= start).map(p => p.s))]))};
+      };
+      if (action === 'weekly' && data.cached) {
+        const cached = readCache(weeklyKey);
+        if (cached) return {...cached, ...local(), connected: true, cached: true};
+      }
+      if (action === 'weeklyStart') return {...saveWeekly(await api('/weekly/start', {})), ...local(), connected: true};
+      if (action === 'weeklyCancel') return {...saveWeekly(await api('/weekly/cancel', {})), ...local(), connected: true};
+      try {
+        await flush();
+        const r = action === 'weekly' ? await api('/weekly') : await api('/weekly/seen', {round: data.round});
+        return {...saveWeekly(r), ...local(), connected: true};
+      } catch (e) {
+        const cached = readCache(weeklyKey);
+        if (cached) return {...cached, ...local(), connected: true, offline: true, error: e.message};
+        throw e;
+      }
+    }
     if (action === 'message') return api('/message', {message: data.message});
     if (action === 'area') {
       // Flutter hangi bölümde olunduğunu bildirir; hızlı geçişler birleşir.
