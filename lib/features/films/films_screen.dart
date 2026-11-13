@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -12,6 +13,7 @@ import 'film_detail_sheet.dart';
 import 'film_roulette.dart';
 import 'film_search_sheet.dart';
 import 'film_store.dart';
+import 'film_swipe_screen.dart';
 import 'film_table.dart';
 import 'film_widgets.dart';
 
@@ -190,6 +192,13 @@ class _FilmsScreenState extends State<_FilmsView> {
     if (film != null && mounted) await showFilmDetail(context, film.id);
   }
 
+  Future<void> _openSwipe() async {
+    await Navigator.of(context)
+        .push(MaterialPageRoute<void>(builder: (_) => const FilmSwipeScreen()));
+    // Şerit güncel durumu göstersin (oylar, eşleşmeler, eklenen filmler).
+    if (mounted) unawaited(_store.refresh(force: true));
+  }
+
   @override
   Widget build(BuildContext context) {
     final films = filterFilms(_store.films, _filter);
@@ -220,7 +229,10 @@ class _FilmsScreenState extends State<_FilmsView> {
               _topBar(),
               if (_store.connected) ...[
                 _tabs(toWatch, watched),
-                if (!_table) _chips(),
+                if (!_table) ...[
+                  if (!_filter.watched) SwipeBanner(onTap: _openSwipe),
+                  _chips(),
+                ],
               ],
               Expanded(
                 child: RefreshIndicator(

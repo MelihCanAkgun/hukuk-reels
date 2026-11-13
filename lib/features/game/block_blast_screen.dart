@@ -139,7 +139,8 @@ class _BlockBlastScreenState extends State<BlockBlastScreen>
     super.initState();
     if (_battle == null) {
       unawaited(socialCall('init', {'url': socialApiUrl}).then((_) =>
-          socialCall('score', {'score': ProgressService.instance.blockHigh})));
+          socialCall('score',
+              {'score': ProgressService.instance.blockHigh, 'sync': true})));
     }
     SfxService.instance.init(); // efektleri önceden yükle (düşük gecikme)
     WidgetsBinding.instance.addObserver(this);

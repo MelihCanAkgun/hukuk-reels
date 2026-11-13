@@ -57,6 +57,25 @@ The **Filmler** tab is a shared watchlist (migration `0010_films.sql`). The Work
 - `POST /films/rate {id, hearts 1–5, comment ≤140}` (watched films only), one rating per player. `POST /films/delete {id}` removes the film and its ratings (either player).
 - Posters and logos load from `https://image.tmdb.org` (allowed in the web CSP `img-src`/`connect-src`). Upstream URLs carry the API key and are never logged; errors log only service and status.
 
+### Ortak karar (film swipe)
+
+Migration `0014_film_swipe.sql`, `src/swipe.js`. One player starts a session: a fixed deck of up to 10 random unwatched list items plus 5 TMDB suggestions (recommendations for well-rated/listed films and the weekly trending list; never a listed film, `vote_average ≥ 6.5`, `vote_count ≥ 200`; a short list gets up to 10 suggestions, a TMDB failure none). Both players vote every card in their own time: 0 pass, 1 like, 2 super like (one per player). Nobody sees the other's votes until both are done; then the mutual likes are the result, super-liked ones first, and a matched suggestion is added to the watchlist without the "ekledi" push. Every `/films*` list reply carries a small `swipe` summary for the banner.
+
+- `POST /films/swipe {}` → `{session, players, me}`; the open session, else the last finished one.
+- `POST /films/swipe/start {}` (409 while one is open and younger than three days; 429 within a minute of the last). Push: "<name> film seçimi başlattı! 🍿".
+- `POST /films/swipe/vote {session, pos, vote}`. When both are done the other player gets "N filmde eşleştiniz! 🎉" or "Bu sefer eşleşme çıkmadı 😅". A player who finishes more than ten minutes after the start sends one "sıra sende ⏳" nudge.
+- `POST /films/swipe/cancel {session}` (either player) closes an open session.
+
+## Haftalık meydan okuma
+
+Migration `0013_weekly.sql`, `src/weekly.js`. Player 1 (admin) starts each round by hand; a round lasts seven days. All four games count (`block`, `flappy`, `subway`, `tower`): the better best of the round wins the game, most games wins the round and its trophy (seven designs cycling round by round, names in `TROPHIES`). A tie is decided by a coin flip on the Worker (`coin: true`); the app only animates it. The client reports every played score with the time it was made (`at`); scores made before the round started, or sent after it ended, are ignored.
+
+- `GET /weekly` → `{round, canStart, nextTrophy, scores, wins, totals, history, reveal, players, me, now}`. `reveal` is the latest finished round the player has not watched yet.
+- `POST /weekly/start {}` and `POST /weekly/cancel {}`: Player 1 only (403 otherwise); cancel deletes the running round and its scores.
+- `POST /weekly/score {game, score, at}` keeps the maximum. Overtaking the other player's score sends "Meydan okuma ⚔️" (skipped when an all-time "Lider değişti!" went out in the last 90 seconds).
+- `POST /weekly/seen {round}` marks the result as watched.
+- The five-minute cron sends "Meydan okuma: son 4 saat ⏳" once and, when the round ends, "Meydan okuma bitti! 🏆" to both players (nothing if nobody played).
+
 ## Security notes
 
 - Every endpoint except `/health` requires a player's 256-bit Bearer code; foreign origins are refused. Responses carry `nosniff`, `no-referrer`, `X-Frame-Options: DENY` and a deny-all CSP.

@@ -10,6 +10,7 @@ import 'core/services/progress_service.dart';
 import 'features/game/block_battle_lobby.dart';
 import 'features/shell/home_shell.dart';
 import 'core/services/sfx_service.dart';
+import 'core/utils/font_prewarm.dart';
 import 'core/widgets/web_safe_area.dart';
 
 void main() async {
@@ -36,6 +37,11 @@ void main() async {
   // Bildirimdeki 1v1 davetine dokunuldu: lobi oda koduyla açılır. Dinleme ilk
   // kareden sonra başlar; açılışı sağlayan davet o an teslim edilir.
   // Açık lobi/oyun ekranları kapanır; tek lobi davetteki odaya katılır.
+  // Emoji/sembol yazı tipleri ilk kareden hemen sonra, kullanıcı bir ekrana
+  // girmeden yüklensin (yoksa kullanım sırasında takılma yapar).
+  WidgetsBinding.instance.addPostFrameCallback(
+      (_) => Timer(const Duration(milliseconds: 400), prewarmFallbackFonts));
+
   WidgetsBinding.instance.addPostFrameCallback((_) => listenInvites((room) {
         BlockBattleLobby.inviteOpened = true;
         final nav = navigatorKey.currentState;

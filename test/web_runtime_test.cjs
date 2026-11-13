@@ -87,7 +87,7 @@ async function main() {
   const self = {location: {origin: 'https://example.test'}, registration: {scope: 'https://example.test/game/'},
     clients: {claim: async () => claimed++}, skipWaiting() {skipped++;}, addEventListener(name, fn) {handlers[name] = fn;}};
   const worker = vm.createContext({self, URL, Request, caches: {open: async () => cache, keys: async () => ['unrelated-app', 'hukuk-games-old', 'hukuk-games-test'], delete: async key => deleted.push(key)}, fetch: async () => 'network'});
-  const source = fs.readFileSync('web/sw.js','utf8').replace('__BUILD_VERSION__','test').replace('__CORE_FILES__','["index.html"]');
+  const source = fs.readFileSync('web/sw.js','utf8').replace('__BUILD_VERSION__','test').replace('__CORE_FILES__','["index.html"]').replace('__WASM_FILES__','[]');
   vm.runInContext(source, worker);
   let pending;
   handlers.install({waitUntil(p) {pending = p;}}); await pending;
@@ -102,6 +102,32 @@ async function main() {
   response = null;
   handlers.fetch({request: {method: 'GET', url: 'https://example.test/game/song.m4a', headers: {has: () => true}}, respondWith(p) {response = p;}});
   assert.equal(response, null); // Safari range requests must reach the server.
+
+  // Persistent media cache: fallback fonts and posters are fetched once.
+  const media = new Map(); let fetched = 0, online = true;
+  const mediaCache = {match: async key => media.get(String(key)), put: async (key, value) => { media.set(String(key), value); },
+    keys: async () => [...media.keys()].map(url => ({url})), delete: async r => media.delete(r.url)};
+  const mediaWorker = vm.createContext({self, URL, Request, caches: {open: async () => mediaCache},
+    fetch: async request => { fetched++; if (!online) throw new Error('offline');
+      return {ok: !request.url.includes('missing'), type: request.url.includes('opaque') ? 'opaque' : 'cors', clone() { return 'copy of ' + request.url; }}; }});
+  vm.runInContext(source, mediaWorker);
+  const get = async (url, headers = false) => { let r = null;
+    handlers.fetch({request: {method: 'GET', url, headers: {has: () => headers}}, respondWith(p) {r = p;}}); return r; };
+  const font = 'https://fonts.gstatic.com/s/notocoloremoji/v32/a.3.woff2';
+  await get(font); assert.equal(fetched, 1);
+  assert.equal(await get(font), 'copy of ' + font); assert.equal(fetched, 1);
+  online = false;
+  assert.equal(await get(font), 'copy of ' + font);                    // works offline
+  await assert.rejects(get('https://image.tmdb.org/t/p/w342/new.jpg'));
+  online = true;
+  await get('https://image.tmdb.org/t/p/w342/missing.jpg'); await get('https://image.tmdb.org/t/p/w342/opaque.jpg');
+  assert.equal(media.size, 1);                                         // errors and opaque replies are not kept
+  for (let i = 0; i < 650; i++) await get(`https://image.tmdb.org/t/p/w342/p${i}.jpg`);
+  const posters = [...media.keys()].filter(k => k.includes('tmdb'));
+  assert.ok(posters.length <= 624 && posters.length >= 600);           // trimmed to the limit in batches
+  assert.ok(!media.has('https://image.tmdb.org/t/p/w342/p0.jpg') && media.has(font));
+  assert.equal(await get('https://evil.example/x.jpg'), null);         // other hosts are untouched
+  assert.equal(await get('https://image.tmdb.org/t/p/w342/p649.jpg', true), null);
   console.log('Web audio and offline/update lifecycle checks passed.');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});

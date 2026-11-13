@@ -19,11 +19,11 @@ const HIDDEN = /[\x00-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff
 
 const fail = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
 const nowSec = () => Math.floor(Date.now() / 1000);
-const clip = (value, max) => String(value ?? '').trim().slice(0, max);
+export const clip = (value, max) => String(value ?? '').trim().slice(0, max);
 // Poster and logo paths are joined to image.tmdb.org on the client.
-const imagePath = p => typeof p === 'string' && /^\/[A-Za-z0-9_-]{1,80}\.(jpg|png|svg)$/.test(p) ? p : null;
-const yearOf = date => /^\d{4}/.test(date || '') ? Number(date.slice(0, 4)) : null;
-const rating = v => Number.isFinite(v) && v > 0 && v <= 10 ? Math.round(v * 10) / 10 : null;
+export const imagePath = p => typeof p === 'string' && /^\/[A-Za-z0-9_-]{1,80}\.(jpg|png|svg)$/.test(p) ? p : null;
+export const yearOf = date => /^\d{4}/.test(date || '') ? Number(date.slice(0, 4)) : null;
+export const rating = v => Number.isFinite(v) && v > 0 && v <= 10 ? Math.round(v * 10) / 10 : null;
 
 async function upstream(url, service) {
   let response;
@@ -44,7 +44,7 @@ async function upstream(url, service) {
   return response.json();
 }
 
-function tmdb(env, path, params) {
+export function tmdb(env, path, params) {
   if (!env.TMDB_API_KEY) fail('Film servisi henüz etkin değil.', 503);
   const url = new URL(TMDB + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);

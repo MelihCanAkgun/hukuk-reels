@@ -34,9 +34,41 @@ self.addEventListener('activate', (event) => {
     await self.clients.claim();
   })());
 });
+// Kalıcı medya önbelleği (sürümden bağımsız): Flutter'ın yedek yazı tipleri
+// (emoji vb., fonts.gstatic.com) ve film afişleri (image.tmdb.org). İkisi de
+// değişmeyen adreslerdir: bir kez iner, sonra ağ gerekmeden ve beklemeden
+// gelir. Afişler sınırlıdır; en eskiler silinir.
+const MEDIA = 'hukuk-media-v1';
+const MEDIA_LIMITS = {'fonts.gstatic.com': 0, 'image.tmdb.org': 600};
+let mediaPuts = 0;
+async function trimMedia(cache, host, limit) {
+  const keys = (await cache.keys()).filter((r) => new URL(r.url).hostname === host);
+  // keys() ekleme sırasındadır: baştakiler en eski.
+  await Promise.all(keys.slice(0, Math.max(0, keys.length - limit)).map((r) => cache.delete(r)));
+}
+async function media(request, url) {
+  const cache = await caches.open(MEDIA);
+  const cached = await cache.match(url.href);
+  if (cached) return cached;
+  const response = await fetch(request);
+  // Yalnız okunabilir (CORS) ve başarılı yanıtlar saklanır.
+  if (response.ok && response.type !== 'opaque') {
+    try {
+      await cache.put(url.href, response.clone());
+      const limit = MEDIA_LIMITS[url.hostname];
+      if (limit && ++mediaPuts % 25 === 0) await trimMedia(cache, url.hostname, limit);
+    } catch (_) { /* Kota doluysa önbelleksiz devam. */ }
+  }
+  return response;
+}
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
+  if (request.method === 'GET' && url.protocol === 'https:' && url.hostname in MEDIA_LIMITS &&
+      !request.headers.has('range')) {
+    event.respondWith(media(request, url));
+    return;
+  }
   if (request.method !== 'GET' || url.origin !== self.location.origin ||
       !url.href.startsWith(self.registration.scope) || request.headers.has('range')) return;
   event.respondWith((async () => {

@@ -1,6 +1,6 @@
 # Hukuk Reels · Oyunlar
 
-Flutter ile mini oyunlar (Block Blast, Flappy Silly Cat, Subway Silly, Adliye Kulesi), ders özetleri ve hukuk soru bankası. Uygulama dört sekmeden oluşur (`lib/features/shell/home_shell.dart`): **Ana sayfa** (selam, kavuşma sayacı, mantar pano, kaldığın yerden), **Oyunlar**, **Çalış** (özetler ve soru pratiği) ve **Profil**. Sekme çubuğu telefonda ve dikey iPad'de altta, geniş yatay ekranda soldadır; etkin sekmeye yeniden dokunmak başa kaydırır. Flutter web iOS'un güvenli alanını bilmediği için `web/pwa.js` alt boşluğu (ana ekran çizgisi) CSS `env(safe-area-inset-*)` ile ölçer, `WebSafeArea` bunu MediaQuery'ye ekler; ana ekrandan açılan uygulamada değer gelmezse Face ID'li iPhone'larda 34 (yatayda 21) piksel varsayılır.
+Flutter ile mini oyunlar (Block Blast, Flappy Silly Cat, Subway Silly, Adliye Kulesi), ders özetleri ve hukuk soru bankası. Uygulama beş sekmeden oluşur (`lib/features/shell/home_shell.dart`): **Ana sayfa** (selam, kavuşma sayacı, mantar pano, kaldığın yerden), **Oyunlar**, **Çalış** (özetler ve soru pratiği), **İzle** (ortak izleme listesi) ve **Profil**. Sekme çubuğu telefonda ve dikey iPad'de altta, geniş yatay ekranda soldadır; etkin sekmeye yeniden dokunmak başa kaydırır. Flutter web iOS'un güvenli alanını bilmediği için `web/pwa.js` alt boşluğu (ana ekran çizgisi) CSS `env(safe-area-inset-*)` ile ölçer, `WebSafeArea` bunu MediaQuery'ye ekler; ana ekrandan açılan uygulamada değer gelmezse Face ID'li iPhone'larda 34 (yatayda 21) piksel varsayılır.
 
 Sağ üstteki müzik düğmesi **Ses** panelini açar: çalan parça, ilerleme ve sarma, çal/durdur, önceki/sonraki, parça listesi; müzik ve oyun efektleri için ayrı ses düzeyi ve sessize alma.
 
@@ -43,6 +43,19 @@ python3 -m http.server 8765 --bind 127.0.0.1 --directory build/web
 - **Performans:** Notlar 1200 birimlik karolara (ayrı SVG'ler) bölünür; ekrandan uzak karolar gizlenir ve yolları ekrana yaklaşınca üretilir. Yollar 10x ölçekte tam sayılarla yazılır, noktalar Float32Array olarak saklanır.
 - **Yedek hatırlatması:** Not sayısı 40'ı geçince, ana ekrana eklenmemiş Safari'de 7 günde bir, uygulama olarak kullanılırken 21 günde bir yedek almayı hatırlatır (Safari ziyaret edilmeyen sitelerin verisini silebilir).
 - **Yeni özet:** `web/notes/summaries/<id>.js` içinde `window.hukukNotesRegister({id, title, version, html})` çağrılır, ardından `lib/features/summaries/summaries_screen.dart` içindeki `kSummaries` listesine eklenir. Metin değişince `version` artırılır. Kayıtlar ve yedekler temeli içerdiği için yeni sürümlerde dondurulmuş kopya gerekmez; yalnız temelsiz kayıtların sürümü (İcra için 1) dondurulur.
+
+## Haftalık meydan okuma ve ortak karar
+
+**Haftalık meydan okuma** (Oyunlar sekmesi, `lib/features/weekly/`): turu yönetici (1. oyuncu) elle başlatır, tur 7 gün sürer. Dört oyunun da o turdaki en iyi skoru sayılır; oyunu yüksek skor, turu daha çok oyun alan kazanır. Eşitlikte sunucu yazı tura atar, uygulama sonucu animasyonla gösterir. Her turun kupası farklıdır (yedi piksel kupa, `weekly_trophies.dart`; adlar sunucudaki `TROPHIES` ile aynı sırada). Kazanılan kupalar meydan okuma ekranındaki rafta ve Profil'de rozet olarak durur. Oynanan her skor `web/social.js` içinde zamanıyla saklanır ve çevrimdışıyken de kaybolmaz; hangi tura sayılacağına sunucu karar verir.
+
+**Ortak karar** (İzle sekmesindeki şerit, `film_swipe.dart`, `film_swipe_screen.dart`): biri 15 kartlık kısa bir deste başlatır (listeden izlenmemiş 10 yapım ve 5 TMDB önerisi), ikisi de kendi zamanında kaydırır: sağa beğen, sola geç, yukarı süper beğen (kişi başı bir kez). İkisi de bitirince ortak beğeniler görünür, süper beğenilenler başta; eşleşen öneri listeye eklenir. Oylar hemen ekrana işlenir ve arka planda sırayla gönderilir; bağlantı kopsa da kaydırma beklemez.
+
+## Akıcılık ve bağlantıdan bağımsızlık
+
+- **Önce önbellek:** Ana sayfa, İzle ve meydan okuma verisi cihazdaki son kopyayla anında açılır (`{cached: true}` isteği ağa gitmez), güncel veri arkadan gelir. Sunucudaki veri aynıysa köprü `{unchanged: true}` döner; liste yeniden çözülmez, ekran yeniden kurulmaz.
+- **Yedek yazı tipleri:** Emoji ve semboller paketteki yazı tiplerinde yoktur; Flutter web bunları ilk karşılaştığında Google'dan parça parça indirir ve her parçada bütün metinleri yeniden dizer (kullanım sırasında takılma). `lib/core/utils/font_prewarm.dart` hepsini açılıştan hemen sonra yükletir; `test/font_prewarm_test.dart` `lib/` altındaki her emojinin listede olduğunu denetler.
+- **Kalıcı medya önbelleği:** `web/sw.js` yedek yazı tiplerini (`fonts.gstatic.com`) ve film afişlerini (`image.tmdb.org`, en çok 600) sürümden bağımsız `hukuk-media-v1` önbelleğinde tutar: bir kez iner, sonra ağ gerekmez.
+- **Sekmeler:** Sekme değişince yalnız açılan sekme yeniden kurulur (`home_shell.dart`); gizli sekmeler aynı örnekle kalır.
 
 ## Apple uygulamaları
 

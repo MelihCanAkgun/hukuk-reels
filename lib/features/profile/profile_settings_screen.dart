@@ -1,3 +1,4 @@
+import '../weekly/weekly_shelf.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -163,6 +164,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     _poolCard(solvedInPool),
                     const SizedBox(height: 10),
                     _recordsCard(),
+                    const WeeklyTrophyShelf(),
                     _sectionTitle('SORULAR', Icons.school_rounded),
                     if (wrongOnes.isNotEmpty) ...[
                       _practiceRow(wrongOnes.map((t) => t.$1).toList()),

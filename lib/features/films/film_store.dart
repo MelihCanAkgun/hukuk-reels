@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../core/services/social_bridge.dart';
+import 'film_swipe.dart';
 
 /// Ortak izleme listesi (İzle sekmesi): filmler ve tek tek dizi bölümleri
 /// (Black Mirror'ın her bölümü ayrı bir öğe). Bilgiler TMDB'den, IMDb puanı
@@ -22,6 +23,9 @@ class FilmStore {
   /// (o oyuncunun yorumu) ya da "r" + yanıt id.
   Map<String, Set<int>> likes = const {};
   Map<int, String> players = const {};
+
+  /// "Ortak karar" oturumunun özeti (yoksa null).
+  SwipeSummary? swipe;
 
   /// Bu cihazdaki oyuncu (1 ya da 2).
   int? me;
@@ -53,8 +57,35 @@ class FilmStore {
     return _running ??= _load().whenComplete(() => _running = null);
   }
 
+  /// İlk açılışta önce cihazdaki son kopya gösterilir (ağ beklenmez), güncel
+  /// liste arkadan gelir. Sunucudaki liste aynıysa hiçbir şey yeniden
+  /// çözülmez ve ekran yeniden kurulmaz.
   Future<void> _load() async {
-    final r = await call('films');
+    var known = loaded && films.isNotEmpty;
+    if (!loaded) {
+      final cached = await call('films', {'cached': true});
+      if (cached['cached'] == true && cached['films'] != null) {
+        _apply(cached);
+        known = true;
+      } else {
+        // Önbellek yok: bu zaten sunucunun yanıtı.
+        _finish(cached);
+        return;
+      }
+    }
+    final r = await call('films', {if (known) 'known': true});
+    if (r['unchanged'] == true) {
+      _fetched = clock();
+      if (error != null) {
+        error = null;
+        changes.value++;
+      }
+      return;
+    }
+    _finish(r);
+  }
+
+  void _finish(Map<String, dynamic> r) {
     _fetched = clock();
     if (r['error'] != null && r['films'] == null) {
       loaded = true;
@@ -187,6 +218,8 @@ class FilmStore {
         p['id'] as int: (p['name'] as String?) ?? 'Oyuncu'
     };
     if (r['me'] is int) me = r['me'] as int;
+    final s = r['swipe'];
+    swipe = s is Map ? SwipeSummary.fromJson(s.cast<String, dynamic>()) : null;
     changes.value++;
   }
 

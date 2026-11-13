@@ -2,6 +2,8 @@ import webpush from 'web-push';
 import {validRoom, roomCode} from './battle-room.js';
 import {avatarRoute, avatarFullRoute} from './avatar.js';
 import {filmsRoute} from './films.js';
+import {swipeRoute, swipeSummary} from './swipe.js';
+import {weeklyRoute, weeklyTick} from './weekly.js';
 export {BattleRoom} from './battle-room.js';
 
 const json = (data, status = 200) => new Response(JSON.stringify(data), {
@@ -175,7 +177,18 @@ export async function route(request, env, ctx) {
     if (isTestPlayer) fail('Bu bölüm yalnız kayıtlı oyunculara açıktır.', 403);
     if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
     const data = request.method === 'POST' ? await body(request) : undefined;
-    return json(await filmsRoute(env, ctx, player, path, request.method, data, deliver));
+    if (path === '/films/swipe' || path.startsWith('/films/swipe/'))
+      return json(await swipeRoute(env, ctx, player, path, request.method, data, deliver));
+    const result = await filmsRoute(env, ctx, player, path, request.method, data, deliver);
+    // Every list reply carries the state of the shared swipe ("Ortak karar").
+    if (result.films) result.swipe = await swipeSummary(env, player.id);
+    return json(result);
+  }
+  if (path === '/weekly' || path.startsWith('/weekly/')) {
+    if (isTestPlayer) return json({ok: true});
+    if (!player.active) fail('Önce oyuncu adını kaydet.', 403);
+    const data = request.method === 'POST' ? await body(request) : undefined;
+    return json(await weeklyRoute(env, ctx, player, path, request.method, data, deliver));
   }
   if (isTestPlayer && ['/profile', '/score', '/subscribe', '/unsubscribe'].includes(path))
     return json({ok: true, players: [], me: 0});
@@ -414,5 +427,9 @@ export default {
     response.headers.set('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
     return response;
   },
-  scheduled(_event, env, ctx) { ctx.waitUntil(deliver(env)); },
+  scheduled(_event, env, ctx) {
+    // Weekly reminders are queued first so the same tick delivers them.
+    ctx.waitUntil(weeklyTick(env).catch(error => console.warn('weekly_tick_failed', {type: error.name}))
+      .then(() => deliver(env)));
+  },
 };
