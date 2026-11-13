@@ -65,6 +65,9 @@ class HomeShellState extends State<HomeShell> {
   late final Set<int> _built = {_index};
   final _scroll = [for (final _ in _tabs) ScrollController()];
 
+  /// Kurulmuş sekmelerin widget örnekleri (bkz. [select]).
+  final Map<int, Widget> _pages = {};
+
   @override
   void initState() {
     super.initState();
@@ -85,7 +88,8 @@ class HomeShellState extends State<HomeShell> {
       // Güncellemeyle gelen çiçek sürprizi: ilk açılışta bir kez.
       if (!_progress.flowerSurpriseSeen) {
         await showFlowerSurpriseGate(context);
-        if (mounted) setState(() {});
+        // Ana sayfa çiçek düğmesini göstersin: açık sekme yeni örnek alır.
+        if (mounted) setState(() => _pages[_index] = _page(_index));
       }
     });
   }
@@ -113,6 +117,10 @@ class HomeShellState extends State<HomeShell> {
     setState(() {
       _index = i;
       _built.add(i);
+      // Yalnız açılan sekme yeni örnek alır (rekorlar, profil, listeler
+      // tazelenir). Diğer sekmeler aynı örnekle kalır: gizliyken yeniden
+      // kurulmazlar, sekme geçişi tek sekmenin maliyetine iner.
+      _pages[i] = _page(i);
     });
   }
 
@@ -128,8 +136,8 @@ class HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final rail = size.width >= 900 && size.width > size.height;
-    // Sekmeler her kurulumda yeni örnek alır: sekme değişince rekorlar ve
-    // profil bilgileri tazelenir (durum ve kaydırma korunur).
+    // Sekmeler örneklerini korur; yalnız seçilen sekme [select] içinde
+    // yenilenir (durum ve kaydırma korunur).
     final pages = IndexedStack(
       index: _index,
       children: [
@@ -138,7 +146,9 @@ class HomeShellState extends State<HomeShell> {
             enabled: i == _index,
             child: PrimaryScrollController(
               controller: _scroll[i],
-              child: _built.contains(i) ? _page(i) : const SizedBox.shrink(),
+              child: _built.contains(i)
+                  ? (_pages[i] ??= _page(i))
+                  : const SizedBox.shrink(),
             ),
           ),
       ],

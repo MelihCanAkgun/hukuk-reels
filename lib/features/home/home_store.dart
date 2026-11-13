@@ -78,9 +78,28 @@ class HomeStore with WidgetsBindingObserver {
     return _running = _load().whenComplete(() => _running = null);
   }
 
+  /// İlk açılışta önce cihazdaki son kopya gösterilir (ağ beklenmez), güncel
+  /// veri arkadan gelir. Sunucudaki veri aynıysa ekran yeniden kurulmaz.
   Future<void> _load() async {
-    _apply(await call('home'));
+    if (!loaded) {
+      final cached = await call('home', {'cached': true});
+      _apply(cached);
+      // Önbellek yoksa bu zaten sunucunun yanıtıdır.
+      if (cached['cached'] != true) {
+        _fetched = clock();
+        return;
+      }
+    }
+    final r = await call('home', {'known': true});
     _fetched = clock();
+    if (r['unchanged'] == true) {
+      if (error != null) {
+        error = null;
+        changes.value++;
+      }
+      return;
+    }
+    _apply(r);
   }
 
   /// Ekleme/silme: sunucunun döndürdüğü güncel liste hemen uygulanır.

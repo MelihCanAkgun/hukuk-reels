@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
@@ -13,6 +15,9 @@ import '../game/game_leaderboard.dart';
 import '../game/subway_cat_screen.dart';
 import '../game/tower_screen.dart';
 import '../reels/widgets/music_button.dart';
+import '../weekly/weekly_screen.dart';
+import '../weekly/weekly_store.dart';
+import '../weekly/weekly_trophies.dart';
 
 /// "Oyunlar" sekmesi: dört mini oyun ızgarası ve arkadaşla oynama
 /// (1v1 Battle, sıralama). Oyundan dönünce rekorlar tazelenir.
@@ -25,11 +30,42 @@ class GamesScreen extends StatefulWidget {
 
 class _GamesScreenState extends State<GamesScreen> {
   final _progress = ProgressService.instance;
+  final _weekly = WeeklyStore.instance;
+  Timer? _weeklyTimer;
+
+  void _weeklyChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _weekly.changes.addListener(_weeklyChanged);
+    _weekly.refresh();
+  }
+
+  @override
+  void didUpdateWidget(GamesScreen old) {
+    super.didUpdateWidget(old);
+    _weekly.refresh(); // sekmeye dönüldü
+  }
+
+  @override
+  void dispose() {
+    _weeklyTimer?.cancel();
+    _weekly.changes.removeListener(_weeklyChanged);
+    super.dispose();
+  }
 
   Future<void> _push(Widget screen) async {
     await Navigator.of(context)
         .push(MaterialPageRoute<void>(builder: (_) => screen));
     if (mounted) setState(() {}); // dönüşte rekor güncellensin
+    // Oynanan oyunun skoru haftalık duruma yansısın (gönderim ~1 sn sürer).
+    _weeklyTimer?.cancel();
+    _weeklyTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) _weekly.refresh(force: true);
+    });
   }
 
   @override
@@ -109,6 +145,8 @@ class _GamesScreenState extends State<GamesScreen> {
                     }),
                     const ArcadeSectionLabel('SEVGİLİNLE',
                         padding: EdgeInsets.fromLTRB(4, 26, 4, 10)),
+                    _weeklyCard(),
+                    const SizedBox(height: 10),
                     _rowCard(
                       logo: kLogoBattle,
                       title: '1v1 Battle',
@@ -192,6 +230,75 @@ class _GamesScreenState extends State<GamesScreen> {
                     color: Colors.white, size: 28),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Haftalık meydan okuma: turun kupası, durum ve kalan süre.
+  Widget _weeklyCard() {
+    final d = _weekly.data;
+    final round = d?.round;
+    final trophy =
+        d == null ? null : weeklyTrophy(round?.trophy ?? d.nextTrophy);
+    final subtitle = d == null
+        ? 'Dört oyun, bir kupa: turu kim alacak?'
+        : d.reveal != null
+            ? 'Turun sonucu hazır!'
+            : round == null
+                ? (d.canStart
+                    ? 'Yeni turu başlatmak için dokun'
+                    : '${d.nameOf(1)} yeni turu başlatınca açılır')
+                : '${d.winsOf(d.me)} – ${d.winsOf(d.other)} · '
+                    '${round.remaining(_weekly.now)} kaldı';
+    return Pressable(
+      key: const ValueKey('weekly-card'),
+      semanticLabel: 'Haftalık meydan okuma',
+      onTap: () => _push(const WeeklyScreen()),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+              color: trophy?.color.withValues(alpha: .7) ?? AppTheme.border,
+              width: d?.reveal != null ? 2 : 1),
+        ),
+        child: Row(
+          children: [
+            trophy == null
+                ? const PixelLogo(kLogoTrophy, size: 40)
+                : TrophyBadge(trophy: trophy, size: 44),
+            const SizedBox(width: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Haftalık Meydan Okuma',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppTheme.textPrimary)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      key: const ValueKey('weekly-card-status'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: d?.reveal != null
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                          color: d?.reveal != null
+                              ? AppTheme.accent
+                              : AppTheme.textSecondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: AppTheme.textMuted),
           ],
         ),
       ),

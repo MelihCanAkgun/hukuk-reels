@@ -38,12 +38,18 @@ enum LeaderboardGame {
 
   /// Rekoru ikimizin sıralamasına gönderir (bağlı değilse JS tarafı yok sayar;
   /// bağlantı yoksa cihazda saklanıp sonra gönderilir).
-  Future<void> report(int score) =>
-      socialCall('score', {if (this != block) 'game': name, 'score': score});
+  ///
+  /// [sync]: oyun açılırken eski rekorun eşitlenmesi; haftalık meydan okumaya
+  /// yalnız o hafta gerçekten oynanan skorlar sayılır.
+  Future<void> report(int score, {bool sync = false}) => socialCall('score', {
+        if (this != block) 'game': name,
+        'score': score,
+        if (sync) 'sync': true,
+      });
 
   /// Oyun açılırken servisi hazırlar ve bu cihazdaki rekoru eşitler.
-  Future<void> syncLocalBest() =>
-      socialCall('init', {'url': socialApiUrl}).then((_) => report(localBest));
+  Future<void> syncLocalBest() => socialCall('init', {'url': socialApiUrl})
+      .then((_) => report(localBest, sync: true));
 }
 
 /// Oyuncuların seçili oyundaki rekorları, yüksekten düşüğe.
