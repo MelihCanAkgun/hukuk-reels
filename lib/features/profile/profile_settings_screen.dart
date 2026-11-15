@@ -260,7 +260,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                     const SizedBox(height: 30),
                     const Center(
                       child: Text(
-                        'Sendeyiz Arifecim 🫂',
+                        'Sendeyiz Sevgilim 🫂',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
