@@ -1,18 +1,18 @@
 'use strict';
 // tools/build_web.py injects a content hash and an atomic offline game shell.
-const VERSION = '8bade808549e459c';
+const VERSION = 'e6ba55a6a270e3d1';
 const CACHE = 'hukuk-games-' + VERSION;
 const CORE = [".last_build_id", "assets/AssetManifest.bin", "assets/AssetManifest.bin.json", "assets/FontManifest.json", "assets/NOTICES", "assets/assets/fonts/Inter.ttf", "assets/assets/fonts/PixelifySans.ttf", "assets/assets/images/SHINY_Cuh.png", "assets/assets/images/ani.jpg", "assets/assets/images/bat.png", "assets/assets/images/cat_pink.png", "assets/assets/images/dopdolu.jpg", "assets/assets/images/spider_cat.png", "assets/assets/sfx/bonk.wav", "assets/assets/sfx/chime.wav", "assets/assets/sfx/clear.wav", "assets/assets/sfx/coin.wav", "assets/assets/sfx/combo.wav", "assets/assets/sfx/crash.wav", "assets/assets/sfx/era.wav", "assets/assets/sfx/expand.wav", "assets/assets/sfx/fall.wav", "assets/assets/sfx/flap.wav", "assets/assets/sfx/freeze.wav", "assets/assets/sfx/girl.wav", "assets/assets/sfx/grow.wav", "assets/assets/sfx/hit.wav", "assets/assets/sfx/jump.wav", "assets/assets/sfx/ko.wav", "assets/assets/sfx/land.wav", "assets/assets/sfx/medal.wav", "assets/assets/sfx/miss.wav", "assets/assets/sfx/nope.wav", "assets/assets/sfx/over.wav", "assets/assets/sfx/perfect.wav", "assets/assets/sfx/place.wav", "assets/assets/sfx/point.wav", "assets/assets/sfx/power.wav", "assets/assets/sfx/powerdown.wav", "assets/assets/sfx/reflect.wav", "assets/assets/sfx/salt.wav", "assets/assets/sfx/shatter.wav", "assets/assets/sfx/shrink.wav", "assets/assets/sfx/slice.wav", "assets/assets/sfx/slide.wav", "assets/assets/sfx/stack.wav", "assets/assets/sfx/stumble.wav", "assets/assets/sfx/swoosh.wav", "assets/assets/sfx/tick.wav", "assets/fonts/MaterialIcons-Regular.otf", "assets/packages/cupertino_icons/assets/CupertinoIcons.ttf", "assets/shaders/ink_sparkle.frag", "assets/shaders/stretch_effect.frag", "audio.js", "avatar.js", "battle.js", "canvaskit/canvaskit.js", "canvaskit/canvaskit.wasm", "flutter.js", "flutter_bootstrap.js", "icons/favicon.png", "icons/icon-128x128.png", "icons/icon-144x144.png", "icons/icon-152x152.png", "icons/icon-167x167.png", "icons/icon-180x180.png", "icons/icon-192x192.png", "icons/icon-512x512.png", "icons/icon-72x72.png", "icons/icon-96x96.png", "icons/splash-1170x2532.png", "icons/splash-1290x2796.png", "icons/splash-1640x2360.png", "icons/splash-750x1334.png", "index.html", "main.dart.js", "manifest.json", "notes/notes.css", "notes/notes.js", "notes/summaries/icra.js", "notes/summaries/icra.v1.js", "pwa.js", "social.js", "update.css", "update.js", "version.json"];
-// WebAssembly engine (main.dart.wasm + skwasm): precached only on a device
-// that chose it in Settings (flutter_bootstrap.js writes the 'hukuk-engine'
-// marker); otherwise cached the first time it is fetched.
+// WebAssembly engine (main.dart.wasm + skwasm): the default engine, so it is
+// precached unless the device switched to JavaScript in Settings
+// (flutter_bootstrap.js writes the 'hukuk-engine' marker).
 const WASM = ["main.dart.mjs", "main.dart.wasm", "canvaskit/skwasm.js", "canvaskit/skwasm.wasm", "canvaskit/skwasm_heavy.js", "canvaskit/skwasm_heavy.wasm"];
 const scoped = (path) => new URL(path, self.registration.scope).href;
 async function wantsWasm() {
   try {
     const marker = await (await caches.open('hukuk-engine')).match('mode');
-    return marker ? (await marker.text()) === 'wasm' : false;
-  } catch (_) { return false; }
+    return marker ? (await marker.text()) !== 'js' : true;
+  } catch (_) { return true; }
 }
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -61,6 +61,18 @@ async function media(request, url) {
   }
   return response;
 }
+// GitHub Pages cannot send headers, so the app page gets COOP/COEP here.
+// The page is then cross-origin isolated: SharedArrayBuffer works and skwasm
+// renders on a worker thread instead of the main thread. Every cross-origin
+// resource is fetched with CORS (TMDB images, gstatic fonts, the backend),
+// which require-corp allows.
+function isolated(response) {
+  if (!response.ok || response.type === 'opaqueredirect') return response;
+  const headers = new Headers(response.headers);
+  headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+  return new Response(response.body, {status: response.status, statusText: response.statusText, headers});
+}
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
@@ -75,6 +87,7 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(CACHE);
     const key = request.mode === 'navigate' ? new URL('index.html', self.registration.scope).href : request;
     const cached = await cache.match(key);
+    if (request.mode === 'navigate') return isolated(cached || await fetch(request));
     if (cached) return cached;
     if (WASM.some((path) => scoped(path) === url.href)) {
       const response = await fetch(request);
