@@ -115794,7 +115794,7 @@ if(g!=null)o.push(A.dr(B.Se,j,j,j,new A.aNG(k),j,j))
 o.push(B.aO)
 n=k.r
 o.push(new A.jk("Kaydet",k.e===0?j:new A.aNH(k,a),!1,n,B.aPw))
-return A.V(j,A.a4(A.c([s,q,B.XH,B.by,p,B.b4,A.a2(o,B.i,B.fa,B.j,0,j)],r),B.R,j,B.h,B.j,0,B.n),B.k,j,j,i,j,j,j,j,B.yF,j,j,j)}}
+return A.V(j,A.a4(A.c([s,q,B.XI,B.by,p,B.b4,A.a2(o,B.i,B.fa,B.j,0,j)],r),B.R,j,B.h,B.j,0,B.n),B.k,j,j,i,j,j,j,j,B.yF,j,j,j)}}
 A.aNr.prototype={
 $0(){},
 $S:0}
@@ -116395,7 +116395,7 @@ p.push(A.dm(l,A.wa(new A.aNZ(),A.V(l,B.aMz,B.k,l,l,new A.a1(l,l,A.aP(B.hZ,1),k,B
 return A.V(l,new A.bT(B.r,l,B.ap,B.y,p,l),B.k,l,l,new A.a1(l,l,l,l,l,new A.mR(B.r,0.9,B.aZ,l,0,r,l,l),B.o),l,270,l,l,l,l,l,l)},
 amT(a){var s=this,r=null,q=s.w,p=q?new A.aNT(s,a):r
 q=q&&s.a.c.length>1?s.gaGs():r
-return A.a4(A.c([new A.jk("Bunu izleyelim!",p,!0,!1,B.aP8),B.ag,A.Hb(B.PP,B.aPX,B.aL2,q,A.aw0(r,r,r,r,r,r,r,r,r,B.P,r,B.Rc,r,r,new A.cq(A.ai(6),B.x),B.ps,r,r,r,r))],t.p),B.bc,r,B.h,B.j,0,B.n)}}
+return A.a4(A.c([new A.jk("Bunu izleyelim!",p,!0,!1,B.aP8),B.ag,A.Hb(B.PP,B.aPX,B.aL1,q,A.aw0(r,r,r,r,r,r,r,r,r,B.P,r,B.Rc,r,r,new A.cq(A.ai(6),B.x),B.ps,r,r,r,r))],t.p),B.bc,r,B.h,B.j,0,B.n)}}
 A.aO0.prototype={
 $0(){var s=this.a
 s.r=0
@@ -117632,7 +117632,7 @@ if(a.f.a>=a.e.length)return r.aJq(a)
 s=a.a
 return new A.JA(a,q.gaVL(),q.x.length!==0,q.r,q.gaac(),new A.a0("deck-"+s,t.O))},
 a20(a){var s,r,q=null,p=a==null?"Bu ak\u015fam ne izlesek?":a,o=t.p
-p=A.c([B.ax6,B.e9,A.x(p,q,q,q,q,q,B.d1.ht(24),B.S,q,q),B.ag,B.aKZ],o)
+p=A.c([B.ax6,B.e9,A.x(p,q,q,q,q,q,B.d1.ht(24),B.S,q,q),B.ag,B.aKY],o)
 s=this.d
 r=s.r
 if(r!=null)B.b.O(p,A.c([B.by,A.x(r,q,q,q,q,q,B.aHT,B.S,q,q)],o))
@@ -117649,13 +117649,13 @@ m=r.x
 if(m.length!==0)s="Oylar\u0131n g\xf6nderiliyor\u2026"
 else{l=r.d
 s=r.fz(3-(l==null?1:l))+" bekleniyor ("+a.c+"/"+s.length+"). Bitirince e\u015fle\u015fmeler burada g\xf6r\xfcnecek ve bildirim gelecek."}l=t.p
-s=A.c([B.XE,B.b4,n,B.ah,A.x(s,k,k,k,k,k,B.oB,B.S,k,k)],l)
+s=A.c([B.XF,B.b4,n,B.ah,A.x(s,k,k,k,k,k,B.oB,B.S,k,k)],l)
 if(m.length!==0&&r.r!=null)B.b.O(s,A.c([B.ag,A.c9(A.JS(B.a9e,k,B.aMB,r.gaac()),k,k)],l))
 s.push(B.j0)
 s.push(A.x("BE\u011eEND\u0130KLER\u0130N ("+j.length+")",k,k,k,k,k,B.eF,k,k,k))
 s.push(B.ag)
 for(n=j.length,p=0;m=j.length,p<m;j.length===n||(0,A.A)(j),++p){o=j[p]
-B.b.O(s,A.c([this.azI(o,q.h(0,o.a)===B.eD),B.ah],l))}if(m===0)s.push(B.aKU)
+B.b.O(s,A.c([this.azI(o,q.h(0,o.a)===B.eD),B.ah],l))}if(m===0)s.push(B.aKT)
 return A.HM(A.ih(s,k,B.a6p,B.dB,k,B.a0,!1),B.t,r.gaRy())},
 aEj(a){var s,r,q,p,o,n,m,l,k,j=this,i=null,h=a.w
 if(h==null)h=B.alm
@@ -117671,7 +117671,7 @@ for(o=A.bo4(h,0,t.HQ),n=J.ba(o.a),o=o.b,m=new A.FS(n,o);m.v();){l=m.c
 l=l>=0?new A.Z(o+l,n.gV()):A.ar(A.cZ())
 k=l.b
 B.b.O(r,A.c([j.azJ(k,k.ch,l.a===0),B.ag],p))}r.push(B.ah)
-if(s.length>1)B.b.O(r,A.c([A.Hb(B.PP,B.aQ7,B.aLk,new A.aZx(j,s),A.aw0(i,i,i,i,i,i,i,i,i,B.P,i,B.Rc,i,i,new A.cq(A.ai(6),B.x),B.ps,i,i,i,i)),B.by],p))
+if(s.length>1)B.b.O(r,A.c([A.Hb(B.PP,B.aQ7,B.aLj,new A.aZx(j,s),A.aw0(i,i,i,i,i,i,i,i,i,B.P,i,B.Rc,i,i,new A.cq(A.ai(6),B.x),B.ps,i,i,i,i)),B.by],p))
 r.push(new A.jk("Yeni se\xe7im ba\u015flat",j.ga_U(),!0,j.d.f,B.aPb))
 return A.ih(r,i,B.a6b,i,i,B.a0,!1)},
 a2r(a,b,c,d){var s,r,q,p,o=null,n=a.c,m=n!=null&&$.hl().Ba(n)!=null,l=a.e,k=m?new A.aZw(this,n):o,j=d?B.t:B.G
@@ -117705,7 +117705,7 @@ if(s.c!=null&&q!=null&&q.d==="open"&&q.f.a>=q.e.length&&r.x.length===0)r.Aq("swi
 $S:36}
 A.aZu.prototype={
 $1(a){var s=null
-return A.pO(A.c([A.dr(B.hC,s,s,s,new A.aZs(a),s,s),A.dr(B.Sf,s,s,s,new A.aZt(a),s,s)],t.p),B.aD,B.aMf,B.aLl)},
+return A.pO(A.c([A.dr(B.hC,s,s,s,new A.aZs(a),s,s),A.dr(B.Sf,s,s,s,new A.aZt(a),s,s)],t.p),B.aD,B.aMf,B.aLk)},
 $S:52}
 A.aZs.prototype={
 $0(){A.bg(this.a,!1).eo(!1)
@@ -118733,7 +118733,7 @@ l=B.atY.h(0,a)
 l.toString
 l=A.c9(A.x(l,h,3,h,h,h,B.aI5,B.S,h,h),h,h)
 if(f){j=g?"SEN\u0130N":i.FG(c)
-j=A.x(j,h,1,B.w,h,h,A.bm(h,h,g?B.a_:B.i1,h,h,h,h,h,h,h,h,12,h,h,B.aF,h,h,!0,h,1,h,h,h,h,h,h),h,h,h)}else j=d?B.aL_:h
+j=A.x(j,h,1,B.w,h,h,A.bm(h,h,g?B.a_:B.i1,h,h,h,h,h,h,h,h,12,h,h,B.aF,h,h,!0,h,1,h,h,h,h,h,h),h,h,h)}else j=d?B.aKZ:h
 return A.dX(h,A.b9z(A.V(h,A.a4(A.c([new A.qw(a,44,m,h),B.ah,k,B.aY,new A.a6(h,42,l,h),B.b5,new A.a6(h,18,j,h)],t.p),B.i,h,B.h,B.j,0,B.n),B.k,h,h,new A.a1(p,h,o,h,n,h,B.o),h,h,h,h,B.a6O,h,h,b),B.yh,q),B.a6,!1,new A.a0("joker-card-"+a,t.O),h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,h,r,h,h,h,h,h,h)}}
 A.aHq.prototype={
 $1(a){return this.a.a.c.oW(a).length!==0},
@@ -119473,11 +119473,11 @@ r.I$=$.ao()
 r.F$=0
 s.ao()},
 A(a){return new A.hG("battle",this.anS(a),null)},
-anS(a){var s,r,q,p,o,n,m=this,l=null,k="ready",j=A.ahD(l,B.qj,B.Sd),i=t.p,h=A.c([B.XF,B.bp,B.aMG,B.ag,B.aLP,B.aCV],i)
+anS(a){var s,r,q,p,o,n,m=this,l=null,k="ready",j=A.ahD(l,B.qj,B.Sd),i=t.p,h=A.c([B.XG,B.bp,B.aMG,B.ag,B.aLP,B.aCV],i)
 if(!m.f)B.b.O(h,A.c([B.aN6,A.yf(B.aMU,new A.aHY(m,a))],i))
 else{s=m.d
 s===$&&A.b()
-if(s.gKn()==null){s=A.yg(B.a9X,l,B.aLb,m.r?l:new A.aHZ(m),l)
+if(s.gKn()==null){s=A.yg(B.a9X,l,B.aLa,m.r?l:new A.aHZ(m),l)
 r=A.pa(l,B.cR,!1,l,!0,B.y,l,A.ti(),m.e,l,l,l,l,l,2,B.aao,B.a6,!0,l,!0,l,!1,l,B.cI,l,l,A.c([new A.Fa(A.d7("[a-zA-Z2-9]",!0,!1),!0,"")],t.VS),l,l,l,l,6,l,1,l,l,!1,"\u2022",l,l,l,l,l,!1,l,l,!1,l,!0,l,B.dm,l,l,l,l,l,l,l,l,l,l,l,l,!0,B.az,l,B.aDS,l,l,l,l)
 B.b.O(h,A.c([s,B.j_,r,new A.Ha(!1,m.r?l:new A.aI_(m),l,l,l,l,l,l,!1,l,!0,l,B.aMc,l)],i))}else{r=s.gKn()
 r.toString
@@ -119492,7 +119492,7 @@ r=!J.d(r==null?l:r.h(0,k),!0)}else r=!1
 r=r?new A.aI1(m):l
 s=s.gdm()
 i.push(A.yf(A.x(J.d(s==null?l:s.h(0,k),!0)?"Rakip bekleniyor\u2026":"Haz\u0131r\u0131m",l,l,l,l,l,l,l,l,l),r))
-i.push(A.dr(B.aL0,l,l,l,new A.aI2(m),l,l))
+i.push(A.dr(B.aL_,l,l,l,new A.aI2(m),l,l))
 B.b.O(h,i)}}if(m.r)h.push(B.rU)
 i=m.x
 s=i==null
@@ -120125,7 +120125,7 @@ p.push(r.ao_(n[q],l))
 B.b.O(s,p)}n=A.a2(s,B.R,B.c5,B.j,0,o)
 s=A.aP(B.d4,2)
 r=this.c
-return A.a4(A.c([B.aMV,B.by,n,B.j0,A.V(o,A.a4(A.c([A.x("ELEND\u0130N"+(r==null?"":" \xb7 "+A.o(r)+". SIRA"),o,o,o,o,o,B.aJs,o,o,o),B.aJ,B.aL9],m),B.i,o,B.h,B.A,0,B.n),B.k,o,o,new A.a1(B.a2U,o,s,o,B.t9,o,B.o),o,o,B.aQb,o,B.a68,o,o,o)],m),B.i,B.aQe,B.c5,B.j,0,B.n)},
+return A.a4(A.c([B.aMV,B.by,n,B.j0,A.V(o,A.a4(A.c([A.x("ELEND\u0130N"+(r==null?"":" \xb7 "+A.o(r)+". SIRA"),o,o,o,o,o,B.aJs,o,o,o),B.aJ,B.aL8],m),B.i,o,B.h,B.A,0,B.n),B.k,o,o,new A.a1(B.a2U,o,s,o,B.t9,o,B.o),o,o,B.aQb,o,B.a68,o,o,o)],m),B.i,B.aQe,B.c5,B.j,0,B.n)},
 $S:148}
 A.ajg.prototype={
 $1(a){return J.nC(t.j.a(a),t.bo)},
@@ -120338,7 +120338,7 @@ B.b.O(m,A.c([new A.a6(1/0,46,A.nT(new A.W_(!0,new A.aHw(o),p,p,p,r,B.k,p,!1,p,!0
 if(s!=null){r=A.ai(10)
 q=A.aP(B.a35,1)
 B.b.O(m,A.c([A.V(p,A.a2(A.c([B.a9r,B.aO,new A.cL(1,B.aB,A.x(s,p,p,p,p,p,B.aG2,B.S,p,p),p)],n),B.i,B.h,B.A,0,p),B.k,p,p,new A.a1(B.a0S,p,q,r,p,p,B.o),p,p,B.aQ3,B.jZ,B.yD,p,p,p)],n))}m.push(B.aY)
-m.push(A.dr(B.aL6,p,p,p,this.a.d,p,A.p9(p,p,p,p,p,p,p,p,p,B.lS,p,p,p,p,p,p,p,p,p,p,p)))
+m.push(A.dr(B.aL5,p,p,p,this.a.d,p,A.p9(p,p,p,p,p,p,p,p,p,B.lS,p,p,p,p,p,p,p,p,p,p,p)))
 return A.a4(m,B.i,p,B.h,B.A,0,B.n)}}
 A.aHy.prototype={
 $1(a){return J.d(a.h(0,"id"),this.a)},
@@ -123043,14 +123043,14 @@ return A.u($async$vy,r)},
 A(a){return new A.hG("leaderboard",this.anH(a),null)},
 anH(a7){var s,r,q,p,o,n,m,l,k,j,i,h,g,f=this,e="best",d=null,c="id",b="me",a="subscribed",a0="pushError",a1="otherCanReceive",a2=J.d(f.w.h(0,"connected"),!0),a3=J.d(f.w.h(0,"configured"),!0),a4=A.byf(f.w,f.gNH()),a5=a4.length===2&&J.d(a4[0].h(0,e),a4[1].h(0,e)),a6=t.g.a(f.w.h(0,"pendingGames"))
 a6=a6==null?d:J.ahb(a6,f.gNH().b)
-s=A.ahD(d,B.wQ,B.aLc)
+s=A.ahD(d,B.wQ,B.aLb)
 r=t.p
 q=A.c([],r)
 for(p=t.O,o=0;o<4;++o){n=B.kj[o]
 m=A.x(n.c,d,d,d,d,d,d,d,d,d)
 l=f.d
 if(l===$)l=f.d=f.a.c
-q.push(A.aku(new A.bL(n.d,18,B.I,d),d,new A.a0("leaderboard-"+n.b,p),m,d,new A.aQ5(f,n),n===l,d,d,!1,d,d))}q=A.c([B.a9k,B.by,B.aLa,B.ah,B.aLN,B.bp,A.j6(B.vv,q,B.cJ,8,8),B.j_],r)
+q.push(A.aku(new A.bL(n.d,18,B.I,d),d,new A.a0("leaderboard-"+n.b,p),m,d,new A.aQ5(f,n),n===l,d,d,!1,d,d))}q=A.c([B.a9k,B.by,B.aL9,B.ah,B.aLN,B.bp,A.j6(B.vv,q,B.cJ,8,8),B.j_],r)
 p=f.w
 if(p.gau(p))q.push(B.wK)
 else if(!a3)q.push(A.x(J.d(f.w.h(0,"native"),!0)?"\u0130ki ki\u015filik s\u0131ralama ve bildirimler \u015fu anda ana ekrana y\xfcklenen web uygulamas\u0131nda kullan\u0131labilir.":"\u0130ki ki\u015filik servis haz\u0131rlan\u0131yor. Oyunlar\u0131n\u0131 oynamaya devam edebilirsin.",d,d,d,d,d,d,d,d,d))
@@ -123075,7 +123075,7 @@ p.push(A.JS(B.a9c,d,B.aMD,f.y?d:f.ga0n()))
 p.push(B.qC)
 p.push(B.aLx)
 p.push(B.ah)
-p.push(B.aL8)
+p.push(B.aL7)
 p.push(B.by)
 if(J.d(f.w.h(0,a),!0))a6="Bu cihaz\u0131n bildirim kayd\u0131 aktif."
 else a6=J.d(f.w.h(0,"permission"),"granted")?"\u0130zin a\xe7\u0131k; bildirim cihaz\u0131 kayd\u0131 tamamlanmal\u0131.":"Bu cihazda bildirimler hen\xfcz a\xe7\u0131k de\u011fil."
@@ -123088,12 +123088,12 @@ if(J.d(f.w.h(0,b),1)){a6=A.pa(d,B.cR,!1,d,!0,B.y,d,A.ti(),f.r,d,d,d,d,d,2,B.aan,
 if(f.w.h(0,"error")!=null)m="Al\u0131c\u0131n\u0131n bildirim durumu g\xfcncellenemedi."
 else if(J.d(f.w.h(0,a1),!0)){m=f.w.h(0,"otherRegisteredDevices")
 m="Al\u0131c\u0131: "+A.o(m==null?1:m)+" bildirim cihaz\u0131 kay\u0131tl\u0131."}else m="Al\u0131c\u0131: kay\u0131tl\u0131 bildirim cihaz\u0131 yok."
-m=A.c([B.qC,B.aL4,B.by,a6,A.x(m,d,d,d,d,d,d,d,d,d)],r)
+m=A.c([B.qC,B.aL3,B.by,a6,A.x(m,d,d,d,d,d,d,d,d,d)],r)
 if(f.ga_c()!=null){a6=f.ga_c()
 a6.toString
 B.b.O(m,A.c([B.ah,A.x(a6,d,d,d,d,d,d,d,d,d)],r))}m.push(A.JS(B.a94,d,B.aN_,f.y?d:f.ga0n()))
-if(!J.d(f.w.h(0,a1),!0))m.push(B.aKY)
-m.push(A.yg(B.a9K,d,B.aL5,f.y?d:new A.aQ8(f),d))
+if(!J.d(f.w.h(0,a1),!0))m.push(B.aKX)
+m.push(A.yg(B.a9K,d,B.aL4,f.y?d:new A.aQ8(f),d))
 m.push(B.qC)
 m.push(B.aLB)
 m.push(B.ah)
@@ -123733,7 +123733,7 @@ return A.V(s,a,B.k,s,B.VA,new A.a1(B.xa,s,A.aP(B.t,3),r,B.aiR,s,B.o),s,s,s,B.yY,
 aDw(){var s=this,r=null
 return new A.hI(B.v.U(0.35),!0,A.c9(new A.qc(s.P6(A.a4(A.c([B.axo,B.ah,A.x("Subway Silly",r,r,r,r,r,B.dQ.ht(30),r,r,r),B.ah,B.aN0,B.j_,s.AB("Ba\u015fla",s.ga5y(),!0),B.ag,s.AB("Nas\u0131l oynan\u0131r?",new A.aZ1(s),!1)],t.p),B.i,r,B.h,B.A,0,B.n)),B.m6,B.r,r),r,r),r)},
 ayx(){var s=this,r=null,q=B.v.U(0.55)
-return A.V(B.r,A.j0(s.P6(A.a4(A.c([A.c9(A.x("Nas\u0131l oynan\u0131r?",r,r,r,r,r,B.dQ.ht(24),r,r,r),r,r),B.b4,s.PE("KONTROLLER"),s.Oh("\ud83d\udc48 \ud83d\udc49","Sa\u011fa/sola kayd\u0131r \u2192 \u015ferit de\u011fi\u015ftir"),s.Oh("\ud83d\udc46","Yukar\u0131 kayd\u0131r \u2192 z\u0131pla"),s.Oh("\ud83d\udc47","A\u015fa\u011f\u0131 kayd\u0131r \u2192 kay (havadayken: h\u0131zl\u0131 in)"),B.aL3,B.b4,s.PE("ENGELLER"),s.rG(B.t0,"Bariyer","\xdczerinden ZIPLA"),s.rG(B.tq,"Tabela","Alt\u0131ndan KAY"),s.rG(B.t6,"Tren","\u015eerit de\u011fi\u015ftir ya da rampadan \xe7at\u0131s\u0131na t\u0131rman"),B.ag,s.PE("TOPLA"),s.rG(B.mL,"Coin","+10 puan"),s.rG(B.nc,"M\u0131knat\u0131s","Coin'leri \xe7eker (10 sn)"),s.rG(B.ne,"S\xfcper z\u0131plama","Trenlerin \xfcst\xfcne z\u0131pla (10 sn)"),s.rG(B.n4,"2x","Puanlar iki kat\u0131 (15 sn)"),B.ah,B.aLU,B.bp,s.AB("Anlad\u0131m",new A.aYV(s),!0)],t.p),B.R,r,B.h,B.A,0,B.n)),r,B.a58,r,B.a0),B.k,q,r,r,r,r,r,r,r,r,r,r)},
+return A.V(B.r,A.j0(s.P6(A.a4(A.c([A.c9(A.x("Nas\u0131l oynan\u0131r?",r,r,r,r,r,B.dQ.ht(24),r,r,r),r,r),B.b4,s.PE("KONTROLLER"),s.Oh("\ud83d\udc48 \ud83d\udc49","Sa\u011fa/sola kayd\u0131r \u2192 \u015ferit de\u011fi\u015ftir"),s.Oh("\ud83d\udc46","Yukar\u0131 kayd\u0131r \u2192 z\u0131pla"),s.Oh("\ud83d\udc47","A\u015fa\u011f\u0131 kayd\u0131r \u2192 kay (havadayken: h\u0131zl\u0131 in)"),B.aL2,B.b4,s.PE("ENGELLER"),s.rG(B.t0,"Bariyer","\xdczerinden ZIPLA"),s.rG(B.tq,"Tabela","Alt\u0131ndan KAY"),s.rG(B.t6,"Tren","\u015eerit de\u011fi\u015ftir ya da rampadan \xe7at\u0131s\u0131na t\u0131rman"),B.ag,s.PE("TOPLA"),s.rG(B.mL,"Coin","+10 puan"),s.rG(B.nc,"M\u0131knat\u0131s","Coin'leri \xe7eker (10 sn)"),s.rG(B.ne,"S\xfcper z\u0131plama","Trenlerin \xfcst\xfcne z\u0131pla (10 sn)"),s.rG(B.n4,"2x","Puanlar iki kat\u0131 (15 sn)"),B.ah,B.aLU,B.bp,s.AB("Anlad\u0131m",new A.aYV(s),!0)],t.p),B.R,r,B.h,B.A,0,B.n)),r,B.a58,r,B.a0),B.k,q,r,r,r,r,r,r,r,r,r,r)},
 PE(a){var s=null
 return new A.a5(B.yu,A.x(a,s,s,s,s,s,B.dQ.aMX(B.t,13,0.8,B.tl),s,s,s),s)},
 rG(a,b,c){var s=null,r=t.p
@@ -125933,7 +125933,7 @@ p=t.p
 r=A.c([A.ey(0,new A.de(A.l6(A.cw(n,n,n,new A.ae1(m,s,r,m.r),B.M),B.y,n),n)),A.dm(n,A.e0(!1,m.aHX(q),!0,!1,B.a4,!0,!0),n,n,0,0,0,n)],p)
 if(m.y===B.hJ){s=B.aN.U(0.72)
 o=A.ai(16)
-r.push(A.dZ(A.a4(A.c([B.aDi,B.aKV,B.aY,B.aKW,B.aDk,A.V(n,B.a3a,B.k,n,n,new A.a1(s,n,A.aP(B.i2,1),o,n,n,B.o),n,n,n,B.yU,B.yN,n,n,n),B.uT],p),B.i,n,B.h,B.j,0,B.n),!0,n))}if(m.Q)r.push(new A.vB(m.garf(),m.gau_(),n))
+r.push(A.dZ(A.a4(A.c([B.aDi,B.aKU,B.aY,B.aKV,B.aDk,A.V(n,B.a3a,B.k,n,n,new A.a1(s,n,A.aP(B.i2,1),o,n,n,B.o),n,n,n,B.yU,B.yN,n,n,n),B.uT],p),B.i,n,B.h,B.j,0,B.n),!0,n))}if(m.Q)r.push(new A.vB(m.garf(),m.gau_(),n))
 if(m.y===B.vL&&m.at)r.push(m.aBT(q))
 if(m.x)r.push(new A.yq(m.gaEk(),n))
 return A.dX(B.am,new A.bT(B.ao,n,B.dO,B.y,r,n),B.a6,!1,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,new A.b0d(m),n,n,n,n)},
@@ -126191,7 +126191,7 @@ this.ao()},
 A(a){var s,r=null,q=this.d,p=B.f.eC(q.a.a),o=p.length!==0&&p.split("\n").length<=8,n=t.p
 q=A.a4(A.c([A.pa(r,B.cR,!0,r,!0,B.y,r,A.ti(),q,r,r,r,r,r,2,B.aaj,B.a6,!0,r,!0,r,!1,r,B.cI,r,r,r,r,r,r,r,200,r,6,3,r,!1,"\u2022",r,new A.aTI(this),r,r,r,!1,r,r,!1,r,!0,r,B.dm,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.az,r,B.fq,r,r,r,r),B.aNa],n),B.R,r,B.h,B.A,0,B.n)
 s=A.dr(B.hC,r,r,r,new A.aTJ(a),r,r)
-return A.pO(A.c([s,A.yf(B.aL7,o?new A.aTK(a,p):r)],n),B.aD,q,B.aAe)}}
+return A.pO(A.c([s,A.yf(B.aL6,o?new A.aTK(a,p):r)],n),B.aD,q,B.aAe)}}
 A.aTI.prototype={
 $1(a){return this.a.C(new A.aTH())},
 $S:21}
@@ -127637,9 +127637,9 @@ b0.push(a4.zM(A.c([a4.LV(B.t,B.rN,a4.gaBg(),"\xc7\xf6z\xfclm\xfc\u015fl\xfck i\u
 b0.push(B.ag)
 b0.push(a4.a0Y(A.c([a4.LV(B.bi,B.zO,a4.gaBf(),"\u0130lerleme, istatistikler, test ve oyun rekorlar\u0131 silinir. Profilin korunur.","Her \u015feyi s\u0131f\u0131rla")],d),B.bi.U(0.35)))
 b0.push(B.aCX)
-b0.push(B.XJ)
+b0.push(B.XE)
 b0.push(B.b5)
-b0.push(B.XI)
+b0.push(B.XJ)
 return A.fy(a5,B.bk,A.V(a5,A.e0(!1,A.a4(A.c([B.Uf,A.ay(A.ih(b0,a5,new A.K(a7,4,a9,28+q.r.d),a5,!0,B.a0,!1),1)],d),B.i,a5,B.h,B.j,0,B.n),!0,!1,B.a4,!0,!0),B.k,a5,a5,B.dh,a5,a5,a5,a5,a5,a5,a5,a5),a5,a5)},
 aDf(a,b){return new A.fU(this.d.x,new A.aUY(this,a,b),null,null,t.Id)},
 OP(a,b){var s=null
@@ -128036,7 +128036,7 @@ $0(){return this.a.e=this.b},
 $S:0}
 A.aUR.prototype={
 $1(a){var s=null,r=A.x(this.a+"\n\nFoto\u011fraf \u015fimdilik k\xfc\xe7\xfck boyutla kaydedildi. Ba\u011flant\u0131n\u0131 kontrol edip foto\u011fraf\u0131 yeniden se\xe7ebilirsin.",s,s,s,s,s,s,s,s,s)
-return A.pO(A.c([A.dr(B.aLo,s,s,s,new A.aUN(a),s,s)],t.p),B.aD,r,B.aKT)},
+return A.pO(A.c([A.dr(B.aLo,s,s,s,new A.aUN(a),s,s)],t.p),B.aD,r,B.aKS)},
 $S:52}
 A.aUN.prototype={
 $0(){return A.bg(this.a,!1).ei()},
@@ -128401,7 +128401,7 @@ r=A.c([new A.cf(0,B.au,B.v.U(0.55),B.auW,36)],t.V)
 q=A.ai(24)
 p=k.a.c
 o=t.p
-p=A.a2(A.c([B.aKS,B.ea,A.cR(j,A.V(j,B.a9N,B.k,j,j,B.VG,j,32,j,j,j,j,j,32),j,j,p,0.94,"Kapat")],o),B.i,B.h,B.j,0,j)
+p=A.a2(A.c([B.aKR,B.ea,A.cR(j,A.V(j,B.a9N,B.k,j,j,B.VG,j,32,j,j,j,j,j,32),j,j,p,0.94,"Kapat")],o),B.i,B.h,B.j,0,j)
 n=k.aAw()
 m=k.aDg()
 l=k.apX()
@@ -129421,7 +129421,7 @@ if(o==null)s=a.DG(b,1)===0?"Oynanmad\u0131":"Berabere"
 else s=k?"\xd6ndesin":a.fz(o)+" \xf6nde"
 r=t.p
 q=3-l
-return A.cR(p,A.V(p,A.a4(A.c([A.a2(A.c([new A.bL(b.d,26,B.I,p),B.iZ,i,A.x(s,p,p,p,p,p,A.bm(p,p,k?B.a_:B.a3,p,p,p,p,p,p,p,p,12,p,p,B.z,p,p,!0,p,p,p,p,p,p,p,p),p,p,p),B.rP],r),B.i,B.h,B.j,0,p),B.aY,A.a2(A.c([A.Rl(a,l,20),B.as,n.$2(l,B.eb),B.aLf,n.$2(q,B.fp),B.as,A.Rl(a,q,20)],r),B.i,B.h,B.j,0,p)],r),B.i,p,B.h,B.j,0,B.n),B.k,p,p,j,p,p,p,p,B.m9,p,p,p),new A.a0("weekly-row-"+b.b,t.O),p,new A.b10(this,b),0.94,m+" oyna")},
+return A.cR(p,A.V(p,A.a4(A.c([A.a2(A.c([new A.bL(b.d,26,B.I,p),B.iZ,i,A.x(s,p,p,p,p,p,A.bm(p,p,k?B.a_:B.a3,p,p,p,p,p,p,p,p,12,p,p,B.z,p,p,!0,p,p,p,p,p,p,p,p),p,p,p),B.rP],r),B.i,B.h,B.j,0,p),B.aY,A.a2(A.c([A.Rl(a,l,20),B.as,n.$2(l,B.eb),B.aLe,n.$2(q,B.fp),B.as,A.Rl(a,q,20)],r),B.i,B.h,B.j,0,p)],r),B.i,p,B.h,B.j,0,B.n),B.k,p,p,j,p,p,p,p,B.m9,p,p,p),new A.a0("weekly-row-"+b.b,t.O),p,new A.b10(this,b),0.94,m+" oyna")},
 a50(a,b){var s,r,q,p,o=null,n=a.adR(b),m=a.f.h(0,b)
 if(m==null)m=0
 s=A.jc(B.G,B.a5,6,B.di)
@@ -129450,7 +129450,7 @@ $0(){return this.a.r=!1},
 $S:0}
 A.b0Z.prototype={
 $1(a){var s=null
-return A.pO(A.c([A.dr(B.hC,s,s,s,new A.b0X(a),s,s),A.dr(B.Sf,B.aPZ,s,s,new A.b0Y(a),s,s)],t.p),B.aD,B.aLs,B.aKX)},
+return A.pO(A.c([A.dr(B.hC,s,s,s,new A.b0X(a),s,s),A.dr(B.Sf,B.aPZ,s,s,new A.b0Y(a),s,s)],t.p),B.aD,B.aLs,B.aKW)},
 $S:52}
 A.b0X.prototype={
 $0(){A.bg(this.a,!1).eo(!1)
@@ -138467,6 +138467,11 @@ B.XD=new A.DH(null,null,null,null,null,null)
 B.aVu=new A.aFs(0,"material")
 B.wL=new A.fn(null,null,null,null,null,B.t,null,null,null,null)
 B.ly=new A.f1(B.r,null,null,B.wL,null)
+B.V=new A.h(1,0.7843137254901961,0.6627450980392157,0.7254901960784313,B.d)
+B.b_=new A.iP(600)
+B.aK9=new A.l(!0,B.V,null,null,null,null,14,B.b_,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+B.aLm=new A.ac("Sendeyiz Sevgilim \ud83e\udec2",null,B.aK9,null,null,null,null,null,null,null,null)
+B.XE=new A.f1(B.r,null,null,B.aLm,null)
 B.iu=s([".kk...kk.","krrk.krrk","krRrkrrrk","krrrrrrrk",".krrrrrk.","..krrrk..","...krk...","....k...."],t.s)
 B.auq={k:0,W:1,p:2,P:3,q:4,y:5,Y:6,d:7,b:8,B:9,n:10,g:11,G:12,e:13,o:14,r:15,R:16,c:17,C:18,s:19,v:20,V:21,m:22,l:23,L:24,w:25,a:26,A:27,S:28,h:29,u:30,M:31}
 B.aN=new A.h(1,0.16862745098039217,0.07058823529411765,0.12549019607843137,B.d)
@@ -138502,24 +138507,19 @@ B.a0m=new A.h(1,0.43137254901960786,0.2901960784313726,0.1803921568627451,B.d)
 B.pX=new A.h(1,0.5568627450980392,0.13725490196078433,0.3137254901960784,B.d)
 B.I=new A.a9(B.auq,[B.aN,B.l,B.t,B.jQ,B.jB,B.a_,B.eR,B.ep,B.dX,B.dU,B.jD,B.ak,B.q_,B.lK,B.lG,B.lE,B.qi,B.hY,B.fM,B.pQ,B.fL,B.pR,B.xR,B.jO,B.lJ,B.a2t,B.xg,B.i0,B.wS,B.a2n,B.a0m,B.pX],t.J)
 B.axc=new A.bL(B.iu,52,B.I,null)
-B.XE=new A.f1(B.r,null,null,B.axc,null)
+B.XF=new A.f1(B.r,null,null,B.axc,null)
 B.XU=new A.fn(null,null,null,null,null,null,null,null,null,null)
 B.wK=new A.f1(B.r,null,null,B.XU,null)
 B.kk=s(["................",".......kkkk.....","......kyYYk.....","......kyyk......",".....kyyk.......",".....kyyYkk.....","kkkkkyyyyykkkkkk","kPPPkkkyykkBBBBk","kPWpqkkyykkBWbnk","kPppqkkyk.kBbbnk","kpqqqkyk..kbnnnk","kkkkkkyk..kkkkkk","....kyk.........","....kk..........","................","................"],t.s)
 B.awW=new A.bL(B.kk,64,B.I,null)
-B.XF=new A.f1(B.r,null,null,B.awW,null)
+B.XG=new A.f1(B.r,null,null,B.awW,null)
 B.a3=new A.h(1,0.5568627450980392,0.4235294117647059,0.49411764705882355,B.d)
 B.hB=new A.l(!0,B.a3,null,null,null,null,11.5,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.aMq=new A.ac("Kalbin sol yar\u0131s\u0131: yar\u0131m kalp",null,B.hB,null,null,null,null,null,null,null,null)
-B.XH=new A.f1(B.r,null,null,B.aMq,null)
+B.XI=new A.f1(B.r,null,null,B.aMq,null)
 B.aFs=new A.l(!0,B.a3,null,null,null,null,11.5,null,null,0.6,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.aMb=new A.ac("Hukuk Reels",null,B.aFs,null,null,null,null,null,null,null,null)
-B.XI=new A.f1(B.r,null,null,B.aMb,null)
-B.V=new A.h(1,0.7843137254901961,0.6627450980392157,0.7254901960784313,B.d)
-B.b_=new A.iP(600)
-B.aK9=new A.l(!0,B.V,null,null,null,null,14,B.b_,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aKR=new A.ac("Sendeyiz Arifecim \ud83e\udec2",null,B.aK9,null,null,null,null,null,null,null,null)
-B.XJ=new A.f1(B.r,null,null,B.aKR,null)
+B.XJ=new A.f1(B.r,null,null,B.aMb,null)
 B.XK=new A.DK(null,null,null,null,null,null,null,null,null)
 B.hX=new A.xB(0,"none")
 B.fK=new A.xB(1,"isTrue")
@@ -138796,8 +138796,8 @@ B.aeL=s([B.aMh,B.b5,B.aMd],t.p)
 B.a3a=new A.iJ(B.a0,B.h,B.A,B.i,null,B.n,null,0,B.aeL,null)
 B.aMe=new A.ac("U\xe7mak i\xe7in dokun",null,B.S7,null,null,null,null,null,null,null,null)
 B.aHo=new A.l(!0,B.al,null,null,null,null,13,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aL1=new A.ac("Borulardan ge\xe7, alt\u0131n bal\u0131klar\u0131 kap!",null,B.aHo,null,null,null,null,null,null,null,null)
-B.aor=s([B.aMe,B.b5,B.aL1],t.p)
+B.aL0=new A.ac("Borulardan ge\xe7, alt\u0131n bal\u0131klar\u0131 kap!",null,B.aHo,null,null,null,null,null,null,null,null)
+B.aor=s([B.aMe,B.b5,B.aL0],t.p)
 B.a3b=new A.iJ(B.a0,B.h,B.A,B.i,null,B.n,null,0,B.aor,null)
 B.j=new A.XS(1,"max")
 B.R=new A.tU(0,"start")
@@ -139309,8 +139309,8 @@ B.ze=new A.ub(!1,!1,!1,!1)
 B.zf=new A.ub(!1,!1,!1,!0)
 B.bl=new A.Wm(0,"tight")
 B.aH3=new A.l(!0,B.P,null,"PixelifySans",null,null,19,B.z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aLe=new A.ac("Not Panosu",null,B.aH3,null,null,null,null,null,null,null,null)
-B.a74=new A.e6(1,B.bl,B.aLe,null)
+B.aLd=new A.ac("Not Panosu",null,B.aH3,null,null,null,null,null,null,null,null)
+B.a74=new A.e6(1,B.bl,B.aLd,null)
 B.aK_=new A.l(!0,B.a3,null,null,null,null,12,null,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.aMC=new A.ac("YAPIM",null,B.aK_,null,null,null,null,null,null,null,null)
 B.a75=new A.e6(1,B.bl,B.aMC,null)
@@ -139321,8 +139321,8 @@ B.a76=new A.e6(1,B.bl,B.aLn,null)
 B.aTi=new A.a71(null)
 B.zg=new A.e6(1,B.bl,B.aTi,null)
 B.aEZ=new A.l(!0,B.a3,null,null,null,null,12,B.b_,null,1.2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aLg=new A.ac("SEN\u0130N PUANIN",null,B.aEZ,null,null,null,null,null,null,null,null)
-B.a77=new A.e6(1,B.bl,B.aLg,null)
+B.aLf=new A.ac("SEN\u0130N PUANIN",null,B.aEZ,null,null,null,null,null,null,null,null)
+B.a77=new A.e6(1,B.bl,B.aLf,null)
 B.aBb=new A.hV(B.aN,B.m,4)
 B.aoZ=s([B.aBb],t.kO)
 B.S3=new A.l(!0,B.l,null,"PixelifySans",null,null,17,B.z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,B.aoZ,null,null,null)
@@ -140123,8 +140123,8 @@ B.BY=s(["\u056f\u056b\u0580\u0561\u056f\u056b","\u0565\u0580\u056f\u0578\u0582\u
 B.BZ=s(["\u09b0","\u09b8\u09cb","\u09ae","\u09ac\u09c1","\u09ac\u09c3","\u09b6\u09c1","\u09b6"],t.s)
 B.aM7=new A.ac("7 g\xfcn",null,null,null,null,null,null,null,null,null,null)
 B.Wc=new A.nM(7,B.aM7,t.lM)
-B.aLm=new A.ac("30 g\xfcn",null,null,null,null,null,null,null,null,null,null)
-B.Wd=new A.nM(30,B.aLm,t.lM)
+B.aLl=new A.ac("30 g\xfcn",null,null,null,null,null,null,null,null,null,null)
+B.Wd=new A.nM(30,B.aLl,t.lM)
 B.af7=s([B.Wc,B.Wd],A.aq("E<nM<k>>"))
 B.C_=s(["\u0d89\u0dbb\u0dd2\u0daf\u0dcf","\u0dc3\u0db3\u0dd4\u0daf\u0dcf","\u0d85\u0d9f\u0dc4","\u0db6\u0daf\u0dcf\u0daf\u0dcf","\u0db6\u0dca\u200d\u0dbb\u0dc4\u0dc3\u0dca","\u0dc3\u0dd2\u0d9a\u0dd4","\u0dc3\u0dd9\u0db1"],t.s)
 B.af9=s(["F1","F2","F3","F4"],t.s)
@@ -142928,14 +142928,14 @@ B.Mm=new A.a_k(0,"nearestOverlay")
 B.avN=new A.a_k(1,"rootOverlay")
 B.a4X=new A.K(0,0,0,12)
 B.axw=new A.lz("SEZON 2",B.fQ,3,null)
-B.XG=new A.f1(B.r,null,null,B.axw,null)
+B.XH=new A.f1(B.r,null,null,B.axw,null)
 B.aPq=new A.a0("block-season",t.O)
-B.avO=new A.a5(B.a4X,B.XG,B.aPq)
+B.avO=new A.a5(B.a4X,B.XH,B.aPq)
 B.a5a=new A.K(0,2,0,2)
 B.a7w=new A.Wt(1,"italic")
 B.aFl=new A.l(!0,B.P,null,null,null,null,16.5,B.b_,B.a7w,null,null,null,1.5,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aLi=new A.ac("Y\xfcce Hukuk Profes\xf6r\xfc Arife Han\u0131m, siz yanl\u0131\u015f i\u015faretlemediniz, ben yanl\u0131\u015fm\u0131\u015f\u0131m\u2026 T\xfcm ya\u015fant\u0131m, t\xfcm bildiklerim birer yalanm\u0131\u015f. L\xfctfen S\u0130Z bana \xf6\u011fretin, hangi \u015f\u0131kk\u0131m do\u011fru? \ud83d\ude2d",null,B.aFl,null,null,null,null,null,null,null,null)
-B.avP=new A.a5(B.a5a,B.aLi,null)
+B.aLh=new A.ac("Y\xfcce Hukuk Profes\xf6r\xfc Arife Han\u0131m, siz yanl\u0131\u015f i\u015faretlemediniz, ben yanl\u0131\u015fm\u0131\u015f\u0131m\u2026 T\xfcm ya\u015fant\u0131m, t\xfcm bildiklerim birer yalanm\u0131\u015f. L\xfctfen S\u0130Z bana \xf6\u011fretin, hangi \u015f\u0131kk\u0131m do\u011fru? \ud83d\ude2d",null,B.aFl,null,null,null,null,null,null,null,null)
+B.avP=new A.a5(B.a5a,B.aLh,null)
 B.aMi=new A.ac("Film ya da dizi ekle \ud83c\udf7f",null,B.d1,null,null,null,null,null,null,null,null)
 B.avR=new A.a5(B.yM,B.aMi,null)
 B.fs=new A.l(!0,B.a3,null,null,null,null,12.5,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
@@ -142946,8 +142946,8 @@ B.ck=new A.l(!0,B.a3,null,null,null,null,12,null,null,null,null,null,null,null,n
 B.aLC=new A.ac("Yeni not i\xe7in \xf6nce kendi notunu kald\u0131r.",null,B.ck,null,null,null,null,null,null,null,null)
 B.avT=new A.a5(B.a59,B.aLC,null)
 B.a53=new A.K(0,12,0,0)
-B.aLj=new A.ac(u.r,null,B.ck,B.S,null,null,null,null,null,null,null)
-B.avV=new A.a5(B.a53,B.aLj,null)
+B.aLi=new A.ac(u.r,null,B.ck,B.S,null,null,null,null,null,null,null)
+B.avV=new A.a5(B.a53,B.aLi,null)
 B.aLY=new A.ac("Sil",null,B.ck,null,null,null,null,null,null,null,null)
 B.avW=new A.a5(B.z6,B.aLY,null)
 B.aMm=new A.ac("Yeni rekorun g\xf6nderiliyor; ba\u011flant\u0131 yoksa cihaz\u0131nda saklan\u0131r.",null,null,null,null,null,null,null,null,null,null)
@@ -142961,8 +142961,8 @@ B.RO=new A.l(!0,null,null,null,null,null,18,B.a9,null,null,null,null,null,null,n
 B.aLE=new A.ac("Hen\xfcz u\xe7u\u015f yok",null,B.RO,null,null,null,null,null,null,null,null)
 B.aY=new A.a6(null,6,null,null)
 B.v4=new A.l(!0,B.V,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aLd=new A.ac("Bileti al\u0131nca var\u0131\u015f yerini ve saatini ekle;\nkavu\u015fmaya ne kadar kald\u0131\u011f\u0131n\u0131 birlikte sayal\u0131m \ud83d\udc8c",null,B.v4,B.S,null,null,null,null,null,null,null)
-B.agB=s([B.axl,B.bp,B.aLE,B.aY,B.aLd],t.p)
+B.aLc=new A.ac("Bileti al\u0131nca var\u0131\u015f yerini ve saatini ekle;\nkavu\u015fmaya ne kadar kald\u0131\u011f\u0131n\u0131 birlikte sayal\u0131m \ud83d\udc8c",null,B.v4,B.S,null,null,null,null,null,null,null)
+B.agB=s([B.axl,B.bp,B.aLE,B.aY,B.aLc],t.p)
 B.a3c=new A.iJ(B.a0,B.h,B.j,B.i,null,B.n,null,0,B.agB,null)
 B.avZ=new A.a5(B.yy,B.a3c,null)
 B.a6A=new A.K(4,0,0,8)
@@ -143567,8 +143567,8 @@ B.aD4=new A.A3(null,null,null,null,null,null,null,null,null,null,null,null,null,
 B.uQ=new A.a1O(0,0,0,0,0,0,!1,!1,null,0)
 B.hz=new A.aCH(0,"firstIsTop")
 B.a6r=new A.K(24,20,24,100)
-B.aLh=new A.ac("Film ve dizi bilgileri TMDB'den, IMDb puan\u0131 OMDb'den.\nThis product uses the TMDB API but is not endorsed or certified by TMDB.",null,B.RW,B.S,null,null,null,null,null,null,null)
-B.avQ=new A.a5(B.a6r,B.aLh,null)
+B.aLg=new A.ac("Film ve dizi bilgileri TMDB'den, IMDb puan\u0131 OMDb'den.\nThis product uses the TMDB API but is not endorsed or certified by TMDB.",null,B.RW,B.S,null,null,null,null,null,null,null)
+B.avQ=new A.a5(B.a6r,B.aLg,null)
 B.aD5=new A.mZ(B.avQ,null)
 B.aCS=new A.a6(null,110,null,null)
 B.aD6=new A.mZ(B.aCS,null)
@@ -144138,46 +144138,46 @@ B.aKO=new A.eX(B.aHq,B.aFG,B.aHr,B.aId,B.aFb,B.aFn,B.aGc,B.aI6,B.aGx,B.aIU,B.aEx
 B.aFN=new A.l(!0,B.V,null,null,null,null,15,B.z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.aKP=new A.ac("Kabul etme",null,B.aFN,null,null,null,null,null,null,null,null)
 B.aKQ=new A.ac("\xc7\u0131kar",null,B.l6,null,null,null,null,null,null,null,null)
-B.aKS=new A.ac("Ses",null,B.d1,null,null,null,null,null,null,null,null)
-B.aKT=new A.ac("Tam kalite y\xfcklenemedi",null,null,null,null,null,null,null,null,null,null)
-B.aKU=new A.ac("Bu turda hi\xe7birini be\u011fenmedin.",null,B.S1,null,null,null,null,null,null,null,null)
+B.aKR=new A.ac("Ses",null,B.d1,null,null,null,null,null,null,null,null)
+B.aKS=new A.ac("Tam kalite y\xfcklenemedi",null,null,null,null,null,null,null,null,null,null)
+B.aKT=new A.ac("Bu turda hi\xe7birini be\u011fenmedin.",null,B.S1,null,null,null,null,null,null,null,null)
 B.aBg=new A.hV(B.aN,B.kF,0)
 B.avs=new A.i(-2,-2)
 B.aBa=new A.hV(B.aN,B.avs,0)
 B.CJ=s([B.aBg,B.aBa],t.kO)
 B.aIm=new A.l(!0,B.dV,null,"PixelifySans",null,null,38,B.z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,B.CJ,null,null,null)
-B.aKV=new A.ac("Adliye Kulesi",null,B.aIm,null,null,null,null,null,null,null,null)
+B.aKU=new A.ac("Adliye Kulesi",null,B.aIm,null,null,null,null,null,null,null,null)
 B.aBe=new A.hV(B.aN,B.m,6)
 B.ajn=s([B.aBe],t.kO)
 B.aIx=new A.l(!0,B.l,null,null,null,null,13.5,B.b_,null,null,null,null,null,null,null,null,null,null,null,null,null,null,B.ajn,null,null,null)
-B.aKW=new A.ac("D\xfcnyan\u0131n adalet saraylar\u0131n\u0131 kat kat y\xfckselt",null,B.aIx,B.S,null,null,null,null,null,null,null)
-B.aKX=new A.ac("Tur iptal edilsin mi?",null,null,null,null,null,null,null,null,null,null)
-B.aKY=new A.ac("Mesaj g\xf6ndermek i\xe7in di\u011fer oyuncunun bildirimleri a\xe7mas\u0131 gerekiyor.",null,null,null,null,null,null,null,null,null,null)
-B.aKZ=new A.ac("Listenizden ve birka\xe7 yeni \xf6neriden 15 filmlik k\u0131sa bir deste haz\u0131rlan\u0131r. \u0130kiniz de kendi zaman\u0131nda kayd\u0131r\u0131r: sa\u011fa be\u011fen, sola ge\xe7, yukar\u0131 s\xfcper be\u011fen. \u0130kinizin de be\u011fendikleri e\u015fle\u015fme olur.",null,B.RU,B.S,null,null,null,null,null,null,null)
+B.aKV=new A.ac("D\xfcnyan\u0131n adalet saraylar\u0131n\u0131 kat kat y\xfckselt",null,B.aIx,B.S,null,null,null,null,null,null,null)
+B.aKW=new A.ac("Tur iptal edilsin mi?",null,null,null,null,null,null,null,null,null,null)
+B.aKX=new A.ac("Mesaj g\xf6ndermek i\xe7in di\u011fer oyuncunun bildirimleri a\xe7mas\u0131 gerekiyor.",null,null,null,null,null,null,null,null,null,null)
+B.aKY=new A.ac("Listenizden ve birka\xe7 yeni \xf6neriden 15 filmlik k\u0131sa bir deste haz\u0131rlan\u0131r. \u0130kiniz de kendi zaman\u0131nda kayd\u0131r\u0131r: sa\u011fa be\u011fen, sola ge\xe7, yukar\u0131 s\xfcper be\u011fen. \u0130kinizin de be\u011fendikleri e\u015fle\u015fme olur.",null,B.RU,B.S,null,null,null,null,null,null,null)
 B.aFD=new A.l(!0,B.a_,null,null,null,null,12,B.aF,null,2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aL_=new A.ac("SE\xc7",null,B.aFD,null,null,null,null,null,null,null,null)
-B.aL0=new A.ac("Odadan ayr\u0131l",null,null,null,null,null,null,null,null,null,null)
+B.aKZ=new A.ac("SE\xc7",null,B.aFD,null,null,null,null,null,null,null,null)
+B.aL_=new A.ac("Odadan ayr\u0131l",null,null,null,null,null,null,null,null,null,null)
 B.S0=new A.l(!0,null,null,null,null,null,15,B.z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aL2=new A.ac("Tekrar kar\u0131\u015ft\u0131r",null,B.S0,null,null,null,null,null,null,null,null)
-B.aL3=new A.ac("Bilgisayarda: ok tu\u015flar\u0131 / WASD / bo\u015fluk",null,B.hB,null,null,null,null,null,null,null,null)
+B.aL1=new A.ac("Tekrar kar\u0131\u015ft\u0131r",null,B.S0,null,null,null,null,null,null,null,null)
+B.aL2=new A.ac("Bilgisayarda: ok tu\u015flar\u0131 / WASD / bo\u015fluk",null,B.hB,null,null,null,null,null,null,null,null)
 B.ve=new A.l(!0,null,null,"PixelifySans",null,null,20,B.z,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aL4=new A.ac("arici\u011fime bildirim g\xf6nderme paneli: ",null,B.ve,null,null,null,null,null,null,null,null)
-B.aL5=new A.ac("Bildirim g\xf6nder",null,null,null,null,null,null,null,null,null,null)
+B.aL3=new A.ac("arici\u011fime bildirim g\xf6nderme paneli: ",null,B.ve,null,null,null,null,null,null,null,null)
+B.aL4=new A.ac("Bildirim g\xf6nder",null,null,null,null,null,null,null,null,null,null)
 B.aFk=new A.l(!0,null,null,null,null,null,13,B.b_,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aL6=new A.ac("Lobiye d\xf6n",null,B.aFk,null,null,null,null,null,null,null,null)
-B.aL7=new A.ac("\u0130\u011fnele \ud83d\udccc",null,null,null,null,null,null,null,null,null,null)
-B.aL8=new A.ac("Di\u011fer oyuncu herhangi bir oyunda rekorunu ge\xe7ti\u011finde telefonuna bildirim gelsin. iPhone\u2019da uygulamay\u0131 ana ekrandan a\xe7\u0131p izin ver. (yerse)",null,null,null,null,null,null,null,null,null,null)
+B.aL5=new A.ac("Lobiye d\xf6n",null,B.aFk,null,null,null,null,null,null,null,null)
+B.aL6=new A.ac("\u0130\u011fnele \ud83d\udccc",null,null,null,null,null,null,null,null,null,null)
+B.aL7=new A.ac("Di\u011fer oyuncu herhangi bir oyunda rekorunu ge\xe7ti\u011finde telefonuna bildirim gelsin. iPhone\u2019da uygulamay\u0131 ana ekrandan a\xe7\u0131p izin ver. (yerse)",null,null,null,null,null,null,null,null,null,null)
 B.aHw=new A.l(!0,B.lS,null,null,null,null,11.5,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aL9=new A.ac("Ma\xe7 bitince sonu\xe7 gelecek",null,B.aHw,null,null,null,null,null,null,null,null)
+B.aL8=new A.ac("Ma\xe7 bitince sonu\xe7 gelecek",null,B.aHw,null,null,null,null,null,null,null,null)
 B.aIP=new A.l(!0,null,null,"PixelifySans",null,null,26,B.a9,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aLa=new A.ac("Lider Tablosu",null,B.aIP,B.S,null,null,null,null,null,null,null)
-B.aLb=new A.ac("Oda olu\u015ftur",null,null,null,null,null,null,null,null,null,null)
-B.aLc=new A.ac("\u0130kimizin s\u0131ralamas\u0131",null,null,null,null,null,null,null,null,null,null)
+B.aL9=new A.ac("Lider Tablosu",null,B.aIP,B.S,null,null,null,null,null,null,null)
+B.aLa=new A.ac("Oda olu\u015ftur",null,null,null,null,null,null,null,null,null,null)
+B.aLb=new A.ac("\u0130kimizin s\u0131ralamas\u0131",null,null,null,null,null,null,null,null,null,null)
 B.Sb=new A.ac("Sil",null,B.l6,null,null,null,null,null,null,null,null)
 B.aGw=new A.l(!0,B.a3,null,"PixelifySans",null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.aLf=new A.ac("VS",null,B.aGw,null,null,null,null,null,null,null,null)
-B.aLk=new A.ac("Aralar\u0131ndan zar at",null,B.S0,null,null,null,null,null,null,null,null)
-B.aLl=new A.ac("Se\xe7im iptal edilsin mi?",null,null,null,null,null,null,null,null,null,null)
+B.aLe=new A.ac("VS",null,B.aGw,null,null,null,null,null,null,null,null)
+B.aLj=new A.ac("Aralar\u0131ndan zar at",null,B.S0,null,null,null,null,null,null,null,null)
+B.aLk=new A.ac("Se\xe7im iptal edilsin mi?",null,null,null,null,null,null,null,null,null,null)
 B.aLo=new A.ac("Tamam",null,null,null,null,null,null,null,null,null,null)
 B.aHK=new A.l(!0,B.a3,null,null,null,null,16,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.aLr=new A.ac("\u2013",null,B.aHK,null,null,null,null,null,null,null,null)

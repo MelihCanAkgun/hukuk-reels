@@ -1,8 +1,8 @@
 {
-  "source_commit": "5258039db24566d3b41d3db019b78a5489e77a35",
-  "built_at": "2026-11-13T00:40:48Z",
-  "checks": "flutter analyze (no issues); flutter test (492 passed); backend tests (91 passed, battle-network excluded); web runtime test passed; migrations 0013 and 0014 applied remote; release build --wasm with base-href /hukuk-reels/",
-  "change": "Weekly challenge (admin-started rounds, trophies), Ortak karar film swipe, font prewarm and media cache, cache-first lists",
+  "source_commit": "cf5349e884b38c70f0319b852224770ac7505c13",
+  "built_at": "2026-11-15T17:12:12Z",
+  "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
+  "change": "Sendeyiz Sevgilim text",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "76c6e4b097670e66"
+  "app_build": "8bade808549e459c"
 }
