@@ -1,8 +1,8 @@
 {
-  "source_commit": "cf5349e884b38c70f0319b852224770ac7505c13",
-  "built_at": "2026-11-15T17:12:12Z",
+  "source_commit": "ab7d30cba3f1b49dded237cd2b21c7b04fa92a0d",
+  "built_at": "2026-11-15T19:27:18Z",
   "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Sendeyiz Sevgilim text",
+  "change": "WebAssembly by default, threaded skwasm via cross-origin isolation",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "8bade808549e459c"
+  "app_build": "e6ba55a6a270e3d1"
 }
