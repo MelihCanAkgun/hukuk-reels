@@ -11,7 +11,8 @@ import sys
 
 root = Path(__file__).resolve().parents[1]
 # --wasm: main.dart.wasm (skwasm) and main.dart.js (CanvasKit) side by side;
-# web/flutter_bootstrap.js picks one (Settings → App lets Safari opt in).
+# web/flutter_bootstrap.js picks one (WebAssembly by default, Settings → App
+# can switch a device to JavaScript).
 subprocess.run(['flutter', 'build', 'web', '--release', '--wasm', '--no-web-resources-cdn', *sys.argv[1:]], cwd=root, check=True)
 # Safari has no Chromium break iterators, so it loads skwasm_heavy; Chrome loads skwasm.
 wasm_files = ['main.dart.mjs', 'main.dart.wasm', *(f'canvaskit/{n}' for n in (
@@ -58,5 +59,5 @@ worker = (source.replace('__BUILD_VERSION__', version).replace('__CORE_FILES__',
 (out / 'flutter_service_worker.js').write_text(worker)
 (out / 'sw.js').unlink(missing_ok=True)
 size = lambda names: sum((out / f).stat().st_size for f in names) / 1024**2
-print(f'Offline game shell: {len(files)} files, {size(files):.1f} MiB (+{size(wasm_files):.1f} MiB WebAssembly engine '
-      'where chosen). Music requires a connection.')
+print(f'Offline game shell: {len(files)} files, {size(files):.1f} MiB (+{size(wasm_files):.1f} MiB WebAssembly engine, '
+      'the default). Music requires a connection.')

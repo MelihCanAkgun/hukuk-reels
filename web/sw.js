@@ -3,16 +3,16 @@
 const VERSION = '__BUILD_VERSION__';
 const CACHE = 'hukuk-games-' + VERSION;
 const CORE = __CORE_FILES__;
-// WebAssembly engine (main.dart.wasm + skwasm): precached only on a device
-// that chose it in Settings (flutter_bootstrap.js writes the 'hukuk-engine'
-// marker); otherwise cached the first time it is fetched.
+// WebAssembly engine (main.dart.wasm + skwasm): the default engine, so it is
+// precached unless the device switched to JavaScript in Settings
+// (flutter_bootstrap.js writes the 'hukuk-engine' marker).
 const WASM = __WASM_FILES__;
 const scoped = (path) => new URL(path, self.registration.scope).href;
 async function wantsWasm() {
   try {
     const marker = await (await caches.open('hukuk-engine')).match('mode');
-    return marker ? (await marker.text()) === 'wasm' : false;
-  } catch (_) { return false; }
+    return marker ? (await marker.text()) !== 'js' : true;
+  } catch (_) { return true; }
 }
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
@@ -61,6 +61,18 @@ async function media(request, url) {
   }
   return response;
 }
+// GitHub Pages cannot send headers, so the app page gets COOP/COEP here.
+// The page is then cross-origin isolated: SharedArrayBuffer works and skwasm
+// renders on a worker thread instead of the main thread. Every cross-origin
+// resource is fetched with CORS (TMDB images, gstatic fonts, the backend),
+// which require-corp allows.
+function isolated(response) {
+  if (!response.ok || response.type === 'opaqueredirect') return response;
+  const headers = new Headers(response.headers);
+  headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
+  return new Response(response.body, {status: response.status, statusText: response.statusText, headers});
+}
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
@@ -75,6 +87,7 @@ self.addEventListener('fetch', (event) => {
     const cache = await caches.open(CACHE);
     const key = request.mode === 'navigate' ? new URL('index.html', self.registration.scope).href : request;
     const cached = await cache.match(key);
+    if (request.mode === 'navigate') return isolated(cached || await fetch(request));
     if (cached) return cached;
     if (WASM.some((path) => scoped(path) === url.href)) {
       const response = await fetch(request);

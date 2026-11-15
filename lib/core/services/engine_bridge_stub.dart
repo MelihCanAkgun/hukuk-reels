@@ -2,3 +2,5 @@
 bool get engineSwitchAvailable => false;
 
 bool setWasmEngine(bool wasm) => false;
+
+bool get threadedRendering => false;

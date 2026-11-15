@@ -800,9 +800,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         color: AppTheme.accent,
         title: 'Hızlı görüntü motoru',
         subtitle: runningWasm
-            ? 'Şu an: WebAssembly. Sorun olursa kapat, JavaScript\'e döner.'
+            ? 'Şu an: WebAssembly${threadedRendering ? ' · çizim ayrı iş parçacığında' : ''}. '
+                'Sorun olursa kapat, JavaScript\'e döner.'
             : 'Şu an: JavaScript. Açınca WebAssembly ile yeniden açılır '
-                '(daha akıcı olabilir).',
+                '(daha akıcı).',
         trailing: Switch(
           value: runningWasm,
           activeThumbColor: AppTheme.accent,
