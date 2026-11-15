@@ -838,7 +838,7 @@ class _SummaryCard extends StatelessWidget {
           right: 0,
           child: const Center(
             child: Text(
-              'Sendeyiz Arifecim 🫂',
+              'Sendeyiz Sevgilim 🫂',
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,

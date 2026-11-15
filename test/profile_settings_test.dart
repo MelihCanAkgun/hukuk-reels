@@ -48,8 +48,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await ProgressService.instance.setNick('mqcan 😎');
       await ProgressService.instance.setAvatarDataUrl(_png);
-      await tester.pumpWidget(
-          const MaterialApp(home: ProfileSettingsScreen()));
+      await tester.pumpWidget(const MaterialApp(home: ProfileSettingsScreen()));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('mqcan 😎'), findsOneWidget);
       expect(find.byType(ProfileAvatar), findsOneWidget);
@@ -61,7 +60,7 @@ void main() {
         'SES',
         'İkimizin sıralaması',
         'Her şeyi sıfırla',
-        'Sendeyiz Arifecim 🫂',
+        'Sendeyiz Sevgilim 🫂',
       ]) {
         await tester.scrollUntilVisible(find.text(label), 200,
             scrollable: find.byType(Scrollable).first);
