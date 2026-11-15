@@ -83,10 +83,10 @@ async function main() {
 
   let skipped = 0, claimed = 0;
   const deleted = [], added = [];
-  const cache = {addAll: async items => added.push(...items), match: async key => String(key).endsWith('index.html') ? 'offline-shell' : undefined};
+  const cache = {addAll: async items => added.push(...items), match: async key => String(key).endsWith('index.html') ? new Response('offline-shell', {headers: {'Content-Type': 'text/html'}}) : undefined};
   const self = {location: {origin: 'https://example.test'}, registration: {scope: 'https://example.test/game/'},
     clients: {claim: async () => claimed++}, skipWaiting() {skipped++;}, addEventListener(name, fn) {handlers[name] = fn;}};
-  const worker = vm.createContext({self, URL, Request, caches: {open: async () => cache, keys: async () => ['unrelated-app', 'hukuk-games-old', 'hukuk-games-test'], delete: async key => deleted.push(key)}, fetch: async () => 'network'});
+  const worker = vm.createContext({self, URL, Request, Response, Headers, caches: {open: async () => cache, keys: async () => ['unrelated-app', 'hukuk-games-old', 'hukuk-games-test'], delete: async key => deleted.push(key)}, fetch: async () => 'network'});
   const source = fs.readFileSync('web/sw.js','utf8').replace('__BUILD_VERSION__','test').replace('__CORE_FILES__','["index.html"]').replace('__WASM_FILES__','[]');
   vm.runInContext(source, worker);
   let pending;
@@ -98,7 +98,12 @@ async function main() {
   handlers.message({data: 'skipWaiting'}); assert.equal(skipped, 1);
   let response;
   handlers.fetch({request: {method: 'GET', url: 'https://example.test/game/', mode: 'navigate', headers: {has: () => false}}, respondWith(p) {response = p;}});
-  assert.equal(await response, 'offline-shell');
+  const page = await response;
+  assert.equal(await page.text(), 'offline-shell');
+  // The app page is cross-origin isolated (threaded skwasm needs SharedArrayBuffer).
+  assert.equal(page.headers.get('Cross-Origin-Opener-Policy'), 'same-origin');
+  assert.equal(page.headers.get('Cross-Origin-Embedder-Policy'), 'require-corp');
+  assert.equal(page.headers.get('Content-Type'), 'text/html');
   response = null;
   handlers.fetch({request: {method: 'GET', url: 'https://example.test/game/song.m4a', headers: {has: () => true}}, respondWith(p) {response = p;}});
   assert.equal(response, null); // Safari range requests must reach the server.
@@ -128,6 +133,37 @@ async function main() {
   assert.ok(!media.has('https://image.tmdb.org/t/p/w342/p0.jpg') && media.has(font));
   assert.equal(await get('https://evil.example/x.jpg'), null);         // other hosts are untouched
   assert.equal(await get('https://image.tmdb.org/t/p/w342/p649.jpg', true), null);
-  console.log('Web audio and offline/update lifecycle checks passed.');
+
+  // Engine choice: WebAssembly by default; one failed boot falls back to
+  // JavaScript once, three in a row switch the device to JavaScript.
+  const bootSource = fs.readFileSync('web/flutter_bootstrap.js', 'utf8').replace(/^\{\{.*\}\}$/gm, '');
+  const store = new Map();
+  const boot = async (outcome) => {
+    let config, reloaded = false;
+    const ctx = vm.createContext({console: {warn() {}, error() {}}, Response: class {}, document: {getElementById: () => null},
+      localStorage: {getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)), removeItem: k => store.delete(k)},
+      caches: {open: async () => ({put: async () => {}})}, location: {reload() { reloaded = true; }},
+      _flutter: {loader: {load: ({config: c}) => { config = c;
+        return outcome === 'hang' ? new Promise(() => {}) : outcome === 'fail' ? Promise.reject(new Error('Load failed')) : Promise.resolve(); }}}});
+    ctx.window = ctx;
+    vm.runInContext(bootSource, ctx);
+    await new Promise(resolve => setImmediate(resolve));
+    return {engine: config.renderer === 'canvaskit' ? 'js' : 'wasm', reloaded};
+  };
+  assert.deepEqual(await boot('ok'), {engine: 'wasm', reloaded: false});   // default
+  assert.deepEqual(await boot('fail'), {engine: 'wasm', reloaded: true});  // failed: reload once with JS
+  assert.equal((await boot('ok')).engine, 'js');
+  assert.equal((await boot('ok')).engine, 'wasm');                         // WebAssembly is tried again
+  assert.equal(store.get('hukuk_engine_fail'), undefined);                 // a good boot clears failures
+  await boot('hang');                                                      // closed while loading
+  assert.equal((await boot('ok')).engine, 'js');
+  await boot('fail'); await boot('ok');                                    // second failure, JS once
+  await boot('fail');                                                      // third failure in a row
+  assert.equal((await boot('ok')).engine, 'js');
+  assert.equal(store.get('hukuk_engine'), 'js');                           // now permanent
+  assert.equal((await boot('ok')).engine, 'js');
+  store.clear(); store.set('hukuk_engine', 'js');
+  assert.equal((await boot('ok')).engine, 'js');                           // explicit choice is kept
+  console.log('Web audio, engine choice and offline/update lifecycle checks passed.');
 }
 main().catch(error => {console.error(error); process.exitCode = 1;});
