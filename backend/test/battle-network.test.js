@@ -10,14 +10,16 @@ const root=fileURLToPath(new URL('../',import.meta.url));
 const origin='https://app.example';
 const tokens=['a'.repeat(43),'b'.repeat(43)];
 async function server() {
-  const bundle=await build({entryPoints:[root+'src/worker.js'],bundle:true,keepNames:true,format:'esm',platform:'node',
+  // Only the Worker's real entrypoints: workerd rejects plain value exports
+  // (BLOCK_SEASON, GAMES, ...) that src/worker.js also exports for unit tests.
+  const bundle=await build({stdin:{contents:"export {default,BattleRoom} from './src/worker.js';",resolveDir:root},bundle:true,keepNames:true,format:'esm',platform:'node',
     external:['node:*'],write:false,banner:{js:"import {createRequire} from 'node:module'; const require=createRequire('/');"}});
   const mf=new Miniflare(convertV4MiniflareOptions({modules:true,script:bundle.outputFiles[0].text,
     compatibilityDate:'2026-09-10',compatibilityFlags:['nodejs_compat'],d1Databases:['DB'],
     durableObjects:{BATTLES:{className:'BattleRoom',useSQLite:true}},
     bindings:{APP_ORIGIN:origin,APP_URL:origin}}));
   const db=await mf.getD1Database('DB');
-  await db.exec(readFileSync(root+'schema.sql','utf8').replaceAll('\n',' '));
+  await db.exec(readFileSync(root+'schema.sql','utf8').replace(/--[^\n]*/g,'').replaceAll('\n',' '));
   for(let i=0;i<2;i++) await db.prepare('INSERT INTO players(id,token_hash,name,active) VALUES(?,?,?,1)')
     .bind(i+1,createHash('sha256').update(tokens[i]).digest('hex'),'P'+(i+1)).run();
   const call=async(path,data,id=0)=>{
@@ -63,6 +65,15 @@ test('real sockets: auth, shared start, authoritative moves, duplicate/reconnect
       {headers:{Origin:origin,Upgrade:'websocket'}});
     assert.equal(rejected.status,401);
     a.send({type:'PLAYER_READY'});b.send({type:'PLAYER_READY'});
+    // 1v1 starts with a joker draft (snake order: picker, other, other, picker).
+    const draft=(await a.until(e=>e.state?.status==='draft')).state;
+    const other=draft.picker===1?2:1;const byId={1:a,2:b};
+    for(const [i,id] of [draft.picker,other,other].entries()){
+      await a.until(e=>e.state?.players.reduce((n,p)=>n+p.jokers.length,0)>=i);
+      byId[id].send({type:'PICK_JOKER',joker:['freeze','expand','reflect'][i]});
+    }
+    const drafted=await a.until(e=>e.state?.players.every(p=>p.jokers.length===2));
+    assert.deepEqual(drafted.state.players.find(p=>p.id===draft.picker).jokers,['freeze','salt']);
     const countdown=await a.until(e=>e.state?.status==='countdown');
     assert.ok(countdown.state.startAt-countdown.serverNow>2500);
     const started=await b.until(e=>e.state?.status==='playing');
