@@ -1,8 +1,8 @@
 {
-  "source_commit": "ab7d30cba3f1b49dded237cd2b21c7b04fa92a0d",
-  "built_at": "2026-11-15T19:27:18Z",
-  "checks": "flutter analyze (no errors); flutter test; release build with base-href /hukuk-reels/",
-  "change": "WebAssembly by default, threaded skwasm via cross-origin isolation",
+  "source_commit": "531a5ca0b89574ac8c568852ac31e5ba9d01be44",
+  "built_at": "2026-11-22T21:39:28Z",
+  "checks": "flutter analyze (no issues); flutter test; release build with base-href /hukuk-reels/",
+  "change": "Corner photos are loaded from packed assets",
   "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "e6ba55a6a270e3d1"
+  "app_build": "3b8471de1a7406f8"
 }
