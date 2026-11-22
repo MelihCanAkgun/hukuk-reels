@@ -7,7 +7,7 @@
 ![PWA](https://img.shields.io/badge/PWA-çevrimdışı-5A0FC8)
 [![Cloudflare Workers](https://img.shields.io/badge/backend-Cloudflare%20Workers%20%2B%20D1-F38020?logo=cloudflare)](backend/)
 
-Bu uygulama kişisel kullanım içindir; herkese açık bir demo bulunmuyor.
+Bu uygulama kişisel kullanım içindir; herkese açık bir demosu yoktur.
 
 Uygulama küçük, kapalı bir kullanıcı grubu için geliştirildi. Sosyal özellikler (sıralama, 1v1, bildirimler, izleme listesi) bu nedenle kendi backend'inize bağlanmadan çalışmaz. Tek kişilik oyunlar ve çalışma araçları backend olmadan da kullanılabilir.
 
