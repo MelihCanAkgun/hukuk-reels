@@ -4,12 +4,10 @@
 
 [![Flutter](https://img.shields.io/badge/Flutter-%E2%89%A53.27-02569B?logo=flutter)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%E2%89%A53.6-0175C2?logo=dart)](https://dart.dev)
-[![PWA](https://img.shields.io/badge/PWA-çevrimdışı-5A0FC8)](https://melihcanakgun.github.io/hukuk-reels/)
+![PWA](https://img.shields.io/badge/PWA-çevrimdışı-5A0FC8)
 [![Cloudflare Workers](https://img.shields.io/badge/backend-Cloudflare%20Workers%20%2B%20D1-F38020?logo=cloudflare)](backend/)
 
-**Canlı demo:** https://melihcanakgun.github.io/hukuk-reels/
-
-> iPhone/iPad'de Safari ile açıp **Paylaş → Ana Ekrana Ekle** diyerek uygulama gibi kullanılabilir. İlk önbelleklemeden sonra oyunlar internet olmadan açılır.
+Bu uygulama kişisel kullanım içindir; herkese açık bir demo bulunmuyor.
 
 Uygulama küçük, kapalı bir kullanıcı grubu için geliştirildi. Sosyal özellikler (sıralama, 1v1, bildirimler, izleme listesi) bu nedenle kendi backend'inize bağlanmadan çalışmaz. Tek kişilik oyunlar ve çalışma araçları backend olmadan da kullanılabilir.
 

@@ -46,7 +46,7 @@ Prior update work is included: `web/index.html`, `web/update.js`, `web/update.cs
 - [GitHub Pages run 34746559209](https://github.com/MelihCanAkgun/hukuk-reels/actions/runs/34746559209): success.
 - Clean source archive used the workspace’s tested `pubspec.lock`; every resolved package URI was compared and matched. No dependency upgrades shipped.
 - Live SHA-256 verification passed for index, main JS, service worker, update JS/CSS, audio JS, deployment metadata and all 14 playlist files (21 files total).
-- [Live application](https://melihcanakgun.github.io/hukuk-reels/). No backend deployment.
+- No backend deployment.
 
 ## Converted filenames
 
