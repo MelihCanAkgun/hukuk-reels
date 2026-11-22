@@ -68,13 +68,21 @@ class HomeShellState extends State<HomeShell> {
   /// Kurulmuş sekmelerin widget örnekleri (bkz. [select]).
   final Map<int, Widget> _pages = {};
 
+  /// Açılış denetimleri (Battle odası) bitti; çiçek sürprizi sorulabilir.
+  bool _flowerReady = false;
+
+  /// Çiçek sürprizi bu oturumda bir kez sorulur (çift gösterim olmasın).
+  bool _flowerOffered = false;
+
   @override
   void initState() {
     super.initState();
     // Uçuşlar ve mantar pano: uygulama açıkken düzenli tazelenir.
     HomeStore.instance
       ..start()
-      ..refresh(force: true);
+      ..refresh(force: true)
+      // Oyuncu kimliği (önbellekten ya da sunucudan) sonradan gelebilir.
+      ..changes.addListener(_maybeShowFlower);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       // Sayfa yenilenirse kayıtlı Battle odasına (bağlanma süresi içinde)
       // doğrudan dönülür.
@@ -85,13 +93,23 @@ class HomeShellState extends State<HomeShell> {
             MaterialPageRoute<void>(builder: (_) => const BlockBattleLobby()));
         return;
       }
-      // Güncellemeyle gelen çiçek sürprizi: ilk açılışta bir kez.
-      if (!_progress.flowerSurpriseSeen) {
-        await showFlowerSurpriseGate(context);
-        // Ana sayfa çiçek düğmesini göstersin: açık sekme yeni örnek alır.
-        if (mounted) setState(() => _pages[_index] = _page(_index));
-      }
+      _flowerReady = true;
+      _maybeShowFlower();
     });
+  }
+
+  /// Güncellemeyle gelen çiçek sürprizi: yalnız ari'ye (me == 2), ilk
+  /// açılışta bir kez. Kimlik bilinmiyorsa beklenir; bilinince sorulur.
+  Future<void> _maybeShowFlower() async {
+    if (!mounted || !_flowerReady || _flowerOffered) return;
+    if (!HomeStore.instance.isAri || _progress.flowerSurpriseSeen) return;
+    // Başka bir ekran açıksa üstüne binilmez; sonraki değişiklikte ya da
+    // açılışta yeniden denenir.
+    if (ModalRoute.of(context)?.isCurrent != true) return;
+    _flowerOffered = true;
+    await showFlowerSurpriseGate(context);
+    // Ana sayfa çiçek düğmesini göstersin: açık sekme yeni örnek alır.
+    if (mounted) setState(() => _pages[_index] = _page(_index));
   }
 
   @override
@@ -99,7 +117,9 @@ class HomeShellState extends State<HomeShell> {
     for (final c in _scroll) {
       c.dispose();
     }
-    HomeStore.instance.stop();
+    HomeStore.instance
+      ..changes.removeListener(_maybeShowFlower)
+      ..stop();
     super.dispose();
   }
 

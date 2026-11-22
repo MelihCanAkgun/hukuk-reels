@@ -5,6 +5,7 @@ import 'package:hukuk_reels/app/theme.dart';
 import 'package:hukuk_reels/core/services/activity_area.dart';
 import 'package:hukuk_reels/core/services/progress_service.dart';
 import 'package:hukuk_reels/features/game/block_blast_engine.dart';
+import 'package:hukuk_reels/features/home/home_store.dart';
 import 'package:hukuk_reels/features/home/home_tab.dart';
 import 'package:hukuk_reels/features/shell/home_shell.dart';
 import 'package:hukuk_reels/features/study/study_screen.dart';
@@ -28,6 +29,14 @@ Future<void> _shell(WidgetTester tester, Size size) async {
 Future<void> _tab(WidgetTester tester, String area) async {
   await tester.tap(find.byKey(ValueKey('tab-$area')));
   await _frames(tester, 300);
+}
+
+/// Sahte sunucu: oyuncu kimliği [m] (null → gruba bağlı değil).
+void _setMe(int? m) {
+  HomeStore.instance
+    ..me = m
+    ..call = (action, [data = const {}]) async =>
+        m == null ? {'connected': false} : {'connected': true, 'me': m};
 }
 
 void main() {
@@ -102,6 +111,8 @@ void main() {
 
   testWidgets('home update button sits left of the flower and reports',
       (tester) async {
+    _setMe(2);
+    addTearDown(() => _setMe(null));
     await _shell(tester, const Size(393, 852));
     final update = find.byKey(const ValueKey('home-update'));
     final flower = find.bySemanticsLabel('Çiçeğin');
@@ -112,6 +123,17 @@ void main() {
     expect(find.textContaining('Güncelleme denetimi'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  for (final me in const [1, null]) {
+    testWidgets('flower button is hidden from player $me', (tester) async {
+      _setMe(me);
+      await _shell(tester, const Size(393, 852));
+      expect(ProgressService.instance.flowerSurpriseSeen, isTrue);
+      expect(find.byKey(const ValueKey('home-update')), findsOneWidget);
+      expect(find.bySemanticsLabel('Çiçeğin'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
 
   testWidgets('start cards open the games and study tabs', (tester) async {
     await tester.runAsync(ProgressService.instance.clearBlockGame);

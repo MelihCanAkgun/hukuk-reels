@@ -28,6 +28,10 @@ class HomeStore with WidgetsBindingObserver {
 
   /// Bu cihazdaki oyuncu (1 = yönetici mqcan, 2 = ari).
   int? me;
+
+  /// Bu cihazdaki oyuncu ari (2. oyuncu) mu? Çiçek sürprizi yalnız ona
+  /// gösterilir; kimlik henüz bilinmiyorsa (null) hiçbir şey gösterilmez.
+  bool get isAri => me == 2;
   bool connected = false, loaded = false;
 
   /// Son yenilemede sunucuya ulaşılamadıysa (liste önbellekten).
@@ -128,13 +132,21 @@ class HomeStore with WidgetsBindingObserver {
     return r;
   }
 
+  /// Gruptan çıkıldı: bu cihazdaki oyuncu artık bilinmiyor.
+  void forgetPlayer() {
+    if (me == null) return;
+    me = null;
+    changes.value++;
+  }
+
   void _apply(Map<String, dynamic> r) {
     loaded = true;
     connected = r['connected'] == true;
     error = r['offline'] == true ? r['error'] as String? : null;
     if (r['trips'] != null) trips = parseTrips(r);
     if (r['notes'] != null) notes = parseNotes(r);
-    if (r['me'] is int) me = r['me'] as int;
+    // Gruptan çıkılınca (bağlantı yok, kimlik yok) oyuncu unutulur.
+    me = r['me'] is int ? r['me'] as int : (r['connected'] == false ? null : me);
     changes.value++;
   }
 }

@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hukuk_reels/main.dart';
 import 'package:hukuk_reels/core/config/app_config.dart';
 import 'package:hukuk_reels/core/services/progress_service.dart';
+import 'package:hukuk_reels/features/home/home_store.dart';
 import 'package:hukuk_reels/features/intro/confidence_gate_screen.dart';
 import 'package:hukuk_reels/features/surprise/bouquet_sprite.dart';
+import 'package:hukuk_reels/features/surprise/flower_surprise_flow.dart';
 import 'package:hukuk_reels/features/surprise/flower_surprise_screen.dart';
 import 'package:hukuk_reels/features/surprise/pixel_font.dart';
 import 'package:hukuk_reels/features/shell/home_shell.dart';
@@ -16,11 +20,22 @@ Future<void> _play(WidgetTester tester, double seconds) async {
   }
 }
 
+/// Sahte sunucu: oyuncu kimliği [m] (null → gruba bağlı değil).
+void _setMe(int? m) {
+  HomeStore.instance
+    ..me = m
+    ..call = (action, [data = const {}]) async =>
+        m == null ? {'connected': false} : {'connected': true, 'me': m};
+}
+
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
     await ProgressService.instance.init();
   });
+
+  // Oyuncu kimliği (testlerde sahte sunucu kimlik döndürmez).
+  setUp(() => _setMe(null));
 
   test('message, glyphs, song and sprite data are consistent', () {
     expect(kFlowerMessageLines.join(' '), kFlowerMessage);
@@ -68,8 +83,9 @@ void main() {
     });
   }
 
-  testWidgets('first launch after update shows the surprise once',
+  testWidgets('first launch after update shows the surprise once (ari)',
       (tester) async {
+    _setMe(2);
     await ProgressService.instance.setFlowerSurpriseSeen(false);
     await tester.pumpWidget(const HukukReelsApp());
     await tester.pump();
@@ -99,6 +115,61 @@ void main() {
     await _play(tester, 1);
     expect(find.byType(FlowerSurpriseScreen), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  for (final me in const [1, null]) {
+    testWidgets('player $me never sees the surprise or the flower button',
+        (tester) async {
+      _setMe(me);
+      await ProgressService.instance.setFlowerSurpriseSeen(false);
+      await tester.pumpWidget(const HukukReelsApp());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.byType(ConfidenceGateScreen), findsNothing);
+      expect(find.textContaining('Sana bir sürprizim var'), findsNothing);
+      expect(find.byType(HomeShell), findsOneWidget);
+      expect(ProgressService.instance.flowerSurpriseSeen, isFalse);
+
+      // Bu cihazda sürpriz daha önce görülmüş olsa da 🌷 gizli kalır.
+      await ProgressService.instance.setFlowerSurpriseSeen(true);
+      HomeStore.instance.changes.value++;
+      await tester.pump();
+      expect(find.bySemanticsLabel('Çiçeğin'), findsNothing);
+
+      // Doğrudan açma denemesi de bir şey göstermez.
+      final ctx = tester.element(find.byType(HomeShell));
+      unawaited(openFlower(ctx));
+      unawaited(showFlowerSurpriseGate(ctx));
+      await _play(tester, 1);
+      expect(find.byType(FlowerSurpriseScreen), findsNothing);
+      expect(find.byType(ConfidenceGateScreen), findsNothing);
+      expect(ProgressService.instance.flowerSurpriseSeen, isTrue);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('surprise waits until the player is known to be ari',
+      (tester) async {
+    await ProgressService.instance.setFlowerSurpriseSeen(false);
+    await tester.pumpWidget(const HukukReelsApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(ConfidenceGateScreen), findsNothing);
+
+    // /home yanıtı sonradan geldi: me == 2.
+    _setMe(2);
+    HomeStore.instance.changes.value++;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(ConfidenceGateScreen), findsOneWidget);
+
+    // Sonraki güncellemeler sürprizi ikinci kez açmaz.
+    HomeStore.instance.changes.value++;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    expect(find.byType(ConfidenceGateScreen), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
 }
