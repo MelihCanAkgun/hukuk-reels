@@ -111,8 +111,17 @@ void main() {
     };
     await tester.enterText(find.byKey(const ValueKey('gate-code')), 'B' * 43);
     await tester.tap(find.byKey(const ValueKey('gate-submit')));
+    await tester.pump();
+    // İstek sürerken düğme kapalı; Enter yine _submit'e ulaşır ve _busy
+    // koruması ikinci isteği engeller. Alan salt-okunur, odak korunur.
+    final button = find.byKey(const ValueKey('gate-submit'));
+    expect(tester.widget<FilledButton>(button).onPressed, isNull);
+    final busyField =
+        tester.widget<TextField>(find.byKey(const ValueKey('gate-code')));
+    expect(busyField.readOnly, isTrue);
+    expect(busyField.onSubmitted, isNotNull);
+    busyField.onSubmitted!('B' * 43);
     await tester.testTextInput.receiveAction(TextInputAction.go);
-    await tester.tap(find.byKey(const ValueKey('gate-submit')));
     await tester.pump();
     expect(calls, ['verify'], reason: 'one request per submit');
     reply.complete({'ok': false, 'reason': 'invalid'});
@@ -177,4 +186,19 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('5xx has its own message', (tester) async {
+    _web(on: (_) => {'ok': false, 'reason': 'server'});
+    await tester.pumpWidget(_app());
+    await tester.enterText(find.byKey(const ValueKey('gate-code')), _token);
+    await tester.tap(find.byKey(const ValueKey('gate-submit')));
+    await tester.pump();
+    expect(find.text('Sunucuya şu an ulaşılamıyor. Biraz sonra tekrar dene.'),
+        findsOneWidget);
+  });
+
+  test('a revoked stored code counts as absent (token kept)', () {
+    _web(stored: jsonEncode({'token': _token, 'revoked': true}));
+    expect(AccessGate.hasStoredCode(), isFalse);
+  });
 }
