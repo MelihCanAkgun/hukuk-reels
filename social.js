@@ -4,7 +4,9 @@
   // best: Block Blast; bests: the arcade games' personal bests (own leaderboards).
   const games = ['flappy', 'subway', 'tower'];
   let config = {url: '', token: '', best: 0, bests: {}};
-  try { Object.assign(config, JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch (_) {}
+  // Okunamayan kayıt açılışta üzerine yazılmaz (kod yeniden girilene kadar).
+  let unreadable = false;
+  try { Object.assign(config, JSON.parse(localStorage.getItem(storageKey) || '{}')); } catch (_) { unreadable = true; }
   if (!config.bests || typeof config.bests !== 'object') config.bests = {};
   let lastBoard = null;
   let sending = false;
@@ -49,7 +51,7 @@
     if (config.best > 0) config.legacyBest = config.best;
     config.best = 0;
     config.blockSeason = blockSeason;
-    try { persist(); } catch (_) {}
+    if (!unreadable) try { persist(); } catch (_) {}
   }
   // Profile photos of the two players, keyed by server version. Only fetched
   // with this device's player code; removed when the player leaves.
@@ -129,7 +131,7 @@
   const localBest = game => game === 'block' ? config.best : (config.bests[game] || 0);
   const pendingGames = () => ['block', ...games].filter(g => localBest(g) > (serverBest(g) ?? 0));
   async function flush() {
-    if (sending || !config.token || !config.url || document.hidden) return;
+    if (sending || !config.token || config.revoked || !config.url || document.hidden) return;
     const due = ['block', ...games].filter(g => localBest(g) > 0 && !(serverBest(g) !== null && localBest(g) <= serverBest(g)));
     if (!due.length && !(config.legacyBest > 0) && !weeklyDue().length) return;
     sending = true;
@@ -173,7 +175,7 @@
   let area = 'home';
   let areaTimer;
   async function seen(open, hiding = false) {
-    if (!config.token || !config.url || (document.hidden && !hiding)) return;
+    if (!config.token || config.revoked || !config.url || (document.hidden && !hiding)) return;
     seenAt = Date.now();
     try {
       if (!hiding) { await api('/seen', {open, device, area}); return; }
@@ -210,6 +212,17 @@
     return {configured: !!config.url, connected: !!config.token, ...lastBoard,
       ...(await pushState()), pending: pendingGames().length > 0, pendingGames: pendingGames(), error};
   }
+  // Oyuncuya ait yerel veriler (leave'deki gibi); kod korunur.
+  function clearPlayerData() {
+    config.best = 0; config.bests = {}; config.plays = {};
+    delete config.legacyBest; delete config.round; delete config.roundChecked; delete config.me;
+    verifiedSubscription = ''; lastBoard = null;
+    avatars = {}; persistAvatars();
+    for (const k of Object.keys(fullCache)) delete fullCache[k];
+    try { localStorage.removeItem(tripsKey); localStorage.removeItem(filmsKey); localStorage.removeItem(weeklyKey); } catch (_) {}
+    for (const k of Object.keys(delivered)) delete delivered[k];
+    saveCache.last = {};
+  }
   async function call(action, data) {
     if (action === 'init') {
       if (data.url && /^https:\/\//.test(data.url)) config.url = data.url.replace(/\/$/, '');
@@ -220,6 +233,43 @@
     if (action === 'state') return state();
     if (action === 'battleCreate' || action === 'battleJoin') {
       return {...await api(action === 'battleCreate' ? '/battle/create' : '/battle/join', data), url:config.url};
+    }
+    // Erişim kapısı: girilen oyuncu kodu GET /board ile doğrulanır; yalnız
+    // 401 "geçersiz kod" sayılır. verify başarılıysa kod join'deki gibi
+    // saklanır; recheck saklı kodu yalnız denetler (hiçbir şey silinmez).
+    if (action === 'verify' || action === 'recheck') {
+      if (data.url && /^https:\/\//.test(data.url)) config.url = data.url.replace(/\/$/, '');
+      const token = action === 'verify' ? String(data.token || '').trim() : config.token;
+      if (!/^[A-Za-z0-9_-]{43}$/.test(token || '')) return {ok: false, reason: 'format'};
+      if (!config.url) return {ok: false, reason: 'offline'};
+      let response;
+      try {
+        response = await fetch(config.url + '/board', {headers: {Authorization: 'Bearer ' + token},
+          cache: 'no-store', signal: AbortSignal.timeout(12000)});
+      } catch (_) { return {ok: false, reason: 'offline'}; }
+      // Bu arada join/verify yeni kod kaydettiyse eski kodun yanıtı sayılmaz.
+      if (action === 'recheck' && token !== config.token) return {ok: true};
+      if (response.status === 401) {
+        // Kod silinmez; yalnız "geri alındı" işaretlenir (gelecek açılış kapıyı
+        // gösterir, nabız/skor gönderimi durur). Başarılı verify işareti kaldırır.
+        if (action === 'recheck') { config.revoked = true; try { persist(); } catch (_) {} }
+        return {ok: false, reason: 'invalid'};
+      }
+      if (response.status === 429) return {ok: false, reason: 'rate'};
+      if (!response.ok) return {ok: false, reason: 'server'};
+      let result;
+      try { result = await response.json(); } catch (_) { return {ok: false, reason: 'server'}; }
+      if (action === 'recheck' && token !== config.token) return {ok: true};
+      const me = result && (result.me === 1 || result.me === 2) ? result.me : undefined;
+      // Başka oyuncunun kodu: eski oyuncunun skorları yeni kodla gönderilmesin.
+      if (config.token && token !== config.token && me !== config.me) clearPlayerData();
+      config.token = token;
+      delete config.revoked;
+      if (me) config.me = me;
+      try { persist(); } catch (_) { /* gizli mod: yalnız bu oturum açılır */ }
+      lastBoard = result;
+      if (action === 'verify') { void flush(); void seen(true); }
+      return {ok: true, me: config.me};
     }
     if (action === 'join') {
       const token = data.token.trim();

@@ -776,13 +776,14 @@ class CompiledApp {
       _13052: x0 => globalThis.hukukBattleListen(x0),
       _13053: (x0,x1) => globalThis.hukukBattleCall(x0,x1),
       _13054: (module,f) => finalizeWrapper(f, function(x0) { return module.exports._13054(f,arguments.length,x0) }),
-      _13055: (x0,x1) => globalThis.hukukSocialCall(x0,x1),
-      _13056: x0 => globalThis.hukukListenInvites(x0),
-      _13057: (module,f) => finalizeWrapper(f, function(x0) { return module.exports._13057(f,arguments.length,x0) }),
-      _13058: (x0,x1) => globalThis.sfxLoad(x0,x1),
-      _13059: (x0,x1) => globalThis.sfxPlay(x0,x1),
-      _13060: x0 => globalThis.sfxSetVolume(x0),
-      _13061: x0 => globalThis.musicSetVolume(x0),
+      _13055: x0 => globalThis.localStorage.getItem(x0),
+      _13056: (x0,x1) => globalThis.hukukSocialCall(x0,x1),
+      _13057: x0 => globalThis.hukukListenInvites(x0),
+      _13058: (module,f) => finalizeWrapper(f, function(x0) { return module.exports._13058(f,arguments.length,x0) }),
+      _13059: (x0,x1) => globalThis.sfxLoad(x0,x1),
+      _13060: (x0,x1) => globalThis.sfxPlay(x0,x1),
+      _13061: x0 => globalThis.sfxSetVolume(x0),
+      _13062: x0 => globalThis.musicSetVolume(x0),
 
     };
 

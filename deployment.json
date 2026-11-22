@@ -1,8 +1,3 @@
 {
-  "source_commit": "531a5ca0b89574ac8c568852ac31e5ba9d01be44",
-  "built_at": "2026-11-22T21:39:28Z",
-  "checks": "flutter analyze (no issues); flutter test; release build with base-href /hukuk-reels/",
-  "change": "Corner photos are loaded from packed assets",
-  "pubspec_lock_sha256": "b6af5c71d9f0c982b4aef7ec780d562b3e4eb39fc4f5ce3ae80938c482319f8f",
-  "app_build": "3b8471de1a7406f8"
+  "app_build": "ce9049bf08574b60"
 }
