@@ -56,4 +56,34 @@ void main() {
     expect(store.trips.map((t) => t.destination), ['İstanbul', 'Ankara']);
     expect(store.changes.value, greaterThan(changes));
   });
+
+  test('player id is forgotten after leaving the group', () async {
+    final store = HomeStore.instance;
+    var reply = <String, dynamic>{'connected': true, 'me': 2};
+    store.call = (action, [data = const {}]) async => reply;
+
+    await store.refresh(force: true);
+    expect(store.me, 2);
+    expect(store.isAri, isTrue);
+
+    // Bağlı yanıt kimliksiz gelirse bilinen oyuncu korunur.
+    reply = {'connected': true};
+    await store.refresh(force: true);
+    expect(store.isAri, isTrue);
+
+    // Gruptan çıkış: /home kimliksiz ve bağlantısız döner.
+    reply = {'connected': false};
+    var changes = store.changes.value;
+    await store.refresh(force: true);
+    expect(store.me, isNull);
+    expect(store.isAri, isFalse);
+    expect(store.changes.value, greaterThan(changes));
+
+    // Liderlik tablosundaki "leave" de oyuncuyu unutturur ve bildirir.
+    store.me = 2;
+    changes = store.changes.value;
+    store.forgetPlayer();
+    expect(store.isAri, isFalse);
+    expect(store.changes.value, changes + 1);
+  });
 }

@@ -31,6 +31,14 @@ Future<void> _tab(WidgetTester tester, String area) async {
   await _frames(tester, 300);
 }
 
+/// Sahte sunucu: oyuncu kimliği [m] (null → gruba bağlı değil).
+void _setMe(int? m) {
+  HomeStore.instance
+    ..me = m
+    ..call = (action, [data = const {}]) async =>
+        m == null ? {'connected': false} : {'connected': true, 'me': m};
+}
+
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({'flower_surprise_seen_v2': true});
@@ -103,8 +111,8 @@ void main() {
 
   testWidgets('home update button sits left of the flower and reports',
       (tester) async {
-    HomeStore.instance.me = 2;
-    addTearDown(() => HomeStore.instance.me = null);
+    _setMe(2);
+    addTearDown(() => _setMe(null));
     await _shell(tester, const Size(393, 852));
     final update = find.byKey(const ValueKey('home-update'));
     final flower = find.bySemanticsLabel('Çiçeğin');
@@ -118,7 +126,7 @@ void main() {
 
   for (final me in const [1, null]) {
     testWidgets('flower button is hidden from player $me', (tester) async {
-      HomeStore.instance.me = me;
+      _setMe(me);
       await _shell(tester, const Size(393, 852));
       expect(ProgressService.instance.flowerSurpriseSeen, isTrue);
       expect(find.byKey(const ValueKey('home-update')), findsOneWidget);

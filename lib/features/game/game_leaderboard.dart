@@ -7,6 +7,7 @@ import '../../core/services/progress_service.dart';
 import '../../core/services/social_bridge.dart';
 import '../../core/services/avatar_sync.dart';
 import '../../core/services/avatar_bridge.dart';
+import '../home/home_store.dart';
 import '../profile/profile_avatar.dart';
 import '../../core/widgets/pixel_logo.dart';
 import '../../core/widgets/pixel_text.dart';
@@ -145,7 +146,10 @@ class _GameLeaderboardState extends State<GameLeaderboard>
     });
     // Do not insert an await here: Safari requires the permission call inside the tap.
     var result = await socialCall(action, payload);
-    if (action == 'leave') AvatarSync.instance.clearPeers();
+    if (action == 'leave') {
+      AvatarSync.instance.clearPeers();
+      HomeStore.instance.forgetPlayer();
+    }
     if (action == 'join' && result['error'] == null) {
       result = await AvatarSync.instance.sync(result);
     }

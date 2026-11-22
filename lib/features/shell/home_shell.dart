@@ -103,6 +103,9 @@ class HomeShellState extends State<HomeShell> {
   Future<void> _maybeShowFlower() async {
     if (!mounted || !_flowerReady || _flowerOffered) return;
     if (!HomeStore.instance.isAri || _progress.flowerSurpriseSeen) return;
+    // Başka bir ekran açıksa üstüne binilmez; sonraki değişiklikte ya da
+    // açılışta yeniden denenir.
+    if (ModalRoute.of(context)?.isCurrent != true) return;
     _flowerOffered = true;
     await showFlowerSurpriseGate(context);
     // Ana sayfa çiçek düğmesini göstersin: açık sekme yeni örnek alır.

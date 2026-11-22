@@ -31,6 +31,11 @@ Future<void> showFlowerSurpriseGate(BuildContext context) async {
       'Evet\'e bas 💗',
     ],
     onYes: (gate) {
+      // Soru açıkken oyuncu değişmiş olabilir (ör. gruptan çıkış).
+      if (!HomeStore.instance.isAri) {
+        Navigator.of(gate).pop();
+        return;
+      }
       AudioService.instance.playSpecial(kFlowerSong);
       ProgressService.instance.setFlowerSurpriseSeen(true);
       Navigator.of(gate).pushReplacement(_fade(const FlowerSurpriseScreen()));

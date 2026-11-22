@@ -20,6 +20,14 @@ Future<void> _play(WidgetTester tester, double seconds) async {
   }
 }
 
+/// Sahte sunucu: oyuncu kimliği [m] (null → gruba bağlı değil).
+void _setMe(int? m) {
+  HomeStore.instance
+    ..me = m
+    ..call = (action, [data = const {}]) async =>
+        m == null ? {'connected': false} : {'connected': true, 'me': m};
+}
+
 void main() {
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
@@ -27,7 +35,7 @@ void main() {
   });
 
   // Oyuncu kimliği (testlerde sahte sunucu kimlik döndürmez).
-  setUp(() => HomeStore.instance.me = null);
+  setUp(() => _setMe(null));
 
   test('message, glyphs, song and sprite data are consistent', () {
     expect(kFlowerMessageLines.join(' '), kFlowerMessage);
@@ -77,7 +85,7 @@ void main() {
 
   testWidgets('first launch after update shows the surprise once (ari)',
       (tester) async {
-    HomeStore.instance.me = 2;
+    _setMe(2);
     await ProgressService.instance.setFlowerSurpriseSeen(false);
     await tester.pumpWidget(const HukukReelsApp());
     await tester.pump();
@@ -113,7 +121,7 @@ void main() {
   for (final me in const [1, null]) {
     testWidgets('player $me never sees the surprise or the flower button',
         (tester) async {
-      HomeStore.instance.me = me;
+      _setMe(me);
       await ProgressService.instance.setFlowerSurpriseSeen(false);
       await tester.pumpWidget(const HukukReelsApp());
       await tester.pump();
@@ -151,7 +159,7 @@ void main() {
     expect(find.byType(ConfidenceGateScreen), findsNothing);
 
     // /home yanıtı sonradan geldi: me == 2.
-    HomeStore.instance.me = 2;
+    _setMe(2);
     HomeStore.instance.changes.value++;
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
