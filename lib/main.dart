@@ -8,6 +8,7 @@ import 'core/services/audio_service.dart';
 import 'core/services/invite_bridge.dart';
 import 'core/services/progress_service.dart';
 import 'features/game/block_battle_lobby.dart';
+import 'features/gate/access_gate.dart';
 import 'features/shell/home_shell.dart';
 import 'core/services/sfx_service.dart';
 import 'core/utils/font_prewarm.dart';
@@ -42,14 +43,16 @@ void main() async {
   WidgetsBinding.instance.addPostFrameCallback(
       (_) => Timer(const Duration(milliseconds: 400), prewarmFallbackFonts));
 
-  WidgetsBinding.instance.addPostFrameCallback((_) => listenInvites((room) {
-        BlockBattleLobby.inviteOpened = true;
-        final nav = navigatorKey.currentState;
-        if (nav == null) return;
-        nav.popUntil((route) => route.isFirst);
-        nav.push(MaterialPageRoute<void>(
-            builder: (_) => BlockBattleLobby(invite: room)));
-      }));
+  // Erişim kapısı kapalıyken hiçbir şey açılmaz; davet kapı açılınca işlenir.
+  WidgetsBinding.instance.addPostFrameCallback(
+      (_) => listenInvites((room) => AccessGate.whenUnlocked(() {
+            BlockBattleLobby.inviteOpened = true;
+            final nav = navigatorKey.currentState;
+            if (nav == null) return;
+            nav.popUntil((route) => route.isFirst);
+            nav.push(MaterialPageRoute<void>(
+                builder: (_) => BlockBattleLobby(invite: room)));
+          })));
 }
 
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -70,8 +73,9 @@ class HukukReelsApp extends StatelessWidget {
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       // iPhone'un ana ekran çizgisi ve çentiği için güvenli alan (web).
       builder: (context, child) => WebSafeArea(child: child!),
-      // Alt sekmeler: Ana sayfa, Oyunlar, Çalış, Profil.
-      home: const HomeShell(),
+      // Alt sekmeler: Ana sayfa, Oyunlar, Çalış, Profil. Oyuncu kodu
+      // olmayan cihaz yalnız erişim kapısını görür.
+      home: const AccessGate(child: HomeShell()),
     );
   }
 }
