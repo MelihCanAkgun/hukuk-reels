@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/audio_service.dart';
 import '../../core/services/progress_service.dart';
+import '../home/home_store.dart';
 import '../intro/confidence_gate_screen.dart';
 import 'flower_surprise_screen.dart';
 
@@ -14,9 +15,11 @@ Route<void> _fade(Widget page) => PageRouteBuilder<void>(
 
 /// Güncellemeden sonraki ilk açılış: kaçan "Hayır"lı soru → çiçek.
 /// Sürpriz, "Evet"e basılınca görülmüş sayılır; ondan önce uygulama
-/// kapanırsa bir sonraki açılışta yeniden sorulur.
-Future<void> showFlowerSurpriseGate(BuildContext context) {
-  return Navigator.of(context).push(_fade(ConfidenceGateScreen(
+/// kapanırsa bir sonraki açılışta yeniden sorulur. Yalnız ari'ye
+/// ([HomeStore.isAri]) gösterilir.
+Future<void> showFlowerSurpriseGate(BuildContext context) async {
+  if (!HomeStore.instance.isAri) return;
+  await Navigator.of(context).push(_fade(ConfidenceGateScreen(
     badge: '💌 YENİ GÜNCELLEME 💌',
     title: 'Sana bir sürprizim var…\nGörmek ister misin?',
     taunts: const [
@@ -35,8 +38,9 @@ Future<void> showFlowerSurpriseGate(BuildContext context) {
   )));
 }
 
-/// 🌷 düğmesi: çiçeği istediği zaman yeniden aç.
-Future<void> openFlower(BuildContext context) {
+/// 🌷 düğmesi: çiçeği istediği zaman yeniden aç (yalnız ari).
+Future<void> openFlower(BuildContext context) async {
+  if (!HomeStore.instance.isAri) return;
   AudioService.instance.playSpecial(kFlowerSong);
-  return Navigator.of(context).push(_fade(const FlowerSurpriseScreen()));
+  await Navigator.of(context).push(_fade(const FlowerSurpriseScreen()));
 }

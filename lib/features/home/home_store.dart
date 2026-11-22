@@ -28,6 +28,10 @@ class HomeStore with WidgetsBindingObserver {
 
   /// Bu cihazdaki oyuncu (1 = yönetici mqcan, 2 = ari).
   int? me;
+
+  /// Bu cihazdaki oyuncu ari (2. oyuncu) mu? Çiçek sürprizi yalnız ona
+  /// gösterilir; kimlik henüz bilinmiyorsa (null) hiçbir şey gösterilmez.
+  bool get isAri => me == 2;
   bool connected = false, loaded = false;
 
   /// Son yenilemede sunucuya ulaşılamadıysa (liste önbellekten).

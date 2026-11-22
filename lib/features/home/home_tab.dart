@@ -175,8 +175,9 @@ class _HomeTabState extends State<HomeTab> {
         actions: [
           _updateButton(),
           const SizedBox(width: 6),
-          // Sürpriz görülmeden 🌷 görünmesin (spoiler olmasın).
-          if (_progress.flowerSurpriseSeen) ...[
+          // Çiçek yalnız ari'ye; sürpriz görülmeden 🌷 görünmesin (spoiler
+          // olmasın).
+          if (_store.isAri && _progress.flowerSurpriseSeen) ...[
             _flowerButton(),
             const SizedBox(width: 6),
           ],
@@ -480,6 +481,7 @@ class _HomeTabState extends State<HomeTab> {
       child: Pressable(
         onTap: () => openFlower(context),
         onLongPress: () async {
+          if (!_store.isAri) return;
           await _progress.setFlowerSurpriseSeen(false);
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
