@@ -56,8 +56,8 @@ class AppConfig {
   /// Boş bırakırsan ([]) o köşede görsel olmaz.
   static const List<String> cornerImages = [
     'assets/images/spider_cat.png', // sol üst
-    'assets/images/dopdolu.jpg',    // sağ üst
-    'assets/images/ani.jpg',        // sol alt
+    'assets/images/k2.bin',        // sağ üst
+    'assets/images/k3.bin',        // sol alt
     'assets/images/cat_pink.png',   // sağ alt
   ];
 

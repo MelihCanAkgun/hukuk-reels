@@ -1,6 +1,9 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/services/engine_bridge.dart';
+import '../../../core/utils/packed_asset.dart';
 
 /// Soru kartının dört köşesine yerleştirilen dekoratif görseller.
 ///
@@ -58,15 +61,32 @@ class CornerDecorations extends StatelessWidget {
         opacity: opacity,
         child: Transform.rotate(
           angle: angle,
-          child: Image.asset(
-            asset,
-            width: size,
-            height: size,
-            fit: BoxFit.contain,
-            // Büyük PNG'ler küçük çözünürlükte decode edilsin (bellek + hız).
-            cacheWidth: decodeWidth(360),
-            errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-          ),
+          child: PackedAsset.isPacked(asset)
+              ? FutureBuilder<Uint8List?>(
+                  future: PackedAsset.load(asset),
+                  builder: (_, snap) {
+                    final bytes = snap.data;
+                    if (bytes == null) return SizedBox(width: size, height: size);
+                    return Image.memory(
+                      bytes,
+                      width: size,
+                      height: size,
+                      fit: BoxFit.contain,
+                      cacheWidth: decodeWidth(360),
+                      gaplessPlayback: true,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    );
+                  },
+                )
+              : Image.asset(
+                  asset,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.contain,
+                  // Büyük PNG'ler küçük çözünürlükte decode edilsin (bellek + hız).
+                  cacheWidth: decodeWidth(360),
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
         ),
       ),
     );
