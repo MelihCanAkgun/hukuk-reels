@@ -1,81 +1,204 @@
 # Hukuk Reels · Oyunlar
 
-Flutter ile mini oyunlar (Block Blast, Flappy Silly Cat, Subway Silly, Adliye Kulesi), ders özetleri ve hukuk soru bankası. Uygulama beş sekmeden oluşur (`lib/features/shell/home_shell.dart`): **Ana sayfa** (selam, kavuşma sayacı, mantar pano, kaldığın yerden), **Oyunlar**, **Çalış** (özetler ve soru pratiği), **İzle** (ortak izleme listesi) ve **Profil**. Sekme çubuğu telefonda ve dikey iPad'de altta, geniş yatay ekranda soldadır; etkin sekmeye yeniden dokunmak başa kaydırır. Flutter web iOS'un güvenli alanını bilmediği için `web/pwa.js` alt boşluğu (ana ekran çizgisi) CSS `env(safe-area-inset-*)` ile ölçer, `WebSafeArea` bunu MediaQuery'ye ekler; ana ekrandan açılan uygulamada değer gelmezse Face ID'li iPhone'larda 34 (yatayda 21) piksel varsayılır.
+**Flutter ile yazılmış, çevrimdışı çalışan bir web uygulaması (PWA): piksel-arcade mini oyunlar, gerçek zamanlı 1v1 mod, reels tarzı hukuk soru pratiği ve kalemle not alınabilen ders özetleri. Sosyal özellikler Cloudflare Workers + D1 üzerinde çalışır.**
 
-Sağ üstteki müzik düğmesi **Ses** panelini açar: çalan parça, ilerleme ve sarma, çal/durdur, önceki/sonraki, parça listesi; müzik ve oyun efektleri için ayrı ses düzeyi ve sessize alma.
+[![Flutter](https://img.shields.io/badge/Flutter-%E2%89%A53.27-02569B?logo=flutter)](https://flutter.dev)
+[![Dart](https://img.shields.io/badge/Dart-%E2%89%A53.6-0175C2?logo=dart)](https://dart.dev)
+[![PWA](https://img.shields.io/badge/PWA-çevrimdışı-5A0FC8)](https://melihcanakgun.github.io/hukuk-reels/)
+[![Cloudflare Workers](https://img.shields.io/badge/backend-Cloudflare%20Workers%20%2B%20D1-F38020?logo=cloudflare)](backend/)
 
-## Çalıştırma
+**Canlı demo:** https://melihcanakgun.github.io/hukuk-reels/
 
-Flutter 3.41.6 / Dart 3.11.4 ile doğrulandı. Apple hedefleri proje düzeyinde Swift Package Manager kullanır.
+> iPhone/iPad'de Safari ile açıp **Paylaş → Ana Ekrana Ekle** diyerek uygulama gibi kullanılabilir. İlk önbelleklemeden sonra oyunlar internet olmadan açılır.
+
+Uygulama küçük, kapalı bir kullanıcı grubu için geliştirildi. Sosyal özellikler (sıralama, 1v1, bildirimler, izleme listesi) bu nedenle kendi backend'inize bağlanmadan çalışmaz. Tek kişilik oyunlar ve çalışma araçları backend olmadan da kullanılabilir.
+
+---
+
+## Öne çıkanlar
+
+- **Tek kod tabanı, üç hedef:** Web/PWA birincil hedef. Aynı kod macOS ve iOS için native olarak da derlenir. Tarayıcıya özgü yetenekler koşullu import'lu köprülerle ayrılmıştır.
+- **İstemci ve sunucuda aynı oyun kuralları:** 1v1 kural motoru Dart'ta yazılır, `dart compile js` ile Worker'a derlenir. Hamleleri sunucu, istemcinin kullandığı kodun aynısıyla doğrular.
+- **Gerçek zamanlı çok oyunculu mod:** Cloudflare Durable Objects üzerinde WebSocket tabanlı maç odaları.
+- **Çevrimdışı öncelikli PWA:** Özel service worker, içerikten türetilen sürüm kimliği ve kullanıcı onaylı güncelleme akışı.
+- **Performans odaklı web çıktısı:** Varsayılan motor WebAssembly (skwasm), CanvasKit yedekte. Motor dosyaları CDN'siz, aynı sunucudan gelir.
+
+---
+
+## Özellikler
+
+### Oyunlar
+- **Block Blast:** 8×8 tahta, sürükle-bırak, kombo/puan sistemi ve "tahta temiz" bonusu. Her tepsideki üç parça, en az bir oynanabilir yerleştirme sırası olacak şekilde üretilir. İlerleme her hamlede kaydedilir.
+- **1v1 Battle:** İki oyuncu aynı parça sırasıyla Block Blast'ta gerçek zamanlı yarışır. Can sistemi, puan eşiklerinde rakibe hasar ve dört joker (dondur, genişlet, yansıt, tuz) var. Bağlantısı kopan oyuncunun yeniden bağlanmak için 15 saniyesi olur.
+- **Flappy Silly Cat**, **Subway Silly** ve **Adliye Kulesi** (kat dizme) mini oyunları. Çizimler `CustomPainter` ile yapılır, sprite'lar Python betikleriyle üretilir.
+- Her oyun için **sıralama tablosu** ve 7 günlük turlarla **haftalık meydan okuma** (tur başına piksel kupa).
+
+### Çalışma araçları
+- **Reels tarzı soru pratiği:** Dikey kaydırmalı kartlarla 4 şıklı sorular. Her test havuzdan rastgele en fazla 50 soru çeker. Çözülen sorular sonraki testlerde gelmez, yarıda kalan test kaldığı yerden sürer. Her sorunun cevaptan sonra gösterilen bir açıklaması var.
+- **Soru bankası:** Medeni Usul Hukuku konuları (İspat ve Deliller, Geçici Hukuki Korumalar, Kanun Yolları, Davaya Son Veren Taraf İşlemleri, Alternatif Uyuşmazlık Çözümleri, Hüküm ve Kesin Hüküm).
+- **Yanlışları tekrar:** Yanlış yapılan sorular en çok yanlıştan başlayarak listelenir ve kayıt tutmayan ayrı bir turda yeniden çözülebilir. Ayrıca yanlış sorulara "vurulan" oyunlaştırılmış bir tekrar modu var.
+- **Ders özetleri ve not modu:** 19 konuluk İcra Hukuku şema özeti. Özet, iPad ve Apple Pencil için Flutter dışında, saf DOM/SVG ile yazılmış bir katmanda açılır. Basınca duyarlı kalem, fosforlu kalem, silgi ve kement aracı; bölüm içi arama, A4 yazdırma/PDF ve JSON yedek desteği var. Notlar cihazda IndexedDB'de vektör olarak saklanır. Özet metni güncellendiğinde eski notlar yeni konumlarına taşınır.
+
+> Not: Soru bölümü şu an bakım modundadır (`AppConfig.reelsMaintenance = true`), girişte "Bakımda" ekranı görünür. Kayıtlı ilerleme korunur.
+
+### Sosyal ve diğer
+- **İzleme listesi:** Paylaşımlı film/dizi listesi (TMDB araması, puan, yorum, bölüm takibi). Kartları sağa/sola kaydırarak ortak beğenileri bulan bir "ortak karar" modu var.
+- **Profil:** Piksel avatar düzenleyici, istatistikler ve ayarlar (görüntü motoru seçimi, "güncellemeyi denetle" dahil).
+- **Web Push bildirimleri:** Sıralamada geçilme, 1v1 daveti ve haftalık tur olayları için.
+
+### Platform
+- **Çevrimdışı PWA:** Service worker uygulama kabuğunu ve oyunları önbelleğe alır. Yeni sürüm geldiğinde sayfa kendiliğinden yenilenmez, kullanıcıya yenileme düğmesi gösterilir.
+- **Uyarlanır düzen:** Sekme çubuğu telefonda ve dikey iPad'de altta, geniş yatay ekranda soldadır. iOS güvenli alanı web'de de hesaba katılır.
+- **macOS ve iOS** native derlemeleri (Swift Package Manager ile).
+
+---
+
+## Teknoloji
+
+| Katman | Kullanılan |
+|---|---|
+| Uygulama | Flutter (≥ 3.27), Dart (≥ 3.6), Material 3, `CustomPainter` tabanlı oyun çizimi |
+| Paketler | `just_audio` (ses), `shared_preferences` (ilerleme kaydı), `flutter_localizations` (Türkçe) |
+| Web katmanı | Vanilla JS köprüleri (`web/*.js`), özel service worker (`web/sw.js`), IndexedDB, Web Push |
+| Backend | Cloudflare Workers, D1 (SQLite), Durable Objects (1v1 maç odaları, WebSocket), `web-push` |
+| Paylaşılan kurallar | Dart → JS derlenen 1v1 kural motoru (`tools/build_battle.py`) |
+| Dağıtım | GitHub Pages, `tools/build_web.py` |
+| Araçlar | Python (sprite, logo ve ses efekti üretimi), Node `node:test`, Wrangler |
+
+---
+
+## Mimari
+
+```
+┌─────────────────────────── Flutter (lib/) ───────────────────────────┐
+│  HomeShell (sekmeli iskelet)                                         │
+│   ├─ home/      Ana sayfa                                            │
+│   ├─ games/     Oyun ızgarası → game/ (Block Blast, Battle, Flappy,  │
+│   │             Subway, Tower) + weekly/ (haftalık meydan okuma)     │
+│   ├─ study/     reels/ (soru kartları), beat/, summaries/            │
+│   ├─ films/     İzleme listesi + kaydırmalı ortak karar              │
+│   └─ profile/   Avatar, istatistik, ayarlar                          │
+│                                                                      │
+│  core/services/  *_bridge.dart  ── koşullu import ──┐                │
+│                  (_web.dart / _stub.dart)           │                │
+└─────────────────────────────────────────────────────┼────────────────┘
+                                                      ▼
+        web/  social.js · battle.js · notes/ · audio.js · sw.js · update.js
+                                                      │ HTTPS / WebSocket
+                                                      ▼
+        backend/  Cloudflare Worker ── D1 (skorlar, filmler, haftalık tur …)
+                                  └── Durable Object BattleRoom (1v1 maç)
+```
+
+- **Özellik odaklı klasörleme:** Her ekran ailesi `lib/features/<özellik>/` altında. Ortak servisler, widget'lar ve modeller `lib/core/` altında.
+- **Platform köprüleri:** Tarayıcıya özgü her yetenek (ses, bildirim, not katmanı, güncelleme, güvenli alan…) bir `*_bridge.dart` arayüzünün arkasındadır. Web'de `*_bridge_web.dart` JS'ye bağlanır, native'de `*_bridge_stub.dart` devre dışı kalır. Böylece aynı kod macOS/iOS'ta da derlenir.
+- **Saf oyun motorları:** `block_blast_engine.dart`, `block_battle_core.dart` ve `tower_rules.dart` UI'dan bağımsız saf Dart kodudur ve doğrudan birim testlerle sınanır. 1v1 çekirdeği aynı zamanda Worker'a derlenir.
+- **Önce önbellek:** Ana sayfa, izleme listesi ve meydan okuma ekranları cihazdaki son kopyayla hemen açılır, güncel veri arka planda gelir.
+- **Flutter dışı not katmanı:** Kalem gecikmesi Flutter'ın kare zamanlamasına bağlı kalmasın diye özet ve not modu `web/notes/` altında DOM/SVG ile yazıldı.
+- **Backend güvenliği:** Uç noktalar Bearer kimlik doğrulaması ve origin denetimiyle korunur. Şema `backend/migrations/` altında sıralı D1 migration'larıyla yönetilir; sırlar depoya girmez.
+
+---
+
+## Başlarken
+
+### Gereksinimler
+- Flutter SDK ≥ 3.27 (Dart ≥ 3.6). Proje Flutter 3.41.6 / Dart 3.11.4 ile doğrulanmıştır.
+- Web yayın paketi için Python 3, web ve backend testleri için Node.js
+- macOS/iOS derlemesi için Xcode
+
+### Geliştirme
 
 ```sh
 flutter pub get
-flutter test
-flutter analyze
-node test/web_runtime_test.cjs
-node test/notes_ink_test.cjs
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer flutter run -d macos
+flutter run -d chrome          # web
+flutter run -d macos           # native macOS
 ```
 
-Web/PWA yayın paketi için **aşağıdaki betiği kullanın**. Sadece `flutter build web`, özel çevrimdışı worker'ı hazırlamaz.
+### Web/PWA yayın paketi
+
+Tek başına `flutter build web` yeterli değildir, çünkü çevrimdışı service worker'ı hazırlamaz. Yayın paketi için betik kullanılır:
 
 ```sh
-python3 tools/build_web.py
-# GitHub Pages alt dizini örneği:
 python3 tools/build_web.py --base-href /hukuk-reels/
 python3 -m http.server 8765 --bind 127.0.0.1 --directory build/web
 ```
 
-Çıktı `build/web` içindedir. Oyunlar ilk başarılı önbelleklemeden sonra çevrimdışı açılır. Müzik internet ister. Yeni sürüm açık oyunu otomatik yenilemez; oyuncuya yenileme düğmesi gösterilir. Betik sürüm kimliğini içeriklerden üretir. CanvasKit aynı sunucudan yüklenir; CDN gerekmez.
+Betik `flutter build web --release --wasm --no-web-resources-cdn` çalıştırır (ek argümanlar Flutter'a aktarılır), kullanılmayan motor dosyalarını ayıklar, içerikten sürüm kimliği üretir ve çevrimdışı service worker'ı yazar. Çıktı `build/web` klasörüne düşer.
 
-## Özetler ve not modu
-
-**Çalış** sekmesindeki **Özetler** bölümü ders özetlerini listeler (şimdilik İcra Hukuku). Özet, Flutter'ın üstünde açılan ayrı bir DOM katmanında gösterilir (`web/notes/notes.js`, `notes.css`). Kalem gecikmesi Flutter'ın kare zamanlamasına bağlı olmasın diye bu katman Flutter'ın dışındadır. Not modu iPad ve Apple Pencil için tasarlanmıştır.
-
-- **Girdi:** Apple Pencil (`pointerType: pen`) yazar, parmak kaydırır, iki parmak yakınlaştırır. İki parmakla dokunma geri alır, üç parmakla dokunma yineler, tek parmakla çift dokunma 2 kat yakınlaştırır ya da sayfaya sığdırır. Kalem değerken ve büyük temas alanlı dokunuşlarda kaydırma yapılmaz (avuç içi). Yakınlaştırma oranı ekran döndürülünce korunur. Masaüstünde fare de yazar.
-- **Araçlar:** basınca duyarlı kalem, fosforlu kalem, çizgi ve hassas silgi (istenirse yalnız fosforluyu siler), kement. Kement seçimi taşınır, köşesindeki tutamaçla büyütülür, çoğaltılır, silinir ya da renklendirilir (kalem ve fosforlu kendi paletinden renk alır). Çizerken kalemi bekletmek çizgiyi düzeltir. Fosforlu çizgi düzleşir ve altındaki satırın ortasına oturur; daire ve karalamalar korunur (menüden kapatılabilir).
-- **Gezinme ve arama:** İçindekiler bulunulan bölümü ve bölüm başına not sayısını gösterir; başlıkta o anki bölüm yazar. Arama Türkçe harf, şapka ve büyük/küçük harf farkı gözetmez.
-- **Klavye:** ⌘Z / ⇧⌘Z geri al / yinele, ⌘F ara (Enter sonraki, ⇧Enter önceki), ⌘P yazdır, ⌘A tümünü seç, ⌘0 sığdır, ⌘+ / ⌘− yakınlaştır, 1–4 araç seçer, Sil seçimi siler. Esc sırayla aramayı, seçimi, menüyü ve en son özeti kapatır.
-- **Araç çubuğu:** Genişlik ölçülerek adım adım sıkışır (başlık, etiket, arama, renkler menüye iner); telefon genişliğinde de taşmaz.
-- **Yazdırma / PDF:** Sayfa A4'lere bölünür. Satırlar, kutular ve notlar ortadan kesilmez; başlık, altındaki metinle aynı sayfada kalır. Kenarda not yoksa sayfa metin sütununa kırpılır. Altbilgide özet, bölüm, tarih ve sayfa numarası yazar. Notlar gizliyse temiz özet basılır.
-- **Saklama:** Notlar 1180 birimlik sabit sayfa koordinatlarında vektör olarak cihazda (IndexedDB `hukuk-notes`) tutulur; hesaba bağlı değildir. IndexedDB açılamaz ya da geç yanıt verirse notlar `localStorage`'a yazılır ve IndexedDB'ye ulaşılınca onunla birleştirilir. Menüden JSON yedek alınabilir ve geri yüklenebilir.
-- **Özet güncellenince:** Her kayıt sayfanın temelini de saklar: her bloğun anahtarı (bölüm, etiket, metin özeti) ve kutusu. Açılışta kayıtlı temel güncel sayfayla karşılaştırılır. Bloklar bölüm bölüm en uzun ortak alt dizi ile eşlenir ve her not ait olduğu bloğun yeni yerine kaydırılır; şekli bozulmaz. Metni değişen blokta komşu blokların kaymasından aradeğer alınır, sayfa sonundaki not alanı içeriğin sonuyla birlikte kayar. Temeli olmayan eski kayıtlarda, kaydın alındığı sürümün dondurulmuş metni (`summaries/<id>.v<sürüm>.js`, ör. `icra.v1.js`) görünmez bir sayfada ölçülür; bu dosyalar değiştirilmemelidir.
-- **Performans:** Notlar 1200 birimlik karolara (ayrı SVG'ler) bölünür; ekrandan uzak karolar gizlenir ve yolları ekrana yaklaşınca üretilir. Yollar 10x ölçekte tam sayılarla yazılır, noktalar Float32Array olarak saklanır.
-- **Yedek hatırlatması:** Not sayısı 40'ı geçince, ana ekrana eklenmemiş Safari'de 7 günde bir, uygulama olarak kullanılırken 21 günde bir yedek almayı hatırlatır (Safari ziyaret edilmeyen sitelerin verisini silebilir).
-- **Yeni özet:** `web/notes/summaries/<id>.js` içinde `window.hukukNotesRegister({id, title, version, html})` çağrılır, ardından `lib/features/summaries/summaries_screen.dart` içindeki `kSummaries` listesine eklenir. Metin değişince `version` artırılır. Kayıtlar ve yedekler temeli içerdiği için yeni sürümlerde dondurulmuş kopya gerekmez; yalnız temelsiz kayıtların sürümü (İcra için 1) dondurulur.
-
-## Haftalık meydan okuma ve ortak karar
-
-**Haftalık meydan okuma** (Oyunlar sekmesi, `lib/features/weekly/`): turu yönetici (1. oyuncu) elle başlatır, tur 7 gün sürer. Dört oyunun da o turdaki en iyi skoru sayılır; oyunu yüksek skor, turu daha çok oyun alan kazanır. Eşitlikte sunucu yazı tura atar, uygulama sonucu animasyonla gösterir. Her turun kupası farklıdır (yedi piksel kupa, `weekly_trophies.dart`; adlar sunucudaki `TROPHIES` ile aynı sırada). Kazanılan kupalar meydan okuma ekranındaki rafta ve Profil'de rozet olarak durur. Oynanan her skor `web/social.js` içinde zamanıyla saklanır ve çevrimdışıyken de kaybolmaz; hangi tura sayılacağına sunucu karar verir.
-
-**Ortak karar** (İzle sekmesindeki şerit, `film_swipe.dart`, `film_swipe_screen.dart`): biri 15 kartlık kısa bir deste başlatır (listeden izlenmemiş 10 yapım ve 5 TMDB önerisi), ikisi de kendi zamanında kaydırır: sağa beğen, sola geç, yukarı süper beğen (kişi başı bir kez). İkisi de bitirince ortak beğeniler görünür, süper beğenilenler başta; eşleşen öneri listeye eklenir. Oylar hemen ekrana işlenir ve arka planda sırayla gönderilir; bağlantı kopsa da kaydırma beklemez.
-
-## Akıcılık ve bağlantıdan bağımsızlık
-
-- **Önce önbellek:** Ana sayfa, İzle ve meydan okuma verisi cihazdaki son kopyayla anında açılır (`{cached: true}` isteği ağa gitmez), güncel veri arkadan gelir. Sunucudaki veri aynıysa köprü `{unchanged: true}` döner; liste yeniden çözülmez, ekran yeniden kurulmaz.
-- **Yedek yazı tipleri:** Emoji ve semboller paketteki yazı tiplerinde yoktur; Flutter web bunları ilk karşılaştığında Google'dan parça parça indirir ve her parçada bütün metinleri yeniden dizer (kullanım sırasında takılma). `lib/core/utils/font_prewarm.dart` hepsini açılıştan hemen sonra yükletir; `test/font_prewarm_test.dart` `lib/` altındaki her emojinin listede olduğunu denetler.
-- **Kalıcı medya önbelleği:** `web/sw.js` yedek yazı tiplerini (`fonts.gstatic.com`) ve film afişlerini (`image.tmdb.org`, en çok 600) sürümden bağımsız `hukuk-media-v1` önbelleğinde tutar: bir kez iner, sonra ağ gerekmez.
-- **Sekmeler:** Sekme değişince yalnız açılan sekme yeniden kurulur (`home_shell.dart`); gizli sekmeler aynı örnekle kalır.
-
-## Apple uygulamaları
+1v1 kural motoru değiştiğinde Worker için yeniden derlenir:
 
 ```sh
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer flutter build macos --release
-DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer flutter build ios --simulator --no-codesign
+python3 tools/build_battle.py
 ```
 
-Bu makinede macOS release derlemesi başarılıdır. iOS simülatörü için Xcode'un istediği iOS 26.5 bileşeni eksiktir; Xcode > Settings > Components üzerinden kurulmalıdır. Cihaz/imzalı dağıtım için kendi bundle identifier ve Apple geliştirici takımınızı seçin. Üretilmiş native uygulama ikonları Flutter şablonudur; mağaza yayını öncesi kişiselleştirilmelidir.
+### Apple derlemeleri
 
-## Oyun kuralları
+```sh
+flutter build macos --release
+flutter build ios --simulator --no-codesign
+```
 
-Block Blast motoru `lib/features/game/block_blast_engine.dart` içindedir. 8×8 tahta, mevcut 33 şekil yönelimi ve üçlü tepsi kullanılır. Üretici, sanal tahtada üç hamlenin tamamının oynanabildiği bir sıra oluşturup parçaları karıştırır. Oyuncunun her tercihinde çözüm garantisi verilmez.
+İmzalı cihaz dağıtımı için kendi bundle identifier'ınızı ve Apple geliştirici takımınızı seçmeniz gerekir.
 
-- Yerleştirme: hücre sayısı kadar puan.
-- Temizleme: `10 × çizgi sayısı² × kombo`.
-- Tahtanın tamamen temizlenmesi: ilave 300 puan.
-- Temizleme kombo sayısını bir artırır; arka arkaya üç temizlemesiz hamle komboyu sıfırlar. Süre sınırı yoktur.
-- Tahta, tepsi, puan, kombo ve devam hakkı her hamlede kaydedilir. Kural işlemi animasyondan önce tamamlanır.
+### Backend (isteğe bağlı)
 
-Bu formül, Hungry Studio'nun yayımlanmamış algoritmasının birebir kopyası olduğu iddiasını taşımaz. Mevcut görseller ve WAV sesleri kullanılır; kombo arttıkça efekt hızı yükselir.
+Sosyal özellikler kendi Cloudflare hesabınızda bir Worker, D1 veritabanı ve Durable Object ister. Yapılandırma `backend/wrangler.jsonc`, şema `backend/schema.sql` ve `backend/migrations/` altındadır.
 
-[İnceleme, değişiklikler ve kalan işler](docs/APPLE_GAME_REVIEW.md)
+```sh
+cd backend
+npm install
+npm run dev        # wrangler dev
+npm run deploy     # wrangler deploy
+```
+
+---
+
+## Testler
+
+```sh
+flutter analyze
+flutter test                        # test/*.dart: oyun motorları, widget'lar, servisler
+node test/web_runtime_test.cjs      # web köprüleri
+node test/notes_ink_test.cjs        # not katmanı
+node test/web_update_test.cjs       # güncelleme akışı
+
+cd backend && npm install && npm test   # Worker, 1v1 oda/ağ, kural eşliği, güvenlik (node --test)
+```
+
+Backend testleri arasında istemci ile Worker'daki 1v1 kurallarının aynı sonucu ürettiğini denetleyen bir eşlik testi (`battle-parity.test.js`) bulunur.
+
+---
+
+## Proje yapısı
+
+```
+hukuk-reels/
+├── lib/
+│   ├── main.dart              # Uygulama girişi, tema
+│   ├── app/                   # Tema
+│   ├── core/
+│   │   ├── config/            # AppConfig (uygulama ayarları, bakım anahtarı)
+│   │   ├── data/              # Soru bankası
+│   │   ├── models/            # Soru ve kategori modelleri
+│   │   ├── services/          # İlerleme, ses, platform köprüleri (web/stub)
+│   │   ├── utils/             # Yazı tipi ön yükleme
+│   │   └── widgets/           # Piksel yazı/logo, Pressable, güvenli alan
+│   └── features/              # shell, home, games, game, weekly, study,
+│                              # reels, beat, summaries, films, profile …
+├── web/                       # index.html, manifest, service worker, JS köprüleri
+│   └── notes/                 # Özet + Apple Pencil not katmanı
+├── backend/                   # Cloudflare Worker, D1 şeması/migration'lar, testler
+├── test/                      # Flutter (.dart) ve web (.cjs) testleri
+├── tools/                     # build_web.py, build_battle.py, sprite/logo/sfx üreticileri
+├── assets/                    # Görseller, ses efektleri, yazı tipleri (Inter, Pixelify Sans)
+├── docs/                      # Teknik inceleme notları
+├── deploy/                    # GitHub Pages workflow şablonu
+├── ios/  macos/               # Native Apple hedefleri
+└── pubspec.yaml
+```
+
+---
+
+Lisans: henüz belirtilmedi.
+
+<sub>Geliştiren: [Melih Can Akgün](https://github.com/MelihCanAkgun)</sub>
