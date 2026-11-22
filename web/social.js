@@ -221,6 +221,32 @@
     if (action === 'battleCreate' || action === 'battleJoin') {
       return {...await api(action === 'battleCreate' ? '/battle/create' : '/battle/join', data), url:config.url};
     }
+    // Erişim kapısı: girilen oyuncu kodu GET /board ile doğrulanır; yalnız
+    // 401 "geçersiz kod" sayılır. verify başarılıysa kod join'deki gibi
+    // saklanır; recheck saklı kodu yalnız denetler (hiçbir şey silinmez).
+    if (action === 'verify' || action === 'recheck') {
+      if (data.url && /^https:\/\//.test(data.url)) config.url = data.url.replace(/\/$/, '');
+      const token = action === 'verify' ? String(data.token || '').trim() : config.token;
+      if (!/^[A-Za-z0-9_-]{43}$/.test(token || '')) return {ok: false, reason: 'format'};
+      if (!config.url) return {ok: false, reason: 'offline'};
+      let response;
+      try {
+        response = await fetch(config.url + '/board', {headers: {Authorization: 'Bearer ' + token},
+          cache: 'no-store', signal: AbortSignal.timeout(12000)});
+      } catch (_) { return {ok: false, reason: 'offline'}; }
+      if (response.status === 401) return {ok: false, reason: 'invalid'};
+      if (response.status === 429) return {ok: false, reason: 'rate'};
+      if (!response.ok) return {ok: false, reason: 'server'};
+      let result;
+      try { result = await response.json(); } catch (_) { return {ok: false, reason: 'server'}; }
+      if (action === 'recheck' && token !== config.token) return {ok: true};
+      config.token = token;
+      if (result && (result.me === 1 || result.me === 2)) config.me = result.me;
+      persist();
+      lastBoard = result;
+      if (action === 'verify') { void flush(); void seen(true); }
+      return {ok: true, me: config.me};
+    }
     if (action === 'join') {
       const token = data.token.trim();
       if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error('Sana ait oyuncu kodunu eksiksiz yapıştır.');
