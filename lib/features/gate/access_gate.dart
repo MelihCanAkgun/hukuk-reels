@@ -66,13 +66,16 @@ class AccessGate extends StatefulWidget {
     }
   }
 
-  /// Saklı oyuncu kodu biçimce geçerli mi? (Ağa gidilmez.)
+  /// Saklı oyuncu kodu biçimce geçerli ve geri alınmamış mı? (Ağa gidilmez.)
+  /// Sunucu kodu 401 ile reddettiyse social.js `revoked` işaretler; kod
+  /// silinmez ama yok sayılır.
   static bool hasStoredCode() {
     try {
       final raw = readStored();
       if (raw == null || raw.isEmpty) return false;
       final config = jsonDecode(raw);
-      final token = config is Map ? config['token'] : null;
+      if (config is! Map || config['revoked'] == true) return false;
+      final token = config['token'];
       return token is String && _tokenFormat.hasMatch(token);
     } catch (_) {
       return false;
@@ -85,6 +88,9 @@ class AccessGate extends StatefulWidget {
 
 class _AccessGateState extends State<AccessGate> {
   late bool _open;
+  // Arka plan denetimi kesin 401 verdi: oyuncu ana ekrana dönünce kilitlenir.
+  // Açık oyun/ekran asla kapatılmaz.
+  bool _lockPending = false;
   String? _notice;
 
   @override
@@ -112,23 +118,29 @@ class _AccessGateState extends State<AccessGate> {
       return;
     }
     if (!mounted || r['reason'] != 'invalid') return;
-    Navigator.maybeOf(context)?.popUntil((route) => route.isFirst);
-    AccessGate.unlocked.value = false;
+    AccessGate.unlocked.value = false; // davetler artık beklemede
     setState(() {
-      _open = false;
+      _lockPending = true;
       _notice = 'Kod doğrulanamadı. Tekrar dene.';
     });
   }
 
   void _unlock() {
     AccessGate._open();
-    setState(() => _open = true);
+    setState(() {
+      _open = true;
+      _lockPending = false;
+      _notice = null;
+    });
   }
 
   @override
-  Widget build(BuildContext context) => _open
-      ? widget.child
-      : GateScreen(onUnlocked: _unlock, initialError: _notice);
+  Widget build(BuildContext context) {
+    // isCurrentOf, üstteki ekran kapanınca bu widget'ı yeniden kurar.
+    final atHome = ModalRoute.isCurrentOf(context) ?? true;
+    if (_open && !(_lockPending && atHome)) return widget.child;
+    return GateScreen(onUnlocked: _unlock, initialError: _notice);
+  }
 }
 
 /// Yabancının gördüğü tek ekran: erişim kodu alanı ve "Devam et".
@@ -166,20 +178,26 @@ class _GateScreenState extends State<GateScreen> {
         'format' => 'Kod biçimi geçersiz.',
         'invalid' => 'Kod doğrulanamadı. Tekrar dene.',
         'rate' => 'Çok fazla deneme yapıldı. Biraz bekleyip tekrar dene.',
+        'server' => 'Sunucuya şu an ulaşılamıyor. Biraz sonra tekrar dene.',
         _ => 'Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.',
       };
+
+  // Hata sonrası alan yeniden odaklanır (salt-okunurluk kalktıktan sonra).
+  void _refocus() => WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
 
   Future<void> _submit() async {
     if (_busy) return; // gönderim başına tek istek
     final code = _code.text.trim();
     if (code.isEmpty) {
       setState(() => _error = 'Kodu girmen gerekiyor.');
-      _focus.requestFocus();
+      _refocus();
       return;
     }
     if (!_tokenFormat.hasMatch(code)) {
       setState(() => _error = _message('format'));
-      _focus.requestFocus();
+      _refocus();
       return;
     }
     setState(() {
@@ -201,7 +219,7 @@ class _GateScreenState extends State<GateScreen> {
       _busy = false;
       _error = _message(r['reason']);
     });
-    _focus.requestFocus();
+    _refocus();
   }
 
   @override
@@ -213,6 +231,8 @@ class _GateScreenState extends State<GateScreen> {
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
+              // Klavye açılınca düğme görünür kalsın (alttan hizalı kaydırma).
+              reverse: true,
               padding: const EdgeInsets.all(24),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
               child: ConstrainedBox(
@@ -249,17 +269,17 @@ class _GateScreenState extends State<GateScreen> {
                         obscureText: !_show,
                         autocorrect: false,
                         enableSuggestions: false,
-                        enabled: !_busy,
+                        readOnly: _busy,
                         keyboardType: TextInputType.visiblePassword,
                         textInputAction: TextInputAction.go,
                         autofillHints: const [AutofillHints.password],
                         onSubmitted: (_) => _submit(),
                         decoration: InputDecoration(
                           labelText: 'Erişim kodu',
-                          hintText: 'Kodu yaz',
                           border: const OutlineInputBorder(),
                           errorText: _error,
-                          errorMaxLines: 3,
+                          // null tek satırda keserdi (ellipsis); uzun hata metni sarılsın.
+                          errorMaxLines: 10,
                           suffixIcon: IconButton(
                             tooltip: _show ? 'Kodu gizle' : 'Kodu göster',
                             onPressed: () => setState(() => _show = !_show),
@@ -274,6 +294,8 @@ class _GateScreenState extends State<GateScreen> {
                         height: 48,
                         child: FilledButton(
                           key: const ValueKey('gate-submit'),
+                          style: FilledButton.styleFrom(
+                              foregroundColor: AppTheme.bg),
                           onPressed: _busy ? null : _submit,
                           child: _busy
                               ? Semantics(
